@@ -1,0 +1,18 @@
+# Ponte WhatsApp (Baileys). Instalar em: /etc/systemd/system/investai-bridge.service
+[Unit]
+Description=InvestAI - ponte WhatsApp (Baileys)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/investai/bridge
+EnvironmentFile=/home/ubuntu/investai/bridge/.env
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=10
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

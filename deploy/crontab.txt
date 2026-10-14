@@ -1,0 +1,8 @@
+# Briefing semanal — domingo às 20h (horário da VM; configure o fuso com
+# `sudo timedatectl set-timezone America/Sao_Paulo`).
+# Instalar com: crontab -e
+0 20 * * 0 curl -fsS -X POST "http://127.0.0.1:8000/cron/briefing?token=SEU_CRON_TOKEN" >> /home/ubuntu/investai/cache/cron.log 2>&1
+
+# Atualiza o cache de mercado toda manhã de dia útil, para a primeira
+# pergunta do dia responder rápido.
+0 9 * * 1-5 cd /home/ubuntu/investai && .venv/bin/python -c "from src.config import load_portfolio; from src.data.market_data import get_portfolio_data; get_portfolio_data(load_portfolio().tickers, use_cache=False)" >> /home/ubuntu/investai/cache/cron.log 2>&1

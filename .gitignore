@@ -1,0 +1,31 @@
+# Segredos
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+
+# Cache de dados do InvestAI
+cache/
+!cache/.gitkeep
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Ponte WhatsApp (sessão e segredos — nunca versionar)
+bridge/node_modules/
+bridge/auth_session/
+bridge/.env
+config/profile.json

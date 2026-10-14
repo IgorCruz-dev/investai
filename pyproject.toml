@@ -1,0 +1,9 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+markers = [
+    "network: teste que depende de APIs externas reais (pode ser pulado se a rede/API estiver indisponível)",
+    "paid: teste que consome créditos de API paga (desativado por padrão)",
+]
+filterwarnings = ["ignore::DeprecationWarning"]

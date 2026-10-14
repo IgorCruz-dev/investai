@@ -1,0 +1,11 @@
+{
+  "_comentario": "Exemplo de preenchimento manual. Copie para portfolio.json se preferir não usar o onboarding. avg_price null = posição planejada (ainda não comprada), sem P&L.",
+  "portfolio": [
+    {"ticker": "PETR4.SA", "shares": 100, "avg_price": 35.50, "asset_class": "acao"},
+    {"ticker": "BOVA11.SA", "shares": 20, "avg_price": 195.40, "asset_class": "etf"},
+    {"ticker": "KNRI11.SA", "shares": 15, "avg_price": 160.00, "asset_class": "fii"},
+    {"ticker": "AAPL", "shares": 5, "avg_price": 180.00, "asset_class": "acao"}
+  ],
+  "currency": "BRL",
+  "last_updated": "2026-10-12"
+}

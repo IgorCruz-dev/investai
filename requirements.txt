@@ -1,0 +1,11 @@
+anthropic==1.13.0
+fastapi==0.143.0
+numpy==2.5.4
+pandas==3.0.6
+plotly==7.1.0
+pytest==9.1.1
+python-dotenv==1.2.4
+requests==2.34.2
+streamlit==1.65.0
+uvicorn==0.54.0
+yfinance==1.7.0
