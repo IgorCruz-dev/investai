@@ -89,8 +89,8 @@ def test_mensagem_repetida_nao_e_processada_duas_vezes(client, ambiente):
     chamadas: list[str] = []
     app_mod.responder = lambda *a, **k: chamadas.append("x") or _resposta_fake()
 
-    postar(client, "oi", message_id="repetida")
-    segunda = postar(client, "oi", message_id="repetida")
+    postar(client, "analisa PETR4", message_id="repetida")
+    segunda = postar(client, "analisa PETR4", message_id="repetida")
 
     assert segunda.json()["status"] == "duplicada"
     assert len(chamadas) == 1
@@ -132,7 +132,7 @@ def test_erro_do_agente_vira_mensagem_amigavel(client, ambiente):
     app_mod, _store, enviadas = ambiente
     app_mod.responder = lambda *a, **k: Resposta(erro="API fora do ar")
 
-    postar(client, "oi")
+    postar(client, "analisa PETR4")
 
     assert "API fora do ar" in enviadas[-1][1]
     assert "Traceback" not in enviadas[-1][1]
@@ -145,10 +145,21 @@ def test_excecao_inesperada_nao_derruba_o_servidor(client, ambiente):
         raise RuntimeError("boom")
 
     app_mod.responder = explode
-    resposta = postar(client, "oi")
+    resposta = postar(client, "analisa PETR4")
 
     assert resposta.status_code == 202
     assert "problema inesperado" in enviadas[-1][1].lower()
+
+
+def test_saudacao_responde_local_sem_chamar_o_modelo(client, ambiente):
+    """"oi" custaria ~US$ 0,03 por causa da escrita do cache. Não vale."""
+    app_mod, store_mod, enviadas = ambiente
+    app_mod.responder = lambda *a, **k: pytest.fail("saudação não deveria chamar o modelo")
+
+    postar(client, "oi")
+
+    assert "InvestAI" in enviadas[-1][1]
+    assert store_mod.gasto_do_mes() == 0, "resposta local não gera custo"
 
 
 # --- Teto de gasto ----------------------------------------------------------
@@ -157,7 +168,7 @@ def test_teto_de_gasto_bloqueia_novas_respostas(client, ambiente):
     store_mod.registrar_gasto(NUMERO, 10.0)
     app_mod.responder = lambda *a, **k: pytest.fail("não deveria chamar o modelo com o teto estourado")
 
-    postar(client, "oi")
+    postar(client, "analisa PETR4")
 
     assert "limite de gasto" in enviadas[-1][1].lower()
 
@@ -166,7 +177,7 @@ def test_gasto_e_registrado_apos_responder(client, ambiente):
     app_mod, store_mod, _enviadas = ambiente
     app_mod.responder = lambda *a, **k: _resposta_fake()
 
-    postar(client, "oi")
+    postar(client, "analisa PETR4")
 
     assert store_mod.gasto_do_mes() > 0
 

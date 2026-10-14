@@ -61,6 +61,7 @@ class Resposta:
     input_tokens: int = 0
     output_tokens: int = 0
     cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
     ferramentas_usadas: list[str] = field(default_factory=list)
     erro: str | None = None
 
@@ -72,11 +73,15 @@ class Resposta:
     def custo_estimado(self) -> float:
         """Custo em dólares — Opus 5: US$ 5/M entrada, US$ 25/M saída.
 
-        Tokens servidos do cache custam ~10% da entrada normal.
+        São três preços diferentes de entrada, e esquecer um deles subestima a
+        conta: ler do cache custa 10% da entrada normal, mas **escrever** custa
+        125%. A primeira mensagem de uma conversa escreve ~4 mil tokens de
+        ferramentas e system prompt — é a mensagem mais cara, não a mais barata.
         """
         return (
             self.input_tokens / 1e6 * 5
             + self.cache_read_tokens / 1e6 * 0.5
+            + self.cache_write_tokens / 1e6 * 6.25
             + self.output_tokens / 1e6 * 25
         )
 
@@ -150,7 +155,7 @@ def responder(
 
     client = anthropic.Anthropic(timeout=LLM_TIMEOUT, max_retries=2)
     usadas: list[str] = []
-    entrada = saida = cache_lido = 0
+    entrada = saida = cache_lido = cache_escrito = 0
     ultima = None
 
     try:
@@ -174,6 +179,7 @@ def responder(
             entrada += getattr(message.usage, "input_tokens", 0) or 0
             saida += getattr(message.usage, "output_tokens", 0) or 0
             cache_lido += getattr(message.usage, "cache_read_input_tokens", 0) or 0
+            cache_escrito += getattr(message.usage, "cache_creation_input_tokens", 0) or 0
 
             # Espelha o histórico: o runner guarda o dele e não o expõe.
             mensagens.append({"role": "assistant", "content": message.content})
@@ -211,7 +217,7 @@ def responder(
     if ultima.stop_reason == "refusal":
         return Resposta(erro="O modelo recusou a requisição por política de conteúdo.",
                         input_tokens=entrada, output_tokens=saida,
-                        cache_read_tokens=cache_lido)
+                        cache_read_tokens=cache_lido, cache_write_tokens=cache_escrito)
 
     resposta = _extrair_texto(ultima)
     if not resposta:
@@ -225,8 +231,37 @@ def responder(
         input_tokens=entrada,
         output_tokens=saida,
         cache_read_tokens=cache_lido,
+        cache_write_tokens=cache_escrito,
         ferramentas_usadas=usadas,
     )
+
+
+#: Mensagens que não precisam de modelo nenhum: a resposta é sempre a mesma.
+#: Custam zero e respondem na hora, em vez de gastar ~US$ 0,03 para dizer "oi".
+SAUDACOES = frozenset({
+    "oi", "ola", "olá", "oie", "eai", "e aí", "e ai", "opa", "fala",
+    "bom dia", "boa tarde", "boa noite", "oi!", "olá!", "ola!",
+    "tudo bem?", "tudo bem", "beleza?", "beleza",
+})
+
+AGRADECIMENTOS = frozenset({
+    "obrigado", "obrigada", "valeu", "vlw", "brigado", "show", "massa",
+    "perfeito", "legal", "top", "ok", "okay", "blz", "👍", "🙏",
+})
+
+
+def resposta_rapida(mensagem: str) -> str | None:
+    """Resposta local para mensagens triviais. `None` = precisa do modelo.
+
+    Só casa a mensagem **inteira**: "bom dia" responde daqui, mas
+    "bom dia, como está minha carteira?" vai para o modelo normalmente.
+    """
+    texto = (mensagem or "").strip().lower().rstrip("!.")
+    if texto in SAUDACOES:
+        return saudacao()
+    if texto in AGRADECIMENTOS:
+        return "Por nada! 👊 Quando quiser, é só chamar."
+    return None
 
 
 def saudacao() -> str:

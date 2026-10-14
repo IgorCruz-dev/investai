@@ -161,3 +161,32 @@ def test_agente_responde_pergunta_real(require_internet):
     assert "cotacao" in resultado.ferramentas_usadas or "analisar_ativo" in resultado.ferramentas_usadas
     assert "PETR4" in resultado.texto.upper()
     assert resultado.custo_estimado < 0.20, "uma pergunta simples não deveria custar tanto"
+
+
+# --- Respostas locais (sem custo) -------------------------------------------
+@pytest.mark.parametrize("mensagem", ["oi", "Oi!", "OLÁ", "bom dia", "Boa noite",
+                                      "tudo bem?", "valeu", "obrigado", "👍"])
+def test_mensagens_triviais_respondem_sem_chamar_o_modelo(mensagem):
+    from src.agent.assistant import resposta_rapida
+    assert resposta_rapida(mensagem) is not None
+
+
+@pytest.mark.parametrize("mensagem", [
+    "bom dia, como está minha carteira?",
+    "analisa PETR4",
+    "oi, me manda o briefing",
+    "obrigado, mas e a VALE3?",
+])
+def test_mensagem_com_pedido_real_vai_para_o_modelo(mensagem):
+    """Só a saudação pura responde local — pedido junto precisa do modelo."""
+    from src.agent.assistant import resposta_rapida
+    assert resposta_rapida(mensagem) is None
+
+
+def test_custo_inclui_a_escrita_do_cache():
+    """A primeira mensagem escreve ~4 mil tokens: é a mais cara, não a mais barata."""
+    primeira = Resposta(texto="x", input_tokens=2, output_tokens=134, cache_write_tokens=4323)
+    seguinte = Resposta(texto="x", input_tokens=4, output_tokens=134, cache_read_tokens=4323)
+
+    assert primeira.custo_estimado == pytest.approx(0.0304, abs=0.001)
+    assert seguinte.custo_estimado < primeira.custo_estimado / 5

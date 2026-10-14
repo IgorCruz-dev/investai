@@ -26,7 +26,7 @@ from server.config import (
     MONTHLY_BUDGET_USD,
     configurado,
 )
-from src.agent.assistant import responder, saudacao
+from src.agent.assistant import responder, resposta_rapida, saudacao
 
 logging.basicConfig(
     level=logging.INFO,
@@ -110,6 +110,13 @@ def _processar(numero: str, texto: str, jid: str = "") -> None:
         if normalizado in COMANDOS_LIMPAR:
             store.limpar_historico(numero)
             enviar("Pronto, esqueci nossa conversa anterior. 🧹")
+            return
+
+        # "oi", "valeu" e afins não justificam uma chamada de modelo.
+        rapida = resposta_rapida(texto)
+        if rapida:
+            enviar(rapida)
+            logger.info("Resposta local para %s (sem custo)", numero[:6] + "…")
             return
 
         gasto = store.gasto_do_mes()
