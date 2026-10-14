@@ -14,8 +14,10 @@
  */
 
 import { createServer } from 'node:http';
+import { unlink } from 'node:fs';
 import { makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys';
 import qrcode from 'qrcode-terminal';
+import QRCode from 'qrcode';
 import pino from 'pino';
 import 'dotenv/config';
 
@@ -28,6 +30,7 @@ const PORT = Number(process.env.BRIDGE_PORT || 8900);
 const SECRET = process.env.BRIDGE_SECRET || '';
 const PYTHON_URL = process.env.INVESTAI_URL || 'http://127.0.0.1:8000/bridge/message';
 const SEND_TIMEOUT_MS = Number(process.env.SEND_TIMEOUT_MS || 20000);
+const QR_FILE = process.env.QR_FILE || 'qr.png';
 
 /** Só estes números conversam com o assistente. Sem isso, qualquer contato que
  *  mande mensagem para o chip gasta créditos da API. */
@@ -100,13 +103,20 @@ async function iniciarSocket() {
 
     if (qr) {
       conectado = false;
-      log.info('Escaneie o QR abaixo: WhatsApp → Aparelhos conectados → Conectar aparelho');
+      log.info('Escaneie o QR: WhatsApp → Aparelhos conectados → Conectar aparelho');
       qrcode.generate(qr, { small: true });
+      // Também em PNG: escanear do terminal falha quando a fonte é pequena ou
+      // o tema tem baixo contraste.
+      QRCode.toFile(QR_FILE, qr, { width: 420, margin: 2 })
+        .then(() => log.info({ arquivo: QR_FILE }, 'QR também salvo como imagem'))
+        .catch((error) => log.warn({ error: error.message }, 'não foi possível salvar o QR em PNG'));
     }
 
     if (connection === 'open') {
       conectado = true;
       precisaReparear = false;
+      // QR usado é QR queimado: apagar evita alguém escanear um código velho.
+      unlink(QR_FILE, () => {});
       log.info({ permitidos: PERMITIDOS.size }, 'Conectado ao WhatsApp');
     }
 

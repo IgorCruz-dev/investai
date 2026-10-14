@@ -12,7 +12,6 @@ EnvironmentFile=/home/ubuntu/investai/bridge/.env
 ExecStart=/usr/bin/node index.js
 Restart=always
 RestartSec=10
-MemoryMax=512M
 
 [Install]
 WantedBy=multi-user.target

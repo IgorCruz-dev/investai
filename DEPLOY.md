@@ -189,3 +189,34 @@ scp -r ubuntu@SEU_IP:~/investai/bridge/auth_session ./backup/  # sessão do What
 - **Idempotência** — cada `message_id` é processado uma única vez.
 - **Teto de gasto mensal** — ao atingir o limite, o assistente avisa e para de chamar a API.
 - **Nada escuta na internet** — os dois serviços só aceitam conexão de `127.0.0.1`.
+
+---
+
+## Estado atual do deploy (14/10/2026)
+
+| | |
+|---|---|
+| **VM** | `SEU_IP_DA_VM` — Oracle `sa-saopaulo-1`, `VM.Standard.E2.1.Micro` |
+| **Recursos** | Ubuntu 24.04, 2 vCPU, 954 MB RAM + 3 GB swap, 45 GB disco |
+| **Serviços** | `investai` (Python :8000) e `investai-bridge` (Node :8900), ambos no systemd |
+| **Cron** | Briefing domingo 20h · cache de mercado 9h nos dias úteis |
+| **Custo** | R$ 0/mês (Always Free) + créditos Anthropic por mensagem |
+
+**Por que x86 e não ARM:** São Paulo está sem capacidade de `VM.Standard.A1.Flex`,
+e conta gratuita só pode assinar **uma região** — a Oracle recusa habilitar outra
+(`TenantCapacityExceeded`). O `E2.1.Micro` também é Always Free e estava livre.
+
+Consequência: 1 GB de RAM em vez de 12. Conversa e análise de ativo rodam bem;
+operações que varrem o universo inteiro (recomendação de carteira) ficam lentas
+e dependem do swap.
+
+**Migrar para ARM quando houver capacidade:**
+```bash
+# cria a instância A1.Flex (2 OCPU / 12 GB) e repete o deploy
+rsync -az --exclude .venv --exclude cache --exclude node_modules \
+      --exclude auth_session ~/dev/investai/ ubuntu@NOVO_IP:~/investai/
+scp .env ubuntu@NOVO_IP:~/investai/.env
+scp bridge/.env ubuntu@NOVO_IP:~/investai/bridge/.env
+ssh ubuntu@NOVO_IP 'cd ~/investai && bash deploy/instalar.sh'
+# parear o QR de novo na máquina nova, depois desligar a antiga
+```
