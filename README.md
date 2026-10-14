@@ -324,11 +324,13 @@ conexões de saída e dois serviços conversando por `127.0.0.1`.
 QR, com custo de infraestrutura zero.
 
 ```bash
-# local, para desenvolvimento
-.venv/bin/uvicorn server.app:app --reload --port 8000   # servidor
-cd bridge && npm install && node index.js               # ponte (mostra o QR)
+./rodar.sh          # sobe servidor + ponte (mostra o QR na primeira vez)
+./rodar.sh parar    # encerra os dois
 curl -s localhost:8000/health | jq
 ```
+
+O script confere o que falta antes de subir (número configurado, chave da
+Anthropic, dependências da ponte) — em vez de falhar vinte minutos depois.
 
 ### Decisões que importam
 
