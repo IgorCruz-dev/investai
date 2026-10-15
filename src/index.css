@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+/* Cores do app como variáveis (tema sempre claro) */
+:root {
+  --cor-fundo: #ffffff;
+  --cor-superficie: #ffffff;
+  --cor-borda: #e2e8f0;
+  --cor-texto: #0f172a;
+  --cor-texto-suave: #64748b;
+  --cor-primaria: #059669;
+  --cor-primaria-escura: #047857;
+  --cor-receita: #16a34a;
+  --cor-despesa: #dc2626;
+  color-scheme: light;
+}
+
+/* Expõe as variáveis como utilitários do Tailwind: bg-fundo, text-texto, text-despesa... */
+@theme inline {
+  --color-fundo: var(--cor-fundo);
+  --color-superficie: var(--cor-superficie);
+  --color-borda: var(--cor-borda);
+  --color-texto: var(--cor-texto);
+  --color-texto-suave: var(--cor-texto-suave);
+  --color-primaria: var(--cor-primaria);
+  --color-primaria-escura: var(--cor-primaria-escura);
+  --color-receita: var(--cor-receita);
+  --color-despesa: var(--cor-despesa);
+}
+
+body {
+  @apply bg-fundo text-texto antialiased;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Tira o fundo azul que o Chrome coloca nos campos preenchidos automaticamente */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--cor-superficie) inset;
+  -webkit-text-fill-color: var(--cor-texto);
+  caret-color: var(--cor-texto);
+}
