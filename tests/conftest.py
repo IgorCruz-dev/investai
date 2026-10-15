@@ -11,6 +11,8 @@ falsa sensação de segurança. Em troca, precisamos separar dois tipos de falha
 
 from __future__ import annotations
 
+import logging
+import pathlib
 import socket
 
 import pytest
@@ -68,3 +70,71 @@ def isolated_cache(tmp_path, monkeypatch):
 
     monkeypatch.setattr(cache_module.cache, "path", tmp_path / "data_cache.json")
     return cache_module.cache
+
+
+@pytest.fixture(autouse=True)
+def sem_banco_por_padrao(monkeypatch, request):
+    """Esconde `DATABASE_URL` de todos os testes que não a pediram.
+
+    `load_portfolio()` passou a preferir o Postgres quando a variável existe.
+    Como o `.env` de desenvolvimento a define, sem isso toda a suíte offline
+    mudaria de caminho silenciosamente ao rodar na minha máquina e passaria a
+    depender de um banco remoto — o oposto do que esses testes verificam.
+
+    Quem precisa do banco pede a fixture `banco`, que a devolve.
+    """
+    if "banco" in request.fixturenames:
+        return
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+
+@pytest.fixture
+def banco(monkeypatch):
+    """Banco Postgres real, isolado por schema próprio. Pula se não houver.
+
+    Mesma convenção do resto da suíte: infraestrutura ausente é `skip` com
+    motivo, contrato quebrado é falha. Cada teste recebe um schema recém-criado
+    com a migração aplicada, então um teste não vê o ledger do outro.
+    """
+    import os
+    import uuid
+
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        pytest.skip("DATABASE_URL não configurada — teste de banco pulado")
+
+    try:
+        import psycopg
+    except ImportError:
+        pytest.skip("psycopg não instalado")
+
+    schema = f"t_{uuid.uuid4().hex[:12]}"
+    sql = (pathlib.Path(__file__).resolve().parents[1] / "deploy" / "sql" / "001_inicial.sql")
+    migracao = sql.read_text(encoding="utf-8")
+
+    try:
+        conexao = psycopg.connect(url, connect_timeout=15, autocommit=True)
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip(f"banco indisponível ({exc.__class__.__name__})")
+
+    with conexao:
+        with conexao.cursor() as cur:
+            cur.execute(f'create schema "{schema}"')
+            cur.execute(f'set search_path to "{schema}"')
+            # `begin/commit` do arquivo brigam com autocommit; o schema já isola.
+            cur.execute(migracao.replace("begin;", "").replace("commit;", ""))
+
+    from src.data import repo
+
+    separador = "&" if "?" in url else "?"
+    monkeypatch.setenv("DATABASE_URL", f"{url}{separador}options=-csearch_path%3D{schema}")
+    repo.reset_pool()
+
+    yield repo
+
+    repo.reset_pool()
+    try:
+        with psycopg.connect(url, connect_timeout=15, autocommit=True) as limpeza:
+            limpeza.execute(f'drop schema "{schema}" cascade')
+    except Exception:  # noqa: BLE001 — schema órfão não invalida o teste
+        logging.getLogger(__name__).warning("não foi possível apagar o schema %s", schema)

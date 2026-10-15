@@ -26,6 +26,8 @@ Thumbs.db
 
 # Ponte WhatsApp (sessão e segredos — nunca versionar)
 bridge/node_modules/
+dashboard/web/node_modules/
+.vercel/
 bridge/auth_session/
 bridge/.env
 config/profile.json

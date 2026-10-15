@@ -132,12 +132,29 @@ class Portfolio:
 
 
 def load_portfolio(path: Path | str | None = None) -> Portfolio:
-    """Lê `config/portfolio.json`.
+    """A carteira atual: do Postgres quando há banco, do JSON quando não.
 
-    Tolerante por design: uma posição malformada é descartada com log e as
-    outras seguem. Arquivo ausente ou inválido devolve carteira vazia — o
-    dashboard mostra o aviso em vez de estourar.
+    Com `DATABASE_URL` configurada o banco é a verdade — é o que a interface web
+    na Vercel também lê. Sem ela (notebook sem banco, testes offline), lê o
+    arquivo como sempre leu. E se o banco estiver fora do ar, cai para o espelho
+    em JSON em vez de devolver carteira vazia: leitura degradada é melhor que
+    número errado, e `save_portfolio` mantém o espelho atualizado a cada escrita.
+
+    Um `path` explícito sempre vence — é por onde os testes passam um arquivo
+    temporário.
     """
+    if path is None:
+        from src.data import repo
+
+        if repo.configurado():
+            try:
+                return repo.posicoes()
+            except Exception as exc:  # noqa: BLE001 — leitura nunca estoura
+                logger.warning(
+                    "Banco indisponível (%s) — lendo o espelho em %s",
+                    exc.__class__.__name__, PORTFOLIO_PATH.name,
+                )
+
     path = Path(path) if path else PORTFOLIO_PATH
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -191,7 +208,24 @@ def save_portfolio(portfolio: Portfolio, path: Path | str | None = None) -> bool
 
 
 def load_profile(path: Path | str | None = None) -> dict:
-    """Perfil do investidor salvo pelo onboarding; `{}` se não existir."""
+    """Perfil do investidor: do Postgres quando há banco, do JSON quando não.
+
+    Mesma regra de `load_portfolio`, e pelo mesmo motivo — o onboarding pelo
+    WhatsApp grava no banco, e quem lê o perfil (`status_do_perfil`,
+    `recomendar_carteira`, o dashboard) precisa ver o que foi gravado.
+    """
+    if path is None:
+        from src.data import repo
+
+        if repo.configurado():
+            try:
+                perfil = repo.perfil()
+                if perfil:
+                    return perfil
+            except Exception as exc:  # noqa: BLE001 — leitura nunca estoura
+                logger.warning("Perfil indisponível no banco (%s) — lendo %s",
+                               exc.__class__.__name__, PROFILE_PATH.name)
+
     path = Path(path) if path else PROFILE_PATH
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -204,8 +238,26 @@ def load_profile(path: Path | str | None = None) -> dict:
 
 
 def save_profile(profile: dict, path: Path | str | None = None) -> bool:
+    """Grava o perfil. Com banco configurado, grava nos dois: banco e espelho.
+
+    O banco é a verdade (é o que a interface web e o WhatsApp leem); o arquivo
+    continua existindo para o Streamlit local e como backup legível.
+    """
     path = Path(path) if path else PROFILE_PATH
-    return _write_json(path, {**profile, "saved_at": datetime.now().isoformat()})
+    gravou = _write_json(path, {**profile, "saved_at": datetime.now().isoformat()})
+
+    if path == PROFILE_PATH:
+        from src.data import repo
+
+        if repo.configurado():
+            try:
+                respostas = profile.get("answers") or {}
+                derivado = {k: v for k, v in profile.items() if k != "answers"}
+                repo.salvar_perfil(respostas, derivado)
+            except Exception as exc:  # noqa: BLE001
+                logger.error("Perfil não foi gravado no banco: %s", exc)
+                return False
+    return gravou
 
 
 def _write_json(path: Path, payload: dict) -> bool:
