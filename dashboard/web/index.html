@@ -45,6 +45,12 @@
         </svg>
         Briefing
       </button>
+      <button class="nav-btn" role="tab" id="tab-extrato" aria-controls="view-extrato" aria-selected="false" data-view="extrato">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 3h10l4 4v14H5z" /><path d="M15 3v4h4" /><path d="M9 12h6M9 16h4" />
+        </svg>
+        Extrato
+      </button>
       <button class="nav-btn" role="tab" id="tab-news" aria-controls="view-news" aria-selected="false" data-view="news">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M4 5h11a2 2 0 012 2v12H6a2 2 0 01-2-2z" /><path d="M17 9h3v8a2 2 0 01-2 2" /><path d="M8 9h6M8 13h6" />
@@ -52,6 +58,13 @@
         Notícias
       </button>
     </div>
+
+    <button class="sidebar-sair" id="sair" type="button" title="Encerrar a sessão neste navegador">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" />
+      </svg>
+      Sair
+    </button>
 
     <div class="sidebar-foot">
       <span class="pulse" aria-hidden="true"></span>
@@ -76,6 +89,20 @@
           Fechamento de <b id="stamp-date">—</b>
         </div>
       </header>
+
+      <div id="avisos-dados"></div>
+
+      <div class="acoes-barra">
+        <button class="botao botao-primario" id="btn-registrar" type="button">
+          <span aria-hidden="true">+</span> Registrar compra
+        </button>
+        <button class="botao" id="btn-vender" type="button">Registrar venda</button>
+        <span class="acoes-espaco"></span>
+        <button class="botao botao-discreto" id="btn-recarregar" type="button"
+                title="Relê os dados já publicados">Recarregar</button>
+        <button class="botao botao-discreto" id="btn-atualizar" type="button"
+                title="Pede à VM uma busca nova de preços e notícias">Buscar mercado</button>
+      </div>
 
       <div class="kpis" id="kpis"></div>
 
@@ -182,6 +209,27 @@
     </section>
 
     <!-- ======= Aba 4: Notícias ======= -->
+    <!-- ======= Aba: Extrato ======= -->
+    <section class="view" id="view-extrato" role="tabpanel" aria-labelledby="tab-extrato">
+      <header class="topbar">
+        <div>
+          <h1 class="page-title">Todo o seu <em>histórico</em></h1>
+          <p class="page-sub">
+            Cada compra e venda registrada. As posições são <b>derivadas</b> daqui: corrigir
+            uma linha de três meses atrás recalcula o preço médio sozinho.
+          </p>
+        </div>
+        <div class="extrato-controles">
+          <select id="extrato-filtro" aria-label="Filtrar por ativo"></select>
+          <button class="botao botao-primario" id="btn-registrar-2" type="button"
+                  onclick="document.getElementById('btn-registrar').click()">Registrar</button>
+        </div>
+      </header>
+
+      <p class="extrato-resumo" id="extrato-resumo"></p>
+      <div class="card" id="extrato-tabela"></div>
+    </section>
+
     <section class="view" id="view-news" role="tabpanel" aria-labelledby="tab-news">
       <header class="topbar">
         <div>
@@ -200,5 +248,87 @@
 
 <div class="tooltip" id="tooltip" role="status" aria-live="polite"></div>
 
-<script src="data.js"></script>
+<!-- Avisos flutuantes: confirmação de ação, não diálogo. -->
+<div class="toasts" id="avisos" role="status" aria-live="polite"></div>
+
+<!-- =================== Tela de senha =================== -->
+<!-- O HTML é uma casca pública: nenhum dado privado vive em arquivo estático,
+     e tudo que importa vem autenticado da API. É por isso que não há
+     middleware protegendo as páginas — não há o que proteger aqui. -->
+<section class="login" id="login" hidden>
+  <div class="login-caixa">
+    <span class="login-marca" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#d4af37" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 17l5-6 4 3 5-8 4 5" /><circle cx="21" cy="11" r="1.6" fill="#f5c842" stroke="none" />
+      </svg>
+    </span>
+    <h1>InvestAI</h1>
+    <p>Painel pessoal. Entre com sua senha.</p>
+    <form id="login-form" autocomplete="on">
+      <input type="password" id="login-senha" name="senha" placeholder="Senha"
+             autocomplete="current-password" required aria-label="Senha" />
+      <button type="submit" class="botao botao-primario">Entrar</button>
+    </form>
+    <p class="login-erro" id="login-erro" hidden></p>
+  </div>
+</section>
+
+<!-- =================== Registrar / corrigir =================== -->
+<dialog class="dialogo" id="mov-dialogo">
+  <form id="mov-form" method="dialog">
+    <h2 id="mov-titulo">Registrar movimentação</h2>
+
+    <div class="campo">
+      <label for="mov-tipo">Operação</label>
+      <select id="mov-tipo" name="tipo" required>
+        <option value="compra">Compra</option>
+        <option value="venda">Venda</option>
+        <option value="ajuste">Ajuste de posição</option>
+      </select>
+      <small>Ajuste sobrescreve cotas e preço médio — para importar posição antiga
+             sem inventar o histórico que a formou.</small>
+    </div>
+
+    <div class="campo">
+      <label for="mov-ticker">Ativo</label>
+      <input id="mov-ticker" name="ticker" placeholder="PETR4" required
+             autocapitalize="characters" spellcheck="false" />
+      <small>Papel da B3 recebe o sufixo <code>.SA</code> automaticamente.</small>
+    </div>
+
+    <div class="campo-linha">
+      <div class="campo">
+        <label for="mov-shares">Cotas</label>
+        <input id="mov-shares" name="shares" inputmode="decimal" placeholder="100" required />
+      </div>
+      <div class="campo">
+        <label for="mov-preco">Preço por cota</label>
+        <input id="mov-preco" name="preco" inputmode="decimal" placeholder="35,50" required />
+      </div>
+    </div>
+
+    <div class="campo-linha">
+      <div class="campo">
+        <label for="mov-taxas">Taxas (opcional)</label>
+        <input id="mov-taxas" name="taxas" inputmode="decimal" placeholder="0,00" />
+        <small>Entram no custo, como a Receita apura.</small>
+      </div>
+      <div class="campo">
+        <label for="mov-data">Data do negócio</label>
+        <input id="mov-data" name="data" type="date" />
+      </div>
+    </div>
+
+    <p class="dialogo-erro" id="mov-erro" hidden></p>
+
+    <div class="dialogo-acoes">
+      <button type="button" class="botao botao-discreto" id="mov-cancelar">Cancelar</button>
+      <button type="submit" class="botao botao-primario" id="mov-enviar">Registrar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- `data.js` é o snapshot de uso local (arquivo aberto do disco). Em produção
+     ele não sobe (.vercelignore) e os dados vêm de /api/snapshot. -->
+<script src="data.js" onerror="void 0"></script>
 <script src="app.js"></script>

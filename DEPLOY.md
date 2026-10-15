@@ -9,18 +9,32 @@ API Anthropic: ~US$ 0,006 por mensagem.
 ## Como funciona
 
 ```
-Seu WhatsApp  →  chip do InvestAI/StudyTrack
-                        ↓  (dispositivo vinculado, como o WhatsApp Web)
-              ponte Baileys (Node, 127.0.0.1:8900)
-                        ↓  HTTP local
-              servidor InvestAI (Python, 127.0.0.1:8000)
-                        ↓
-              Claude + ferramentas (carteira, análise, notícias, briefing)
+   Navegador (qualquer lugar)          Seu WhatsApp
+          │ HTTPS                            │
+          ▼                                  ▼
+    Vercel (free)                   chip dedicado
+   estático + /api/*                       │ (dispositivo vinculado)
+          │                                 ▼
+          │                    ponte Baileys (Node, 127.0.0.1:8900)
+          │                                 │ HTTP local
+          │                    servidor InvestAI (Python, 127.0.0.1:8000)
+          │                                 │
+          └────────► Neon Postgres ◄────────┘
+                   (só conexões de saída)
 ```
 
-**Nada é exposto à internet.** Não há webhook, domínio, HTTPS nem porta aberta:
-a ponte é um dispositivo vinculado (só conexões de saída) e os dois serviços
-conversam por `127.0.0.1`.
+**Nada é exposto à internet.** Não há webhook, domínio, HTTPS nem porta aberta
+na VM: a ponte é um dispositivo vinculado (só conexões de saída), os dois
+serviços conversam por `127.0.0.1`, e a interface web alcança seus dados pelo
+banco gerenciado — nunca pela VM. Vercel e VM jamais se falam.
+
+Três peças, cada uma fazendo o que sabe:
+
+| | Onde | Por quê |
+|---|---|---|
+| Interface, login, CRUD | Vercel (free) | HTTPS e URL estável de graça, sem domínio |
+| Carteira, movimentações, perfil | Neon Postgres (free) | Os dois clientes precisam ver o mesmo dado |
+| yfinance, indicadores, Claude, WhatsApp | VM Oracle (free) | Python pesado e a sessão do Baileys |
 
 ### Conviver com o StudyTrack no mesmo número
 
@@ -82,6 +96,10 @@ BRIDGE_SECRET=uma-frase-longa-qualquer # mesma dos dois lados
 WHATSAPP_ALLOWED_NUMBERS=55SEUNUMERO   # SEU número pessoal, só dígitos com DDI
 INVESTAI_CRON_TOKEN=outra-frase        # protege o endpoint do briefing
 INVESTAI_MONTHLY_BUDGET_USD=5          # teto de gasto com a API
+
+# Banco (Neon) — endpoint DIRETO, não o com "-pooler":
+DATABASE_URL=postgresql://...@ep-xxx.REGIAO.aws.neon.tech/neondb?sslmode=require
+INVESTAI_WEB_URL=https://seu-projeto.vercel.app   # aparece no /web e no /status
 ```
 
 **`~/investai/bridge/.env`** (ponte Node):
@@ -118,18 +136,84 @@ cada reinício. Para trocar de chip: apague a pasta e escaneie outro QR.
 
 ---
 
+## 4.5 Banco (Neon) e interface web (Vercel)
+
+Esta parte é nova: é o que faz a interface existir fora do notebook.
+
+### Neon
+
+1. Crie a conta em <https://neon.tech> e um projeto chamado `investai`.
+   Escolha a região mais perto da VM — a latência entra em **toda** consulta
+   do assistente.
+2. Em **Connect**, copie a connection string. Você precisa de **duas** formas
+   da mesma URL, e a diferença é só o `-pooler` no host:
+   - sem `-pooler` → `DATABASE_URL` (psycopg, na VM e no notebook)
+   - com `-pooler` → `DATABASE_URL_POOLED` (funções serverless da Vercel)
+3. Aplique o esquema e semeie o catálogo de 38 ativos:
+
+```bash
+.venv/bin/python scripts/migrar_para_pg.py
+.venv/bin/python scripts/migrar_para_pg.py --conferir   # mostra o estado
+```
+
+O script é idempotente: rodar duas vezes não duplica nada.
+
+### Vercel
+
+```bash
+cd dashboard/web
+npm install
+vercel login
+vercel --prod
+```
+
+Depois defina as variáveis do projeto (em **Settings → Environment Variables**,
+ou pelo CLI):
+
+| Variável | Valor |
+|---|---|
+| `DATABASE_URL_POOLED` | a URL **com** `-pooler` |
+| `WEB_PASSWORD_HASH` | o hash da sua senha (gerado abaixo) |
+| `WEB_SESSION_SECRET` | 32 bytes aleatórios em hex |
+
+Gerando os dois segredos:
+
+```bash
+cd dashboard/web
+node --input-type=module -e "
+  import { gerarHash } from './api/_auth.js';
+  import crypto from 'node:crypto';
+  console.log('WEB_PASSWORD_HASH =', await gerarHash(process.argv[1]));
+  console.log('WEB_SESSION_SECRET =', crypto.randomBytes(32).toString('hex'));
+" "SUA-SENHA-AQUI"
+```
+
+A senha em si não é guardada em lugar nenhum — nem no repositório, nem no
+banco, nem no `.env`. Só o hash PBKDF2 vai para a Vercel.
+
+Por fim, ponha a URL publicada em `INVESTAI_WEB_URL` no `.env` da VM, para o
+comando `/web` do assistente devolver o endereço.
+
+---
+
 ## 5. Testar
 
 Mande "oi" do seu celular para o número do chip. Deve responder em segundos.
 
 ```
-/ajuda                        → lista o que ele faz (não gasta créditos)
-como está minha carteira?     → posições, valor e P&L
-analisa PETR4                 → técnico + fundamentos
-o que saiu sobre meus ativos? → notícias da semana
-me manda o briefing           → briefing completo (~1 min)
-/limpar                       → esquece a conversa
+/ajuda                        → menu numerado (custo zero)
+como está minha carteira?     → posições, valor e P&L (custo zero)
+comprei 100 PETR4 a 35,50     → pede confirmação; "sim" grava (custo zero)
+/extrato                      → o histórico, com #id de cada linha
+quanto está a VALE3           → cotação (custo zero)
+/onboarding                   → as 18 perguntas de perfil (custo zero)
+/status                       → ponte, banco e quanto gastou no mês
+analisa PETR4                 → leitura do papel com IA (~US$ 0,02)
+me manda o briefing           → confirma antes; ~1 min (~US$ 0,10)
 ```
+
+Depois, abra a URL da Vercel no celular: a compra que você registrou pelo
+WhatsApp tem de estar lá, e vice-versa.
 
 ---
 
@@ -165,9 +249,14 @@ ssh ubuntu@SEU_IP 'cd ~/investai && .venv/bin/pip install -q -r requirements.txt
 
 **Backup do que importa:**
 ```bash
-scp ubuntu@SEU_IP:~/investai/config/*.json ./backup/           # carteira e perfil
-scp ubuntu@SEU_IP:~/investai/cache/investai.db ./backup/       # conversas e gastos
-scp -r ubuntu@SEU_IP:~/investai/bridge/auth_session ./backup/  # sessão do WhatsApp
+# A carteira e o perfil vivem no Neon, que tem backup próprio. Daqui saem o
+# espelho legível, o histórico de conversa e — o insubstituível — a sessão do
+# WhatsApp: perdê-la significa parear o QR de novo.
+ssh ubuntu@SEU_IP 'cd ~/investai && tar czf - config/*.json cache/investai.db \
+    .env bridge/.env bridge/auth_session' > backup-$(date +%F).tar.gz
+
+# Dump do banco (pg_dump via a connection string do Neon)
+pg_dump "$DATABASE_URL" -f backup-banco-$(date +%F).sql
 ```
 
 ---

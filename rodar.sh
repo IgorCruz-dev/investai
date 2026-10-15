@@ -34,6 +34,14 @@ if ! grep -q "^ANTHROPIC_API_KEY=.\+" .env; then
   exit 1
 fi
 
+# O banco não é obrigatório (sem ele o sistema lê config/portfolio.json), mas
+# avisar aqui evita a confusão de "cadê a compra que registrei pela web?".
+if ! grep -q "^DATABASE_URL=.\+" .env 2>/dev/null; then
+  echo "⚠  DATABASE_URL não configurada — carteira e perfil virão de config/*.json."
+  echo "   A interface web não vai enxergar o que você registrar por aqui."
+  echo
+fi
+
 if [ ! -d bridge/node_modules ]; then
   echo "==> Instalando dependências da ponte (primeira vez)"
   (cd bridge && npm install --silent)

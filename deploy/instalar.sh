@@ -21,7 +21,11 @@ echo "==> Ambiente Python"
 cd "$APP_DIR"
 python3 -m venv .venv
 .venv/bin/pip install --quiet --upgrade pip
+# requirements.txt e nao requirements-dashboard.txt: a VM tem 1 GB de RAM e
+# nunca executa Streamlit nem Plotly, entao nao paga por eles em disco nem em
+# tempo de import.
 .venv/bin/pip install --quiet -r requirements.txt
+.venv/bin/pip uninstall -y -q streamlit plotly 2>/dev/null || true
 .venv/bin/python -c "from server.app import app; print('    servidor importa sem erro')"
 
 echo "==> Ponte Node"

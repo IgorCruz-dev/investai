@@ -1,0 +1,8 @@
+# O Python fica na VM — nada dele precisa subir para a Vercel.
+snapshot.py
+scripts/
+__pycache__/
+# O snapshot estático é fallback de uso local. Em produção os dados vêm da API,
+# e carregar um data.js velho junto faria a tela mostrar número desatualizado
+# quando a API falhasse — pior que mostrar o erro.
+data.js

@@ -199,42 +199,52 @@ tipos de falha:
 
 ```
 investai/
-├── main.py                       # entry point do Streamlit
+├── main.py                       # entry point do Streamlit (interface local)
 ├── config/
-│   ├── portfolio.json            # sua carteira (gravada pelo onboarding)
-│   ├── portfolio.exemplo.json    # modelo de preenchimento manual
-│   └── profile.json              # perfil do investidor (gerado no onboarding)
-├── cache/data_cache.json         # cache em disco (TTL de 1 hora)
+│   ├── portfolio.json            # espelho da carteira (a verdade está no Postgres)
+│   └── profile.json              # espelho do perfil
+├── deploy/
+│   ├── sql/001_inicial.sql       # esquema do Postgres + replay do ledger (trigger)
+│   ├── systemd + crontab.txt     # serviços e agendamentos da VM
+│   └── instalar.sh
+├── scripts/
+│   ├── migrar_para_pg.py         # aplica o esquema e semeia o catálogo
+│   ├── publicar_snapshot.py      # cron: calcula e publica o que a web lê
+│   └── processar_jobs.py         # cron: executa o que a web pede
 ├── src/
-│   ├── config.py                 # .env, carteira e constantes de tuning
+│   ├── config.py                 # .env, carteira (Postgres ou JSON), constantes
 │   ├── data/
-│   │   ├── market_data.py        # yfinance: preços + fundamentals (cache → throttle → retry)
-│   │   └── news_fetcher.py       # Google Notícias (RSS) + Currents como reserva
+│   │   ├── repo.py               # acesso ao Postgres (psycopg)
+│   │   ├── market_data.py        # yfinance: preços + fundamentals
+│   │   └── news_fetcher.py       # Google Notícias (RSS) + Currents de reserva
+│   ├── portfolio/
+│   │   └── escrita.py            # parsing, validação em camadas, confirmação
 │   ├── agent/
-│   │   ├── tools.py              # 8 ferramentas do Claude sobre os módulos do sistema
-│   │   └── assistant.py          # laço de conversa, histórico, custo
-│   ├── onboarding/
-│   │   ├── questionnaire.py      # 18 perguntas (5 da AUVP + suitability)
-│   │   └── profile.py            # score de risco, pré-requisitos, alocação-alvo
+│   │   ├── tools.py              # 8 ferramentas — também chamadas direto, sem LLM
+│   │   └── assistant.py          # agente com ferramentas (só no /pergunta)
+│   ├── onboarding/               # questionário e perfil
 │   ├── analysis/
-│   │   ├── quantitative.py       # médias, RSI de Wilder, variações, métricas da carteira
+│   │   ├── quantitative.py       # médias, RSI de Wilder, métricas da carteira
 │   │   ├── screener.py           # filtro quantitativo do universo da B3
-│   │   ├── recommender.py        # carteira sugerida (regra + Claude com saída estruturada)
-│   │   └── llm_analyst.py        # montagem do contexto + chamada ao Claude
-│   └── utils/
-│       ├── resilience.py         # retry/backoff, throttle entre threads, blindagem
-│       ├── cache.py              # cache JSON atômico com TTL
-│       └── formatters.py         # formatação pt-BR (usada no prompt e na UI)
-├── dashboard/
-│   ├── app.py                    # orquestração, sidebar e abas
-│   └── components/               # onboarding, portfolio_view, charts, briefing_view, news_view
+│   │   ├── recommender.py        # carteira sugerida
+│   │   ├── analise_ativo.py      # análise de um papel em UMA chamada, sem ferramentas
+│   │   ├── briefing.py           # montagem do briefing (devolve o uso de tokens)
+│   │   └── llm_analyst.py        # contexto com orçamento + chamada ao Claude
+│   └── utils/                    # resiliência, cache, formatação pt-BR, tickers
 ├── server/                       # assistente no WhatsApp
 │   ├── app.py                    # FastAPI: mensagens, cron do briefing, /health
-│   ├── bridge_client.py          # fala com a ponte Baileys
-│   ├── store.py                  # SQLite: conversas, idempotência, gastos
-│   └── config.py                 # variáveis de ambiente do servidor
+│   ├── roteador.py               # resolução de intenção — pura, sem I/O
+│   ├── acoes.py                  # execução das intenções
+│   ├── onboarding_chat.py        # as 18 perguntas por conversa
+│   ├── store.py                  # SQLite: conversas, idempotência, gastos, sessão
+│   └── bridge_client.py          # fala com a ponte Baileys
 ├── bridge/                       # ponte Node ↔ WhatsApp (Baileys)
-├── deploy/                       # systemd, cron e script de instalação
+├── dashboard/
+│   ├── app.py + components/      # Streamlit (interface local de desenvolvimento)
+│   └── web/                      # interface publicada na Vercel
+│       ├── index.html, styles.css, app.js
+│       ├── snapshot.py           # monta o snapshot que a web consome
+│       └── api/                  # funções serverless (login, snapshot, movimento, jobs)
 └── tests/                        # pytest (rede real + offline)
 ```
 
@@ -242,21 +252,19 @@ investai/
 
 - **Nada estoura na cara do usuário.** Toda função de I/O é blindada (`@safe`) e devolve
   valor padrão — DataFrame vazio, `{}` — com log claro. Indicador que não pôde ser
-  calculado vira `None` e aparece como **N/D** na interface, nunca como número inventado.
+  calculado vira `None` e aparece como **N/D**, nunca como número inventado. Isso vale
+  também para totais: valor e custo somam as **mesmas** posições, senão um ativo sem
+  cotação ainda viraria prejuízo falso.
 - **Resiliência num só lugar.** `retry` com backoff exponencial (3 tentativas), `Throttle`
-  com relógio compartilhado sob lock (um `sleep` solto não funcionaria dentro do
-  `ThreadPoolExecutor`) e cache em disco com escrita atômica.
+  com relógio compartilhado sob lock e cache em disco com escrita atômica.
 - **RSI pela definição de Wilder.** A inicialização usa a média simples dos 14 primeiros
-  ganhos/perdas antes da suavização recursiva; usar `ewm` desde o primeiro delta erra o
-  valor em séries curtas. Validado contra a série de referência clássica (70,46 / 57,92).
+  ganhos/perdas antes da suavização recursiva. Validado contra a série de referência
+  clássica (70,46 / 57,92).
 - **Contexto do LLM filtrado e com orçamento.** O prompt leva apenas carteira,
-  indicadores já calculados, fundamentals disponíveis e até 5 notícias por ativo. Se
-  passar do orçamento de tokens, as notícias são podadas antes dos fundamentos — a
-  carteira e os indicadores nunca saem.
-- **Streaming na chamada do Claude.** É o caminho recomendado para `max_tokens` alto:
-  evita timeout de HTTP em briefings longos.
-
----
+  indicadores já calculados, fundamentals disponíveis e até 5 notícias por ativo.
+- **Uma validação só.** `src/portfolio/escrita.py` é usado pelo WhatsApp e pela web; a
+  regra mais profunda (não vender o que não se tem) mora no **banco**, onde nem um
+  `psql` na mão passa por cima.
 
 ## Limitações conhecidas
 
@@ -287,41 +295,110 @@ investai/
 
 ## Assistente no WhatsApp
 
-O mesmo sistema, acessível por conversa. O Claude recebe **8 ferramentas** sobre
-os módulos que já existem e decide quais usar a cada pergunta:
+O mesmo sistema, acessível por conversa — e agora ele **escreve**, não só lê.
 
-| Ferramenta | O que faz |
-|---|---|
-| `consultar_carteira` | Posições, valor, P&L e pesos |
-| `analisar_ativo` | Técnico + fundamentos de um papel |
-| `cotacao` | Preço e variação de vários ativos |
-| `buscar_noticias` | Notícias da semana, por ativo ou da carteira |
-| `gerar_briefing` | Briefing semanal completo |
-| `recomendar_carteira` | Sugestão a partir do perfil salvo |
-| `status_do_perfil` | Perfil, reserva e alocação-alvo |
-| `data_de_hoje` | Contexto temporal |
+### A regra de custo
+
+Até aqui toda mensagem passava pelo agente, que carrega as definições de 8
+ferramentas (~4 mil tokens) em cada requisição. A primeira mensagem de uma
+conversa escreve esse prefixo no cache a 125% do preço de entrada: ~US$ 0,030
+para responder "como está minha carteira?", cuja resposta é um `SELECT` e três
+linhas de formatação.
+
+Agora um roteador determinístico (`server/roteador.py`) resolve a intenção
+**antes** de qualquer chamada de modelo:
+
+| | Hoje | Antes |
+|---|---|---|
+| "como está minha carteira?" | **US$ 0** | ~US$ 0,030 |
+| "comprei 100 PETR4 a 35,50" | **US$ 0** | impossível |
+| `/analise PETR4` | ~US$ 0,020 | ~US$ 0,030 |
+| `/briefing` | ~US$ 0,10 | ~US$ 0,10 |
+
+As duas rotas de IA também ficaram mais baratas porque **deixaram de usar o
+agente**: o Python monta o contexto de que precisa e faz **uma** chamada sem
+ferramenta nenhuma — ~1,5 mil tokens de entrada em vez de ~5,5 mil, sem escrita
+de cache e sem laço de iteração.
+
+### Comandos
+
+Tudo abaixo entende linguagem natural; a barra é atalho, não obrigação.
+
+| Comando | Também entende | IA? | Resposta |
+|---|---|---|---|
+| `/ajuda` | "ajuda", "oi", "menu" | não | Menu numerado de 10 itens |
+| `/carteira` | "minha carteira", "quanto eu tenho", "meu patrimônio" | não | Total, P&L e uma linha por posição |
+| `/cotacao PETR4 VALE3` | "quanto está a PETR4", "preço de VALE3" | não | Uma linha por ativo |
+| `/comprei 100 PETR4 a 35,50` | "comprei …", com `em 12/10` opcional | não | Confirmação → grava |
+| `/vendi 50 PETR4 a 60` | "vendi …" | não | Confirmação com P&L apurado → grava |
+| `/ajustar PETR4 120 36,10` | "corrige a posição de PETR4" | não | Confirmação → grava |
+| `/remover PETR4` | "remove PETR4 da carteira" | não | Confirmação citando o que se perde |
+| `/extrato [PETR4]` | "movimentações", "histórico de compras" | não | Últimas 10, com `#id` |
+| `/desfazer` | "apaga a última" | não | Confirmação → apaga |
+| `/perfil` | "qual meu perfil" | não | Classificação, score, reserva |
+| `/onboarding` | "refazer perfil", "questionário" | não | As 18 perguntas, por conversa |
+| `/alocacao` | "o que falta", "reserva de emergência" | não | Alvo × real + pré-requisitos |
+| `/sugestao` | "o que eu deveria comprar" | não | Carteira sugerida (determinística) |
+| `/noticias [PETR4]` | "o que saiu sobre meus ativos" | não | Manchetes da semana |
+| `/status` | "quanto gastei", "tá tudo no ar?" | não | Ponte, banco, gasto do mês |
+| **`/analise PETR4`** | "analisa PETR4", "o que você acha de VALE3" | **sim** | Leitura do papel, ~US$ 0,02 |
+| **`/briefing`** | "me manda o briefing" | **sim** | Confirma antes (~1 min, ~US$ 0,10) |
+| **`/pergunta <texto>`** | — | **sim** | Agente com as 8 ferramentas |
+
+O que não casa com nada vira **menu numerado** — nunca uma chamada de modelo.
+Digitar o número executa o item.
+
+### Escrita: o Python decide, não o modelo
 
 ```
-você:  analisa a PETR4 pra mim
-bot:   *PETR4 — R$ 56,85* (tendência de alta)
-       - Subiu forte: +16,0% em 30d, +40,1% em 90d e +88,1% em 12 meses.
-       - Preço acima de todas as médias (MM20 50,97 · MM50 46,91 · MM200 42,48).
-       - *RSI em 76*, acima de 70: sobrecomprado.
+você:  comprei 100 PETR4 a 35,50
+bot:   *Compra* — confirma?
+       100 PETR4 a R$ 35,50
+       Total: R$ 3.550,00
+       Mercado hoje: R$ 58,11
+
+       Responda *sim* para gravar ou *não* para descartar.
+você:  sim
+bot:   Compra registrada. ✅  _#1_
+       PETR4: 100 cotas, preço médio R$ 35,50
 ```
+
+Nada é gravado na primeira mensagem. A validação acontece em camadas, da mais
+barata para a mais cara (`src/portfolio/escrita.py`):
+
+1. **formato e faixa** — quantidade > 0, preço > 0, data não futura;
+2. **posição disponível** — vender 150 de uma posição de 100 é recusado aqui,
+   com mensagem melhor, e **de novo** no banco, que é a rede de segurança;
+3. **existência no mercado** — o ticker precisa responder no yfinance;
+4. **sanidade do preço** — 50% fora do mercado vira *aviso destacado*, não
+   recusa: preço fora do mercado é suspeito, não impossível. É o que pega
+   `35,50` digitado como `3550`.
+
+Se um dia o `/pergunta` sugerir uma compra, ele não grava: produz uma proposta
+que entra no mesmo fluxo de confirmação. Nenhuma ferramenta de escrita é
+exposta ao modelo.
+
+### Onboarding por conversa
+
+As mesmas 18 perguntas do dashboard, uma por mensagem, com `voltar`, `?` para
+explicar e `cancelar`. Dá para parar no meio e voltar depois — o estado fica em
+SQLite com validade de 2 horas. Zero chamadas de modelo em todo o fluxo: as 18
+perguntas pelo agente custariam mais de US$ 0,50 para produzir o mesmo perfil.
 
 ### Topologia
 
 ```
-Seu WhatsApp → chip dedicado → ponte Baileys (Node) → servidor (Python) → Claude
+Seu WhatsApp → chip dedicado → ponte Baileys (Node) → servidor (Python)
+                                                           ↓
+                                      roteador → ferramentas (custo zero)
+                                               → Claude (só análise e briefing)
 ```
 
 A conexão é via **Baileys** (dispositivo vinculado, como o WhatsApp Web), não
-pela Cloud API da Meta. Isso significa: sem cadastro na Meta, sem webhook
-público, sem domínio, sem HTTPS, sem template e sem janela de 24 horas — só
-conexões de saída e dois serviços conversando por `127.0.0.1`.
+pela Cloud API da Meta: sem cadastro, sem webhook público, sem domínio, sem
+HTTPS, sem template e sem janela de 24 horas.
 
-**Como rodar:** veja [DEPLOY.md](DEPLOY.md) — da VM na Oracle ao pareamento do
-QR, com custo de infraestrutura zero.
+**Como rodar:** veja [DEPLOY.md](DEPLOY.md).
 
 ```bash
 ./rodar.sh          # sobe servidor + ponte (mostra o QR na primeira vez)
@@ -329,54 +406,156 @@ QR, com custo de infraestrutura zero.
 curl -s localhost:8000/health | jq
 ```
 
-O script confere o que falta antes de subir (número configurado, chave da
-Anthropic, dependências da ponte) — em vez de falhar vinte minutos depois.
-
 ### Decisões que importam
 
-- **Tool Runner do SDK** (`client.beta.messages.tool_runner`) executa o ciclo
-  pedido → ferramenta → resposta. O histórico é espelhado e persistido em SQLite,
-  então a conversa continua entre mensagens.
-- **Cache de prompt**: as definições das ferramentas + system prompt somam ~4 mil
-  tokens reenviados a cada mensagem. Cacheados, o custo por mensagem cai de
-  US$ 0,025 para **US$ 0,006**.
-- **202 imediato na ponte**: o agente leva de 5 a 60 segundos, então o
-  processamento vai para segundo plano em vez de segurar a conexão. Cada
-  `message_id` é processado uma única vez.
-- **Lista branca de números** e **teto de gasto mensal**: sem os dois, qualquer
-  um que descubra o número consome seus créditos.
-- **Formato de celular**: o system prompt proíbe markdown que o WhatsApp não
-  renderiza (tabela, `#`, link em colchetes) e pede respostas de 2 a 8 linhas.
+- **Reuso sem LLM.** As ferramentas em `src/agent/tools.py` são
+  `BetaFunctionTool`, mas continuam sendo função Python chamável. O roteador as
+  invoca direto — mesma formatação que já estava em produção, sem modelo no meio.
+- **Resolução pura.** `roteador.resolver()` não toca em rede, banco nem modelo:
+  olha o texto e a sessão e devolve a intenção. É isso que permite testar a
+  tabela inteira offline e afirmar, com teste, que nenhuma rota barata chama a API.
+- **Comando explícito vence vocabulário.** `/pergunta analisa PETR4` é pergunta
+  livre, não análise — o que vem depois da barra é argumento.
+- **Lista branca de números** e **teto de gasto mensal**, que agora só bloqueia
+  as rotas de IA: travar a consulta de carteira porque o briefing estourou o
+  orçamento seria punir o caminho que não custa nada.
 
 ---
 
-## Dashboard web (HTML/CSS/JS)
+## Interface web — acessível de qualquer lugar
 
-Além do app Streamlit, há uma interface própria em `dashboard/web/` — dark
-glassmorphism com acentos dourados, sem nenhuma dependência de biblioteca
-externa (os gráficos são SVG escritos à mão).
+O dashboard em `dashboard/web/` (HTML/CSS/JS puro, gráficos em SVG escritos à
+mão, zero bibliotecas) deixou de ser um snapshot estático: agora é a interface
+publicada na **Vercel**, com senha, lendo e escrevendo o mesmo banco que o
+assistente do WhatsApp.
+
+```
+    Navegador (celular, notebook, qualquer lugar)
+            │  HTTPS
+            ▼
+    Vercel ── estático + /api/* em funções Node
+            │  senha única → cookie HMAC assinado
+            ▼
+    Neon Postgres ── posicoes · movimentacoes · ativos · perfil · snapshots · jobs
+            ▲  só conexões de SAÍDA
+            │
+    VM Oracle ── FastAPI e ponte Baileys, ambos presos a 127.0.0.1
+            ▼
+    Seu WhatsApp
+```
+
+**A VM continua sem nada escutando na internet.** Nenhuma porta aberta, nenhum
+túnel, nenhum domínio — era a propriedade mais valiosa do deploy anterior e foi
+preservada tirando o estado de dentro dela. Vercel e VM nunca se falam: os dois
+falam com o banco.
+
+| | Vercel | VM |
+|---|---|---|
+| Interface, login, CRUD | ✅ | — |
+| Carteira, extrato, perfil | ✅ lê e escreve | ✅ lê e escreve |
+| yfinance, indicadores, RSI, notícias | ❌ | ✅ |
+| Claude | ❌ | ✅ |
+
+### O que a tela faz
+
+- **Carteira** — valor, P&L, evolução de 12 meses e posições, com botões de
+  registrar compra e venda;
+- **Técnica** — candlestick, médias e RSI, em SVG;
+- **Briefing** — o último publicado, com botão para pedir um novo;
+- **Extrato** — todo o histórico, com editar e apagar. As posições são
+  **derivadas** dele: corrigir uma linha de três meses atrás recalcula o preço
+  médio sozinho;
+- **Notícias** — manchetes da semana por ativo.
+
+### Como os dados chegam
+
+A web **não calcula indicador**. A VM publica um snapshot em `snapshots` a cada
+30 minutos (cron), e a tela lê o último. Já carteira e extrato vêm **ao vivo**
+do banco, porque mudam quando você registra uma compra — esperar meia hora para
+ver a própria compra aparecer seria esquisito. Quando o preço de um ativo
+recém-comprado ainda não foi buscado, a tela diz isso em vez de contá-lo como
+zero.
+
+Quando a web precisa de algo que só a VM faz (gerar briefing, conferir um
+ticker novo no yfinance), ela insere uma linha em `jobs` e o cron da VM executa
+na próxima passada. Fila por banco: sem webhook, sem porta aberta.
+
+### Autenticação
+
+Uma senha só, porque o sistema é de uma pessoa só — mas está na internet:
+
+- a senha **não existe em lugar nenhum**: o que fica guardado é um hash
+  PBKDF2-SHA256 com 210 mil iterações e salt aleatório, em variável de ambiente
+  da Vercel;
+- acertar devolve um cookie `exp.assinatura` (HMAC-SHA256 do prazo),
+  `HttpOnly; Secure; SameSite=Lax`, de 30 dias. Adulterar o prazo invalida a
+  assinatura;
+- dez erros em quinze minutos do mesmo IP bloqueiam, e toda tentativa fica
+  registrada em `tentativas_login`;
+- o HTML é uma **casca pública**: nenhum dado privado vive em arquivo estático,
+  e tudo que importa vem autenticado da API. É por isso que não há middleware
+  protegendo páginas — não há o que proteger ali.
+
+PBKDF2 e HMAC vêm do Web Crypto, que já existe no runtime: zero dependência de
+biblioteca de autenticação.
+
+### Rodando local
 
 ```bash
-# Gera o snapshot com dados reais de mercado
-.venv/bin/python dashboard/web/scripts/export_snapshot.py
+# Com banco: a interface completa, igual à publicada
+.venv/bin/python scripts/publicar_snapshot.py
+cd dashboard/web && npm install && vercel dev
 
-# Serve a interface
+# Sem banco: snapshot estático em arquivo, como antes
+.venv/bin/python dashboard/web/scripts/export_snapshot.py
 cd dashboard/web && python3 -m http.server 8777
-# abra http://127.0.0.1:8777
 ```
 
 | Arquivo | Papel |
 |---|---|
-| `index.html` | Estrutura e as 4 abas (linkáveis por hash: `#overview`, `#technical`, `#briefing`, `#news`) |
-| `styles.css` | Tema único e deliberado: tokens de cor, glassmorphism, orbs de luz, animações |
-| `app.js` | Render dos dados, gráficos em SVG (área, candlestick, RSI), markdown do briefing |
-| `data.js` | Snapshot gerado pelo script — preços, indicadores, notícias e briefing reais |
-| `scripts/export_snapshot.py` | Busca os dados e grava `data.js` |
-
-**É uma interface estática**: lê o snapshot gerado pelo script, não chama as APIs
-ao vivo. O botão "Gerar briefing" exibe o briefing que já está no snapshot; no app
-Streamlit o mesmo botão dispara a chamada real ao Claude.
+| `index.html` | Estrutura, 5 abas, tela de senha e formulário de movimentação |
+| `styles.css` | Tema único: tokens de cor, glassmorphism, orbs de luz |
+| `app.js` | Render, gráficos em SVG, CRUD do extrato, sessão |
+| `snapshot.py` | Monta o snapshot (usado pelo cron e pelo CLI) |
+| `api/*.js` | Funções serverless: login, snapshot, movimento, fila |
 
 Tipografia: Instrument Serif (display), Manrope (interface) e IBM Plex Mono
-(números) — via Google Fonts, com fallback declarado. Respeita
-`prefers-reduced-motion`: com animação reduzida, tudo aparece no estado final.
+(números). Respeita `prefers-reduced-motion`.
+
+---
+
+## Banco de dados
+
+`movimentacoes` é a verdade; `posicoes` é derivada dela por replay, feito por
+um trigger em PL/pgSQL (`deploy/sql/001_inicial.sql`).
+
+| Tabela | Guarda |
+|---|---|
+| `movimentacoes` | Toda compra, venda e ajuste — editável e removível |
+| `posicoes` | Materialização do replay: cotas, preço médio, resultado realizado |
+| `ativos` | Catálogo (38 do universo curado + o que você comprar), com conferência |
+| `perfil` | Respostas do questionário e o perfil derivado |
+| `snapshots` | O que a web lê; os 30 mais recentes |
+| `jobs` | Fila do que a web pede e a VM executa |
+
+**Por que posição é derivada e não digitada.** O replay recomputa tudo a cada
+escrita — para um ledger pessoal isso custa microssegundos, e elimina a classe
+de bug em que um delta incremental deixa a posição torta para sempre sem
+ninguém notar. Editar ou apagar uma movimentação corrige a posição sozinho, e
+não existe caminho em que posição e histórico divirjam.
+
+O preço médio pondera com as taxas dentro do custo — que é também o critério da
+Receita para apurar ganho de capital, então o resultado realizado do extrato
+serve para o imposto, não só para a tela.
+
+Fica em **SQLite na VM** o que só o bot lê: conversas, idempotência, gastos e o
+estado de sessão (confirmação pendente, onboarding em andamento). Uma ida ao
+Postgres por mensagem custaria latência sem ninguém do outro lado precisar do dado.
+
+**Sem `DATABASE_URL`**, `load_portfolio()` lê `config/portfolio.json` como
+sempre leu — é o modo offline, e é o que os testes usam. Toda escrita no banco
+espelha o arquivo, que serve de backup legível e de leitura degradada se o Neon
+estiver fora.
+
+---
+

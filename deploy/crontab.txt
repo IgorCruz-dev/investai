@@ -1,8 +1,22 @@
-# Briefing semanal — domingo às 20h (horário da VM; configure o fuso com
-# `sudo timedatectl set-timezone America/Sao_Paulo`).
-# Instalar com: crontab -e
+# Cron da VM do InvestAI.  Instalar com: crontab -e
+# Fuso: sudo timedatectl set-timezone America/Sao_Paulo
+
+# --- Snapshot para a interface web -----------------------------------------
+# A web (Vercel) não roda Python: ela lê o último snapshot publicado aqui.
+# De 30 em 30 minutos no horário de pregão, e uma vez à noite para a tela
+# mostrar o fechamento do dia mesmo quem abrir de madrugada.
+*/30 10-18 * * 1-5 cd /home/ubuntu/investai && .venv/bin/python scripts/publicar_snapshot.py >> cache/cron.log 2>&1
+30 19 * * 1-5 cd /home/ubuntu/investai && .venv/bin/python scripts/publicar_snapshot.py >> cache/cron.log 2>&1
+
+# --- Fila de trabalho -------------------------------------------------------
+# O que a web pede e só a VM pode fazer (gerar briefing, conferir ticker novo
+# no yfinance). De 5 em 5 minutos: é a latência entre clicar e ver o resultado.
+*/5 * * * * cd /home/ubuntu/investai && .venv/bin/python scripts/processar_jobs.py >> cache/cron.log 2>&1
+
+# --- Briefing semanal -------------------------------------------------------
+# Domingo às 20h, direto no WhatsApp. Troque SEU_CRON_TOKEN.
 0 20 * * 0 curl -fsS -X POST "http://127.0.0.1:8000/cron/briefing?token=SEU_CRON_TOKEN" >> /home/ubuntu/investai/cache/cron.log 2>&1
 
-# Atualiza o cache de mercado toda manhã de dia útil, para a primeira
-# pergunta do dia responder rápido.
-0 9 * * 1-5 cd /home/ubuntu/investai && .venv/bin/python -c "from src.config import load_portfolio; from src.data.market_data import get_portfolio_data; get_portfolio_data(load_portfolio().tickers, use_cache=False)" >> /home/ubuntu/investai/cache/cron.log 2>&1
+# --- Higiene ----------------------------------------------------------------
+# O log do cron cresce sem parar num disco de 45 GB que ninguém monitora.
+0 4 * * 0 truncate -s 0 /home/ubuntu/investai/cache/cron.log
