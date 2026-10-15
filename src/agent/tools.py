@@ -29,6 +29,7 @@ from src.config import load_portfolio, load_profile
 from src.data import market_data, news_fetcher
 from src.onboarding.profile import build_profile
 from src.utils.formatters import money, number, percent
+from src.utils.tickers import normalizar
 
 logger = logging.getLogger(__name__)
 
@@ -37,17 +38,10 @@ logger = logging.getLogger(__name__)
 MAX_LINHAS = 12
 
 
-def _normalizar(ticker: str) -> str:
-    """`petr4` → `PETR4.SA`. Ticker americano (sem número no fim) passa direto."""
-    code = (ticker or "").strip().upper().replace(" ", "")
-    if not code:
-        return ""
-    if "." in code:
-        return code
-    # Padrão da B3: 4 letras + 1-2 dígitos (PETR4, KLBN11, BPAC11).
-    if len(code) >= 5 and code[:4].isalpha() and code[4:].isdigit():
-        return code + ".SA"
-    return code
+#: A regra de ticker mora em `src/utils/tickers.py`, porque o roteador e a
+#: validação de escrita precisam da mesma. Mantido com o nome antigo aqui para
+#: não quebrar quem já importava daqui.
+_normalizar = normalizar
 
 
 def _erro(contexto: str, exc: Exception) -> str:
@@ -66,8 +60,10 @@ def consultar_carteira() -> str:
     try:
         portfolio = load_portfolio()
         if not portfolio.positions:
-            return ("A carteira está vazia. O usuário ainda não cadastrou posições — "
-                    "sugira abrir o dashboard para fazer o onboarding.")
+            # Texto endereçado ao USUÁRIO, não ao modelo: desde o roteador,
+            # esta string vai direto para o celular sem o Claude no meio.
+            return ("Sua carteira está vazia — nenhuma posição registrada ainda.\n\n"
+                    "Para registrar a primeira: *comprei 100 PETR4 a 35,50*")
 
         bundle = market_data.get_portfolio_data(portfolio.tickers)
         indicators = calculate_all_indicators(bundle)
@@ -187,7 +183,8 @@ def buscar_noticias(ticker: str = "") -> str:
             portfolio = load_portfolio()
             codes = portfolio.tickers[:5]
             if not codes:
-                return "A carteira está vazia — peça um ticker específico para buscar notícias."
+                return ("Sua carteira está vazia, então não sei de quais ativos buscar "
+                    "notícia. Me diga um código, por exemplo: *notícias PETR4*")
 
         news = news_fetcher.fetch_financial_news(codes)
         if not any(news.values()):
@@ -216,19 +213,9 @@ def gerar_briefing() -> str:
     para perguntas pontuais, prefira `consultar_carteira` ou `analisar_ativo`.
     """
     try:
-        portfolio = load_portfolio()
-        if not portfolio.positions:
-            return "A carteira está vazia — não há o que analisar no briefing."
+        from src.analysis.briefing import montar
 
-        bundle = market_data.get_portfolio_data(portfolio.tickers)
-        indicators = calculate_all_indicators(bundle)
-        metrics = calculate_portfolio_metrics(portfolio, bundle, indicators)
-        news = news_fetcher.fetch_financial_news(portfolio.tickers)
-        fundamentals = {t: p.get("fundamentals", {}) for t, p in bundle.items()}
-
-        resultado = generate_briefing(
-            metrics, indicators, news, fundamentals, currency=portfolio.currency
-        )
+        resultado = montar()
         if resultado.error:
             return f"Não consegui gerar o briefing: {resultado.error}"
         return resultado.text
@@ -246,9 +233,9 @@ def recomendar_carteira() -> str:
     try:
         perfil_salvo = load_profile()
         if not perfil_salvo.get("answers"):
-            return ("O usuário ainda não respondeu o questionário de perfil. "
-                    "Sugira abrir o dashboard para fazer o onboarding — sem o perfil "
-                    "não há base para recomendar alocação.")
+            return ("Para sugerir uma carteira eu preciso do seu perfil — sem ele não "
+                    "há base para definir alocação.\n\n"
+                    "Manda */onboarding*: são 18 perguntas, em 4 blocos.")
 
         profile = build_profile(perfil_salvo["answers"])
         bundle = market_data.get_portfolio_data([a.ticker for a in UNIVERSE])
@@ -285,8 +272,9 @@ def status_do_perfil() -> str:
     try:
         perfil = load_profile()
         if not perfil.get("profile"):
-            return ("Nenhum perfil salvo ainda. O usuário precisa responder o questionário "
-                    "de onboarding no dashboard.")
+            return ("Nenhum perfil salvo ainda.\n\n"
+                    "Manda */onboarding* para responder o questionário — 18 perguntas, "
+                    "e dá para parar no meio e voltar depois.")
         alocacao = " · ".join(
             f"{k}: {percent(v, signed=False)}" for k, v in (perfil.get("allocation") or {}).items()
         )

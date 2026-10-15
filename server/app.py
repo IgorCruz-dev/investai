@@ -18,12 +18,13 @@ from typing import Any
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from server import bridge_client, store
+from server import acoes, bridge_client, roteador, store
 from server.config import (
     ALLOWED_NUMBERS,
     BRIDGE_SECRET,
     CRON_TOKEN,
     MONTHLY_BUDGET_USD,
+    ROTEADOR,
     configurado,
 )
 from src.agent.assistant import responder, resposta_rapida, saudacao
@@ -99,55 +100,91 @@ def receber(
 
 
 def _processar(numero: str, texto: str, jid: str = "") -> None:
-    """Roda o agente e devolve a resposta pela ponte. Nunca levanta exceção."""
+    """Resolve a intenção, executa e responde pela ponte. Nunca levanta exceção."""
     enviar = lambda msg: bridge_client.enviar_texto(numero, msg, jid)  # noqa: E731
 
     try:
-        normalizado = texto.strip().lower()
-        if normalizado in COMANDOS_AJUDA:
-            enviar(saudacao())
-            return
-        if normalizado in COMANDOS_LIMPAR:
-            store.limpar_historico(numero)
-            enviar("Pronto, esqueci nossa conversa anterior. 🧹")
+        if not ROTEADOR:
+            _processar_pelo_agente(numero, texto, enviar)
             return
 
-        # "oi", "valeu" e afins não justificam uma chamada de modelo.
-        rapida = resposta_rapida(texto)
-        if rapida:
-            enviar(rapida)
-            logger.info("Resposta local para %s (sem custo)", numero[:6] + "…")
-            return
+        sessao = store.ler_sessao(numero)
+        intencao = roteador.resolver(texto, sessao)
 
-        gasto = store.gasto_do_mes()
-        if gasto >= MONTHLY_BUDGET_USD:
-            enviar(
-                f"Atingi o limite de gasto deste mês (US$ {gasto:.2f} de "
-                f"US$ {MONTHLY_BUDGET_USD:.2f}). Para liberar, aumente "
-                "INVESTAI_MONTHLY_BUDGET_USD no servidor."
-            )
-            return
+        # O teto de gasto só vale para as três rotas que chamam a API. Bloquear
+        # a consulta de carteira porque o briefing estourou o orçamento seria
+        # punir justamente o caminho que não custa nada.
+        if intencao.usa_llm:
+            gasto = store.gasto_do_mes()
+            if gasto >= MONTHLY_BUDGET_USD:
+                enviar(
+                    f"Atingi o limite de gasto deste mês (US$ {gasto:.2f} de "
+                    f"US$ {MONTHLY_BUDGET_USD:.2f}). As consultas sem IA "
+                    "(carteira, cotação, extrato) continuam funcionando. Para "
+                    "liberar a IA, aumente INVESTAI_MONTHLY_BUDGET_USD."
+                )
+                return
+            if intencao.aviso:
+                # A rota de IA leva de 20 s a 1 min: dizer que está trabalhando
+                # evita a dúvida de "chegou minha mensagem?".
+                enviar(intencao.aviso)
 
-        historico = store.carregar_historico(numero)
-        resultado = responder(texto, historico)
-
-        if resultado.ok:
-            store.salvar_historico(numero, resultado.historico)
-            enviar(resultado.texto)
-        else:
-            enviar(f"Deu problema aqui: {resultado.erro}")
-
-        store.registrar_gasto(
-            numero, resultado.custo_estimado, resultado.input_tokens,
-            resultado.output_tokens, resultado.cache_read_tokens,
-        )
-        logger.info(
-            "Respondido %s | ferramentas=%s | US$ %.4f",
-            numero[:6] + "…", resultado.ferramentas_usadas or "-", resultado.custo_estimado,
-        )
+        resposta = acoes.executar(intencao, numero)
+        enviar(resposta)
+        logger.info("Respondido %s | intenção=%s%s", numero[:6] + "…",
+                    intencao.nome, " (IA)" if intencao.usa_llm else " (custo zero)")
     except Exception:  # noqa: BLE001 — fronteira final
         logger.exception("Falha ao processar mensagem de %s", numero[:6] + "…")
         enviar("Tive um problema inesperado aqui. Pode tentar de novo?")
+
+
+def _processar_pelo_agente(numero: str, texto: str, enviar) -> None:
+    """Caminho antigo: tudo pelo agente com as 8 ferramentas.
+
+    Mantido como rollback do deploy: `INVESTAI_ROTEADOR=0` no `.env` e um
+    restart voltam ao comportamento que estava em produção antes do roteador.
+    """
+    normalizado = texto.strip().lower()
+    if normalizado in COMANDOS_AJUDA:
+        enviar(saudacao())
+        return
+    if normalizado in COMANDOS_LIMPAR:
+        store.limpar_historico(numero)
+        enviar("Pronto, esqueci nossa conversa anterior. 🧹")
+        return
+
+    rapida = resposta_rapida(texto)
+    if rapida:
+        enviar(rapida)
+        logger.info("Resposta local para %s (sem custo)", numero[:6] + "…")
+        return
+
+    gasto = store.gasto_do_mes()
+    if gasto >= MONTHLY_BUDGET_USD:
+        enviar(
+            f"Atingi o limite de gasto deste mês (US$ {gasto:.2f} de "
+            f"US$ {MONTHLY_BUDGET_USD:.2f}). Para liberar, aumente "
+            "INVESTAI_MONTHLY_BUDGET_USD no servidor."
+        )
+        return
+
+    historico = store.carregar_historico(numero)
+    resultado = responder(texto, historico)
+
+    if resultado.ok:
+        store.salvar_historico(numero, resultado.historico)
+        enviar(resultado.texto)
+    else:
+        enviar(f"Deu problema aqui: {resultado.erro}")
+
+    store.registrar_gasto(
+        numero, resultado.custo_estimado, resultado.input_tokens,
+        resultado.output_tokens, resultado.cache_read_tokens,
+    )
+    logger.info(
+        "Respondido %s | ferramentas=%s | US$ %.4f",
+        numero[:6] + "…", resultado.ferramentas_usadas or "-", resultado.custo_estimado,
+    )
 
 
 # --- Briefing semanal (cron) ------------------------------------------------

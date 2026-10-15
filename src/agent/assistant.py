@@ -265,14 +265,18 @@ def resposta_rapida(mensagem: str) -> str | None:
 
 
 def saudacao() -> str:
-    """Mensagem de boas-vindas, enviada no primeiro contato."""
+    """Mensagem de boas-vindas, enviada no primeiro contato.
+
+    Curta de propósito: o menu completo mora em `server.roteador.texto_do_menu`
+    e sai no */ajuda*. Responder "oi" com dez itens numerados é uma parede de
+    texto para quem só disse oi.
+    """
     return (
-        "Opa! Sou o *InvestAI*, seu assistente de investimentos.\n\n"
-        "Posso te ajudar com:\n"
-        "- *Carteira*: \"como está minha carteira?\"\n"
-        "- *Ativos*: \"analisa PETR4\" ou \"cotação de VALE3 e ITUB4\"\n"
-        "- *Notícias*: \"o que saiu sobre meus ativos?\"\n"
-        "- *Briefing*: \"me manda o briefing da semana\"\n"
-        "- *Perfil*: \"qual meu perfil?\" ou \"o que eu deveria comprar?\"\n\n"
-        "Pode perguntar do seu jeito — eu entendo."
+        "Opa! Sou o *InvestAI*, seu assistente de investimentos. 📈\n\n"
+        "Eu cuido da sua carteira por aqui:\n"
+        "- *\"minha carteira\"* — posições, valor e resultado\n"
+        "- *\"comprei 100 PETR4 a 35,50\"* — registro a compra\n"
+        "- *\"quanto está a VALE3\"* — cotação na hora\n"
+        "- *\"analisa ITUB4\"* — leitura completa do papel\n\n"
+        "Pode escrever do seu jeito. Para ver tudo: */ajuda*"
     )

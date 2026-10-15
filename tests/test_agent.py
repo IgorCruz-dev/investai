@@ -99,10 +99,20 @@ def test_custo_considera_desconto_do_cache():
     assert com_cache.custo_estimado == pytest.approx(0.005 + 0.002 + 0.00002, abs=1e-5)
 
 
-def test_saudacao_lista_as_capacidades():
+def test_saudacao_mostra_o_que_fazer_sem_virar_parede_de_texto():
+    """A saudação ensina pelo exemplo; o menu completo fica no /ajuda.
+
+    Responder "oi" com dez itens numerados é uma parede de texto para quem só
+    disse oi — por isso aqui só entram os caminhos mais usados, em frases que
+    o usuário pode copiar.
+    """
     texto = saudacao()
-    for termo in ("Carteira", "Ativos", "Notícias", "Briefing", "Perfil"):
-        assert termo in texto
+
+    assert "InvestAI" in texto
+    assert "carteira" in texto.lower()
+    assert "comprei" in texto.lower(), "registrar compra é o que o bot ganhou de novo"
+    assert "/ajuda" in texto, "precisa apontar para o menu completo"
+    assert len(texto.splitlines()) <= 12, "saudação não é menu"
 
 
 # --- Ferramentas (sem rede: carteira vazia é o estado atual) ----------------
@@ -114,7 +124,14 @@ def test_ferramentas_tem_nome_descricao_e_schema():
         assert len(ferramenta.description) > 40, f"{ferramenta.name}: descrição curta demais"
 
 
-def test_carteira_vazia_orienta_o_onboarding(monkeypatch, tmp_path):
+def test_carteira_vazia_ensina_a_registrar_a_primeira_posicao(monkeypatch, tmp_path):
+    """Carteira vazia é falta de posição, não falta de perfil.
+
+    O texto antigo mandava fazer o onboarding — que define perfil de risco e
+    não acrescenta posição nenhuma. E era escrito para o **modelo** ler ("o
+    usuário ainda não cadastrou posições, sugira..."); desde o roteador, essa
+    string vai direto para o celular.
+    """
     from src import config as config_mod
 
     vazia = tmp_path / "portfolio.json"
@@ -122,7 +139,10 @@ def test_carteira_vazia_orienta_o_onboarding(monkeypatch, tmp_path):
     monkeypatch.setattr(config_mod, "PORTFOLIO_PATH", vazia)
 
     resposta = tools.consultar_carteira()
-    assert "vazia" in resposta.lower() and "onboarding" in resposta.lower()
+
+    assert "vazia" in resposta.lower()
+    assert "comprei" in resposta.lower(), "precisa mostrar COMO registrar"
+    assert "o usuário" not in resposta.lower(), "texto é para o usuário, não sobre ele"
 
 
 def test_perfil_ausente_orienta_o_onboarding(monkeypatch, tmp_path):

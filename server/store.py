@@ -11,7 +11,7 @@ import logging
 import sqlite3
 import threading
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterator
 
 from server.config import DB_PATH
@@ -45,6 +45,17 @@ CREATE TABLE IF NOT EXISTS gastos (
 );
 
 CREATE INDEX IF NOT EXISTS idx_gastos_criado ON gastos(criado);
+
+-- Estado da conversa que NÃO é histórico de LLM: confirmação aguardando "sim",
+-- em que pergunta do onboarding você está, qual foi o último menu mostrado.
+-- Fica aqui e não no Postgres porque só o bot lê, e uma ida a Ohio por
+-- mensagem custaria 166 ms sem ninguém do outro lado precisar do dado.
+CREATE TABLE IF NOT EXISTS sessoes (
+    numero      TEXT PRIMARY KEY,
+    estado      TEXT NOT NULL,
+    expira_em   TEXT NOT NULL,
+    atualizado  TEXT NOT NULL
+);
 """
 
 
@@ -153,3 +164,57 @@ def estatisticas() -> dict[str, Any]:
         return {"conversas": conversas, "mensagens": mensagens, "gasto_mes_usd": round(gasto_do_mes(), 4)}
     except sqlite3.Error as exc:
         return {"erro": str(exc)}
+
+
+# --- Sessão da conversa -----------------------------------------------------
+#: Validade de uma confirmação pendente. Dez minutos é tempo de ler no celular e
+#: responder; depois disso, "sim" provavelmente responde a outra coisa.
+TTL_CONFIRMACAO = 600
+
+#: O menu e o fluxo de onboarding duram mais: você pode voltar depois do almoço.
+TTL_FLUXO = 7200
+
+
+def ler_sessao(numero: str) -> dict[str, Any]:
+    """Estado da conversa, ou `{}`. Sessão vencida é apagada e vira `{}`.
+
+    Deixar a expiração para a leitura (em vez de um job de limpeza) significa
+    que nenhum estado velho é jamais interpretado como atual, mesmo se o
+    servidor ficou dias fora do ar.
+    """
+    try:
+        with _conexao() as conn:
+            linha = conn.execute(
+                "SELECT estado, expira_em FROM sessoes WHERE numero = ?", (numero,)
+            ).fetchone()
+        if not linha:
+            return {}
+        if linha["expira_em"] < _agora():
+            limpar_sessao(numero)
+            return {}
+        estado = json.loads(linha["estado"])
+        return estado if isinstance(estado, dict) else {}
+    except (sqlite3.Error, json.JSONDecodeError) as exc:
+        logger.warning("Sessão ilegível de %s (%s) — descartada", numero, exc)
+        return {}
+
+
+def gravar_sessao(numero: str, estado: dict[str, Any], ttl: int = TTL_CONFIRMACAO) -> None:
+    try:
+        payload = json.dumps(estado, default=str, ensure_ascii=False)
+    except (TypeError, ValueError) as exc:
+        logger.error("Sessão não serializável para %s: %s", numero, exc)
+        return
+    expira = (datetime.now(timezone.utc) + timedelta(seconds=ttl)).isoformat()
+    with _lock, _conexao() as conn:
+        conn.execute(
+            "INSERT INTO sessoes (numero, estado, expira_em, atualizado) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(numero) DO UPDATE SET estado = excluded.estado, "
+            "expira_em = excluded.expira_em, atualizado = excluded.atualizado",
+            (numero, payload, expira, _agora()),
+        )
+
+
+def limpar_sessao(numero: str) -> None:
+    with _lock, _conexao() as conn:
+        conn.execute("DELETE FROM sessoes WHERE numero = ?", (numero,))
