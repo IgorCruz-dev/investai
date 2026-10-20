@@ -98,10 +98,18 @@ pip install -e ".[dashboard]"
 #   pip install -e .               # só o núcleo: WhatsApp, análise e dados
 #   pip install -e ".[dashboard,dev]"   # + pytest e ruff, para contribuir
 
-# 4. Chaves de API
-cp .env.example .env
-# edite .env e preencha ANTHROPIC_API_KEY e (opcionalmente) CURRENTS_API_KEY
+# 4. Configuração — pergunta o que falta e prepara o banco
+python -m investai.setup
 ```
+
+O wizard pergunta a sua chave da Anthropic e, se você for usar o Postgres, as
+URLs do seu Neon; grava tudo no `.env` (permissão 600), aplica as migrações e
+semeia o catálogo de ativos. Rodar de novo é seguro: Enter mantém o que já está
+respondido.
+
+Prefere na mão? `cp .env.example .env` e preencha — o `.env.example` explica
+cada variável. Sem `DATABASE_URL` o sistema lê `config/portfolio.json` e roda
+inteiro offline.
 
 ### Chaves de API
 
@@ -440,9 +448,14 @@ decisões de construção, com as medições por trás delas, estão em
 ```bash
 pip install -e ".[dashboard,dev]"
 ruff check .              # lint
-pytest -m "not network"   # 414 testes offline, o que o CI roda
+pytest -m "not network"   # suíte offline, o que o CI roda em todo PR
 pytest                    # suíte completa, bate nas APIs reais (~12 min)
 ```
+
+Mudança de schema é **arquivo novo** em `deploy/sql/` (`NNN_descricao.sql`),
+nunca edição de uma migração já aplicada: com um banco por pessoa, o que já
+rodou no banco de outro não volta atrás. `python scripts/migrar.py --conferir`
+diz o que falta no seu.
 
 Bug ou ideia? [Abra uma issue](https://github.com/IgorCruz-dev/investai/issues/new/choose).
 Vulnerabilidade de segurança? Use uma

@@ -62,6 +62,34 @@ def _startup() -> None:
                         ", ".join(t.id for t in tenants.todos()))
         else:
             logger.info("Servidor pronto | %d número(s) autorizado(s)", len(autorizados))
+        _conferir_migracoes()
+
+
+def _conferir_migracoes() -> None:
+    """Avisa, no start, quando algum banco está atrás nas migrações.
+
+    Com um banco por pessoa, uma tabela adicionada por alguém chega aos outros
+    só quando cada banco migra. Sem este aviso a descoberta acontece no meio de
+    uma query, como "coluna não existe", num caminho que a pessoa nem tocou.
+    Avisa e segue: derrubar o servidor deixaria todos sem bot por causa de um.
+    """
+    from investai import migrations
+
+    for dono in tenants.todos():
+        if not dono.database_url:
+            continue
+        try:
+            faltando = migrations.pendentes(dono.database_url)
+        except Exception as exc:  # noqa: BLE001 — diagnóstico não derruba o start
+            logger.warning("Não consegui conferir as migrações de %s: %s", dono.id, exc)
+            continue
+        if faltando:
+            logger.warning(
+                "Banco de %s está atrás: falta(m) %s. Rode "
+                "`python scripts/migrar.py --usuario %s` — até lá, as consultas "
+                "que dependem dessas tabelas vão falhar.",
+                dono.id, ", ".join(m.nome for m in faltando), dono.id,
+            )
 
 
 @app.get("/health")

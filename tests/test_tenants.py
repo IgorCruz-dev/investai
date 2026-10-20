@@ -90,6 +90,47 @@ def test_sem_registro_opera_como_instancia_pessoal(sem_registro):
     assert unico.anthropic_key is None, "a instância pessoal usa a chave do .env"
 
 
+# --- Banco de registro central ----------------------------------------------
+def test_registro_do_banco_tem_precedencia_sobre_as_outras_fontes(monkeypatch):
+    """É o modo de auto-inscrição: a VM lê o banco, não um arquivo editado à mão."""
+    monkeypatch.setenv("INVESTAI_REGISTRY_URL", "postgresql://u:s@registro/db")
+    monkeypatch.setenv("INVESTAI_TENANTS", json.dumps([REGISTRO[1]]))  # não deve ganhar
+    monkeypatch.setattr(tenants, "_ler_do_banco", lambda url: [REGISTRO[0]])
+    tenants.recarregar()
+
+    assert tenants.multiusuario() is True
+    assert [t.id for t in tenants.todos()] == ["igor"], "o banco vence o JSON do ambiente"
+    tenants.recarregar()
+
+
+def test_registro_vazio_no_banco_nao_cai_para_instancia_pessoal(monkeypatch):
+    """Cair no `.env` aqui faria o bot responder do banco de quem hospeda."""
+    monkeypatch.setenv("INVESTAI_REGISTRY_URL", "postgresql://u:s@registro/db")
+    monkeypatch.setattr(tenants, "_ler_do_banco", lambda url: [])
+    tenants.recarregar()
+
+    with pytest.raises(tenants.RegistroInvalido, match="investai.setup"):
+        tenants.registro()
+    tenants.recarregar()
+
+
+def test_inscricao_nova_aparece_quando_o_cache_vence(monkeypatch):
+    """Sem isso, quem se inscreve espera um restart do serviço para ser atendido."""
+    import time
+
+    linhas = [REGISTRO[0]]
+    monkeypatch.setenv("INVESTAI_REGISTRY_URL", "postgresql://u:s@registro/db")
+    monkeypatch.setattr(tenants, "_ler_do_banco", lambda url: list(linhas))
+    monkeypatch.setattr(tenants, "REGISTRO_TTL", 0.0)  # vence na hora
+    tenants.recarregar()
+
+    assert [t.id for t in tenants.todos()] == ["igor"]
+    linhas.append(REGISTRO[1])          # o Kaua rodou o wizard
+    time.sleep(0.01)
+    assert [t.id for t in tenants.todos()] == ["igor", "kaua"]
+    tenants.recarregar()
+
+
 # --- Validação: erro de configuração é melhor que vazamento silencioso ------
 def test_telefone_duplicado_recusa_o_registro(monkeypatch):
     duplicado = [dict(REGISTRO[0]), dict(REGISTRO[1], telefone=REGISTRO[0]["telefone"])]

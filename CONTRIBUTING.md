@@ -36,8 +36,11 @@ git clone https://github.com/IgorCruz-dev/investai.git
 cd investai
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dashboard,dev]"      # pacote + Streamlit + pytest + ruff
-cp .env.example .env                   # preencha ANTHROPIC_API_KEY
+python -m investai.setup --so-local    # pergunta o que falta e prepara o banco
 ```
+
+`--so-local` configura só a sua máquina, sem inscrever você na instância
+compartilhada de ninguém.
 
 Sem `DATABASE_URL` o sistema lê `config/portfolio.json` e roda inteiro offline —
 é o modo que os testes usam. Você **não** precisa de Postgres nem de WhatsApp
@@ -106,6 +109,22 @@ mudança de arquitetura: várias dessas decisões têm medição por trás.
   comentário para dizer o que faz, reescreva o código.
 - `line-length = 100`, mas `E501` está desligado: quebrar uma f-string de
   mensagem ao usuário no meio costuma piorar a leitura.
+
+## Mudando o schema do banco
+
+Cada pessoa tem o próprio Postgres, então uma tabela nova só existe no banco de
+quem aplicou. Duas regras:
+
+1. **Arquivo novo**, sempre: `deploy/sql/NNN_descricao.sql`, com o próximo
+   número livre. Nunca edite uma migração já aplicada — ela já rodou no banco
+   dos outros e não volta atrás; o runner avisa quando o hash muda.
+2. **Diga no PR** que há migração. Quem atualizar precisa rodar
+   `python scripts/migrar.py`, e o servidor avisa no start quem está atrás.
+
+```bash
+python scripts/migrar.py --conferir   # o que falta no seu banco
+python scripts/migrar.py              # aplica
+```
 
 ## Commits e PRs
 

@@ -248,6 +248,49 @@ chave do `.env` quando há usuário ativo. Se o registro de alguém ficar sem
 chave, a rota de IA diz "não configurada" em vez de gastar o crédito de outra
 pessoa.
 
+### Auto-inscrição: por que o registro virou tabela, não arquivo
+
+A primeira versão guardava o registro num arquivo que quem hospeda editava à
+mão — o que obrigava cada pessoa a **mandar** a connection string e a chave de
+API dela por algum canal. Ruim por dois motivos: segredo trafegando por
+WhatsApp e um humano no caminho de cada entrada.
+
+A tentação natural é "o sistema sobe as credenciais para a VM". Não dá, e o
+motivo é a propriedade mais valiosa do deploy: **a VM não escuta nada na
+internet** — nenhuma porta, nenhum túnel, FastAPI e ponte presos ao
+`127.0.0.1`. Abrir um endpoint de inscrição jogaria isso fora para resolver um
+problema de conveniência.
+
+O registro num **banco** resolve sem concessão: é alcançável de qualquer lugar,
+e a VM e a Vercel leem dele fazendo só conexão de saída, como já fazem com as
+carteiras. A inscrição é um `insert ... on conflict do update` que a própria
+pessoa executa do clone dela.
+
+A credencial de inscrição é uma role com `insert, update` e **sem `select`**:
+quem a tem grava a própria linha e não consegue ler a chave de API nem o banco
+de ninguém. O que ela não impede é sobrescrever a linha de outra pessoa — para
+três amigos isso é proporcional; com mais gente, o passo seguinte é RLS
+amarrando a linha a um token por pessoa.
+
+Isso não muda o fato de que as credenciais ficam na infraestrutura de quem
+hospeda, que consegue lê-las. O wizard diz isso em voz alta antes de inscrever,
+e `--so-local` existe para quem preferir usar o sistema só na própria máquina.
+
+### Migração versionada: a consequência de um banco por pessoa
+
+Com um banco por pessoa, uma tabela nova existe só no banco de quem aplicou.
+Sem controle de versão, a descoberta acontece como `column does not exist` no
+meio de uma query, para a pessoa que não mexeu em nada.
+
+`schema_migrations` com o hash do arquivo, uma transação por migração (se a
+terceira falha, as duas primeiras ficam aplicadas e a próxima execução retoma),
+e `pendentes()` respondendo sem escrever — é o que o servidor usa no start para
+**avisar** em vez de quebrar. Derrubar o servidor porque o banco de um está
+atrás deixaria os três sem bot.
+
+`--baseline` registra sem executar: é como um banco que já tinha o schema entra
+no controle de versão sem reaplicar DDL.
+
 ### O que o bot compartilhado realmente economiza
 
 Cada pessoa precisa, de qualquer forma, do próprio Neon e da própria chave da

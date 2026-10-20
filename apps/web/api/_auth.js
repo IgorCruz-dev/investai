@@ -111,7 +111,7 @@ export async function usuarioDaSessao(req) {
 
   // A assinatura confere, mas o registro pode ter mudado desde o login: quem
   // saiu do registro perde o acesso na hora, sem esperar o cookie expirar.
-  return multiusuario() ? porId(id) : padrao();
+  return (await multiusuario()) ? await porId(id) : await padrao();
 }
 
 /** Envolve um handler exigindo sessão válida, passando o tenant adiante.

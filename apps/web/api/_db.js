@@ -8,7 +8,6 @@
  */
 
 import { neon } from "@neondatabase/serverless";
-import { padrao } from "./_tenants.js";
 
 //: Um cliente por usuário. A chave é o id do tenant, nunca um cliente só com a
 //: URL trocada: duas requisições concorrentes na mesma instância da função
@@ -19,14 +18,17 @@ const clientes = new Map();
  * Cliente do banco **daquele** usuário.
  *
  * `tenant` vem do `protegido()`, que só o entrega depois de validar a
- * assinatura do cookie. Chamar sem argumento só funciona no modo de uma
- * pessoa — em modo multiusuário é erro, de propósito: cair num banco
- * "padrão" seria responder com a carteira de alguém que não pediu.
+ * assinatura do cookie — ou, no `login.js`, do registro depois de a senha
+ * conferir. Chamar sem tenant é erro: não existe banco "padrão" para onde
+ * mandar uma query.
  */
-export function db(tenant = null) {
-  const alvo = tenant || padrao();
+export function db(tenant) {
+  const alvo = tenant;
   if (!alvo) {
-    throw new Error("db() sem usuário em modo multiusuário");
+    // Sem fallback de propósito: cair num banco "padrão" seria responder com a
+    // carteira de alguém que não pediu. Quem chama recebe o tenant do
+    // `protegido()`, que só o entrega depois de validar a assinatura do cookie.
+    throw new Error("db() exige o usuário da sessão");
   }
   const existente = clientes.get(alvo.id);
   if (existente) return existente;

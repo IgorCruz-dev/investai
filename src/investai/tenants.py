@@ -21,10 +21,17 @@ thread e por task, que é exatamente a garantia necessária aqui.
 
 Onde o registro mora, em ordem de precedência:
 
-1. `INVESTAI_TENANTS` — o JSON inteiro numa variável de ambiente. É o único
-   caminho possível na Vercel, e é o mesmo documento que o `api/_auth.js` lê;
-2. `config/tenants.json` — mais confortável de editar na VM (fora do git);
-3. nenhum dos dois: o sistema opera **como sempre operou**, com um tenant só
+0. `INVESTAI_REGISTRY_URL` — a tabela `tenants` de um **banco de registro**
+   central. É o modo que permite auto-inscrição: a VM não escuta nada na
+   internet, então ninguém consegue "subir" credencial para ela — mas um banco
+   é alcançável de qualquer lugar, e a VM e a Vercel leem dele fazendo só
+   conexão de saída. Cada pessoa grava a própria linha pelo
+   `python -m investai.setup`, do próprio clone, sem mandar segredo para
+   ninguém. Cache de `REGISTRO_TTL` segundos: uma inscrição nova aparece sem
+   restart;
+1. `INVESTAI_TENANTS` — o JSON inteiro numa variável de ambiente;
+2. `config/tenants.json` — um arquivo editado à mão na VM (fora do git);
+3. nenhum dos três: o sistema opera **como sempre operou**, com um tenant só
    montado a partir de `DATABASE_URL` e `ANTHROPIC_API_KEY`. É o que mantém a
    instalação de uma pessoa (e a suíte de testes) funcionando sem registro.
 
@@ -77,6 +84,21 @@ ID_PADRAO = "padrao"
 #: permitido é fechado aqui, na entrada.
 ID_VALIDO = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 
+#: Por quanto tempo o registro lido do banco vale. Curto porque o custo de
+#: errar é só uma query a mais, e o ganho é uma inscrição nova passar a
+#: funcionar sem reiniciar o serviço.
+REGISTRO_TTL = 60.0
+
+#: PBKDF2-SHA256 com 210 mil iterações, 32 bytes derivados, salt de 16 — tem de
+#: casar exatamente com `senhaConfere()` em apps/web/api/_auth.js, que é quem
+#: valida a senha no login.
+PBKDF2_ITERACOES = 210_000
+
+CAMPOS = (
+    "id", "nome", "telefone", "database_url", "database_url_pooled",
+    "anthropic_key", "web_password_hash", "budget_usd",
+)
+
 
 class RegistroInvalido(RuntimeError):
     """O registro existe mas não dá para confiar nele.
@@ -115,6 +137,31 @@ class Tenant:
 
 def _digitos(valor: object) -> str:
     return "".join(c for c in str(valor or "") if c.isdigit())
+
+
+def registry_url() -> str | None:
+    """Connection string do banco de registro, se o modo central estiver ligado."""
+    return os.getenv("INVESTAI_REGISTRY_URL", "").strip() or None
+
+
+def hash_de_senha(senha: str, iteracoes: int = PBKDF2_ITERACOES) -> str:
+    """Gera o `web_password_hash` no formato que o login da web valida.
+
+    `pbkdf2$<iteracoes>$<salt_b64>$<derivado_b64>` — o mesmo que
+    `gerarHash()` produz em JS. A senha não é guardada em lugar nenhum; deste
+    hash não se volta para ela.
+    """
+    import base64
+    import hashlib
+    import secrets
+
+    if len(senha) < 12:
+        raise ValueError("senha curta: use pelo menos 12 caracteres — "
+                         "o painel fica exposto na internet")
+    salt = secrets.token_bytes(16)
+    derivado = hashlib.pbkdf2_hmac("sha256", senha.encode("utf-8"), salt, iteracoes, 32)
+    return (f"pbkdf2${iteracoes}$"
+            f"{base64.b64encode(salt).decode()}${base64.b64encode(derivado).decode()}")
 
 
 def _montar(bruto: dict) -> Tenant:
@@ -161,6 +208,20 @@ def _montar(bruto: dict) -> Tenant:
     )
 
 
+def _ler_do_banco(url: str) -> list[dict]:
+    """A tabela `tenants` do banco de registro, como lista de dicionários."""
+    import psycopg
+
+    with psycopg.connect(url, connect_timeout=20) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"select {', '.join(CAMPOS)} from tenants "  # noqa: S608 - CAMPOS é constante
+                "where ativo order by id"
+            )
+            colunas = [d[0] for d in cur.description]
+            return [dict(zip(colunas, linha, strict=True)) for linha in cur.fetchall()]
+
+
 def _ler_documento() -> list[dict] | None:
     """Devolve a lista crua de tenants, ou `None` se não houver registro."""
     cru = os.getenv("INVESTAI_TENANTS", "").strip()
@@ -202,11 +263,24 @@ def _tenant_do_ambiente() -> Tenant:
 
 _cache: dict[str, Tenant] | None = None
 _cache_multi = False
+_cache_expira = 0.0
 _cache_lock = threading.Lock()
 
 
 def _carregar() -> tuple[dict[str, Tenant], bool]:
-    documento = _ler_documento()
+    url = registry_url()
+    if url:
+        documento: list[dict] | None = _ler_do_banco(url)
+        if not documento:
+            # Banco de registro vazio é instalação nova, não defeito: ninguém se
+            # inscreveu ainda. Operar como instância pessoal aqui seria pior —
+            # o bot responderia a partir do banco de quem hospeda.
+            raise RegistroInvalido(
+                "banco de registro sem nenhum usuário ativo — rode "
+                "`python -m investai.setup` para se inscrever"
+            )
+    else:
+        documento = _ler_documento()
     if documento is None:
         return {ID_PADRAO: _tenant_do_ambiente()}, False
 
@@ -233,20 +307,25 @@ def _carregar() -> tuple[dict[str, Tenant], bool]:
 
 
 def registro() -> dict[str, Tenant]:
-    """O registro, carregado uma vez. `recarregar()` limpa o cache."""
-    global _cache, _cache_multi
-    if _cache is None:
+    """O registro, carregado uma vez — ou a cada `REGISTRO_TTL`, se vier do banco."""
+    global _cache, _cache_multi, _cache_expira
+    import time
+
+    agora = time.monotonic()
+    vencido = bool(registry_url()) and agora >= _cache_expira
+    if _cache is None or vencido:
         with _cache_lock:
-            if _cache is None:
+            if _cache is None or agora >= _cache_expira or not registry_url():
                 _cache, _cache_multi = _carregar()
+                _cache_expira = agora + REGISTRO_TTL
     return _cache
 
 
 def recarregar() -> None:
-    """Esquece o registro carregado. Para os testes e para trocar o arquivo."""
-    global _cache, _cache_multi
+    """Esquece o registro carregado. Para os testes e para trocar a fonte."""
+    global _cache, _cache_multi, _cache_expira
     with _cache_lock:
-        _cache, _cache_multi = None, False
+        _cache, _cache_multi, _cache_expira = None, False, 0.0
 
 
 def multiusuario() -> bool:

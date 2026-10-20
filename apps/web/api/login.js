@@ -34,7 +34,9 @@ export default async function handler(req, res) {
 
   const corpo = typeof req.body === "object" ? req.body : {};
   const senha = corpo?.senha;
-  const dono = multiusuario() ? porId(corpo?.usuario) : padrao();
+  const dono = (await multiusuario())
+    ? await porId(corpo?.usuario)
+    : await padrao();
 
   // Usuário desconhecido: recusa sem tocar em banco. Não há onde registrar a
   // tentativa (a tabela vive no banco de cada pessoa), e não existe senha para
