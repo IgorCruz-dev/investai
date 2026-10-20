@@ -208,40 +208,47 @@ dele fazendo só conexão de saída.
 
 ### Quem hospeda faz uma vez
 
-**1. Criar o banco de registro** (um projeto novo no Neon, separado dos de
-carteira — ele guarda credenciais, não posições). Ponha a URL no seu `.env`:
+**1. Criar o banco de registro.** É um projeto **novo** no Neon
+([neon.tech](https://neon.tech), free tier basta) — separado dos bancos de
+carteira, porque ele guarda credenciais, não posições. São 4 bancos no total:
+
+| Banco | De quem | Guarda |
+|---|---|---|
+| carteira | você | as suas posições e movimentações |
+| carteira | cada pessoa | as dela — **ela** cria na conta Neon dela |
+| **registro** | você | só quem é quem: telefone, credenciais, hash da senha |
+
+Ao criar o projeto, o Neon mostra a connection string. Copie — é o `--url` do
+passo 2.
+
+**2. Rodar o preparador.** Ele aplica o schema, cria a role de inscrição com
+uma senha forte e imprime as três strings prontas:
 
 ```bash
-INVESTAI_REGISTRY_URL=postgresql://…ep-registro…/neondb?sslmode=require
+.venv/bin/python scripts/preparar_registro.py --url 'postgresql://…que-você-copiou…'
 ```
 
-**2. Criar a role de inscrição** — é a credencial que cada pessoa recebe. Ela
-**escreve e não lê**: quem a tem grava a própria linha e não consegue ler a
-chave de API nem o banco de ninguém.
+A saída traz, para copiar:
 
-```bash
-psql "$INVESTAI_REGISTRY_URL" -c \
-  "create role investai_inscricao login password 'escolha-uma-frase-longa'"
-```
+- `INVESTAI_REGISTRY_URL` para o **seu** `.env` e o da VM (acesso de dono);
+- `INVESTAI_REGISTRY_URL_POOLED` para a **Vercel** (é a com `-pooler`);
+- a string de **inscrição** para entregar a cada pessoa.
 
-**3. Aplicar o schema do registro** (os grants entram junto):
+A de inscrição usa a role `investai_inscricao`, que tem `insert` e `update` e
+**nenhum `select`**: quem a recebe grava a própria linha e não lê a chave de API
+nem o banco de ninguém. A senha dela aparece **uma vez** — se perder, rode de
+novo com `--nova-senha` (isso invalida as já entregues).
 
-```bash
-.venv/bin/python scripts/migrar.py --registro
-```
-
-**4. Entregar a cada pessoa, em canal privado**, a connection string de
-inscrição — a mesma URL do registro, com o usuário `investai_inscricao` e a
-senha do passo 2.
-
-**5. Publicar o registro nos dois lados.** Na VM, o `.env` já tem
-`INVESTAI_REGISTRY_URL`; reinicie. Na Vercel, a variável é a com pooler:
+**3. Publicar.** Na VM, o `.env` já tem `INVESTAI_REGISTRY_URL`; reinicie. Na
+Vercel:
 
 ```bash
 cd apps/web
-vercel env add INVESTAI_REGISTRY_URL_POOLED production   # URL do registro, com -pooler
+vercel env add INVESTAI_REGISTRY_URL_POOLED production   # cole a string do passo 2
 vercel --prod
 ```
+
+**4. Entregar a string de inscrição** a cada pessoa, em canal privado.
 
 ### Cada pessoa faz no próprio clone
 
