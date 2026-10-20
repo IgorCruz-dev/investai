@@ -11,9 +11,9 @@
 import { protegido } from "./_auth.js";
 import { db } from "./_db.js";
 
-async function handler(req, res) {
+async function handler(req, res, dono) {
   res.setHeader("Cache-Control", "no-store");
-  const sql = db();
+  const sql = db(dono);
 
   try {
     const [snapshots, posicoes, movimentacoes, perfil] = await Promise.all([

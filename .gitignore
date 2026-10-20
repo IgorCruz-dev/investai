@@ -3,6 +3,11 @@
 apps/bridge/.env
 .streamlit/secrets.toml
 
+# Registro de usuários: tem connection string e chave de API de cada pessoa.
+# O exemplo versionado é config/tenants.exemplo.json.
+config/tenants.json
+config/tenants.json.preencher
+
 # Estado do usuário (gerado em execução, nunca versionado)
 config/portfolio.json
 config/profile.json

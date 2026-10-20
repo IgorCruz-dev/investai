@@ -883,7 +883,11 @@
       aviso.textContent = mensagem || "";
       aviso.hidden = !mensagem;
     }
-    document.getElementById("login-senha")?.focus();
+    // Foco no primeiro campo que a pessoa tem de preencher: o usuário quando
+    // está vazio (primeiro acesso), a senha quando o navegador já o preencheu.
+    const usuario = document.getElementById("login-usuario");
+    if (usuario && !usuario.value.trim()) usuario.focus();
+    else document.getElementById("login-senha")?.focus();
   }
 
   function esconderLogin() {
@@ -951,14 +955,16 @@
     form.addEventListener("submit", async (evento) => {
       evento.preventDefault();
       const campo = document.getElementById("login-senha");
+      const campoUsuario = document.getElementById("login-usuario");
       const botao = form.querySelector("button[type=submit]");
       const senha = campo.value;
+      const usuario = (campoUsuario?.value || "").trim().toLowerCase();
       if (!senha) return;
 
       botao.disabled = true;
       botao.textContent = "Entrando…";
       try {
-        await api("/api/login", { method: "POST", body: { senha } });
+        await api("/api/login", { method: "POST", body: { usuario, senha } });
         campo.value = "";
         await carregar();
       } catch (erro) {

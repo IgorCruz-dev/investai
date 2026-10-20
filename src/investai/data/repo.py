@@ -47,7 +47,30 @@ class ErroDeEscrita(RuntimeError):
 
 
 def url() -> str | None:
+    """A `DATABASE_URL` do usuário ativo.
+
+    Em modo multiusuário cada pessoa tem o seu banco, e o usuário ativo vem do
+    `ContextVar` de `investai.tenants` — por isso esta função não pode cachear
+    nada. Import local para não criar ciclo com `config`.
+    """
+    from investai import tenants
+
+    if tenants.multiusuario():
+        t = tenants.ativo()
+        # Fora de escopo é `None`, nunca o banco do `.env`: cair nele mandaria a
+        # operação para a carteira de quem hospeda.
+        return (t.database_url or None) if t is not None else None
+    # Sem registro, o caminho é o de sempre — inclusive quando um escopo está
+    # aberto com o tenant sintético, que nasce do próprio `.env`.
     return os.getenv("DATABASE_URL") or None
+
+
+def _chave_do_pool() -> str:
+    """Identidade do pool: um por banco, nunca um compartilhado."""
+    from investai import tenants
+
+    t = tenants.ativo()
+    return t.id if t is not None else tenants.ID_PADRAO
 
 
 def configurado() -> bool:
@@ -55,7 +78,11 @@ def configurado() -> bool:
 
 
 # --- Conexão ----------------------------------------------------------------
-_pool: Any = None
+# Um pool por usuário, não um global: ver `investai.tenants`. Trocar a URL de um
+# pool compartilhado entre mensagens é uma condição de corrida — os handlers do
+# FastAPI são síncronos e rodam num threadpool, então duas mensagens no mesmo
+# segundo mandariam a query de uma pessoa para o banco da outra.
+_pools: dict[str, Any] = {}
 _pool_lock = threading.Lock()
 
 
@@ -79,24 +106,25 @@ def _criar_pool() -> Any:
 
 
 def pool() -> Any:
-    global _pool
-    if _pool is None:
-        with _pool_lock:
-            if _pool is None:
-                _pool = _criar_pool()
-    return _pool
+    chave = _chave_do_pool()
+    existente = _pools.get(chave)
+    if existente is not None:
+        return existente
+    with _pool_lock:
+        if chave not in _pools:
+            _pools[chave] = _criar_pool()
+        return _pools[chave]
 
 
 def reset_pool() -> None:
-    """Fecha o pool. Usado pelos testes ao trocar de banco."""
-    global _pool
+    """Fecha todos os pools. Usado pelos testes ao trocar de banco."""
     with _pool_lock:
-        if _pool is not None:
+        for chave, aberto in list(_pools.items()):
             try:
-                _pool.close()
+                aberto.close()
             except Exception:  # noqa: BLE001
-                logger.debug("falha ao fechar o pool", exc_info=True)
-        _pool = None
+                logger.debug("falha ao fechar o pool de %s", chave, exc_info=True)
+        _pools.clear()
 
 
 def _traduzir(exc: Exception) -> Exception:

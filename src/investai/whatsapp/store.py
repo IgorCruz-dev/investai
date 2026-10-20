@@ -141,16 +141,24 @@ def registrar_gasto(numero: str, custo_usd: float, entrada: int = 0,
         )
 
 
-def gasto_do_mes() -> float:
+def gasto_do_mes(numero: str | None = None) -> float:
+    """Gasto do mês corrente, em dólares.
+
+    Com `numero`, só o gasto daquela pessoa — é o que permite teto individual
+    em modo multiusuário: o briefing do Ricardo não pode bloquear a análise do
+    Kaua. Sem `numero`, o total, que é o comportamento de instância pessoal.
+    """
     inicio = datetime.now(UTC).replace(
         day=1, hour=0, minute=0, second=0, microsecond=0
     ).isoformat()
+    sql = "SELECT COALESCE(SUM(custo_usd), 0) AS total FROM gastos WHERE criado >= ?"
+    params: tuple = (inicio,)
+    if numero:
+        sql += " AND numero = ?"
+        params = (inicio, numero)
     try:
         with _conexao() as conn:
-            linha = conn.execute(
-                "SELECT COALESCE(SUM(custo_usd), 0) AS total FROM gastos WHERE criado >= ?",
-                (inicio,),
-            ).fetchone()
+            linha = conn.execute(sql, params).fetchone()
         return float(linha["total"])
     except sqlite3.Error as exc:
         logger.warning("Não foi possível somar os gastos: %s", exc)

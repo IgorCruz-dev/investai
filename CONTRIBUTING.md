@@ -5,11 +5,26 @@ que você precisa saber para abrir um PR que entra sem discussão de estilo.
 
 ## Antes de tudo: entenda o que o projeto é
 
-O InvestAI é um sistema **pessoal e single-tenant**. Cada pessoa roda a sua
-própria instância, com a sua chave da Anthropic, o seu banco e o seu número de
-WhatsApp. Não existe cadastro de usuários, não existe multiusuário, e não é
-objetivo do projeto virar plataforma. PRs que começam a construir isso vão ser
-recusados — não por serem ruins, mas por mudarem o que o sistema é.
+O InvestAI é **uma carteira por pessoa, um banco por pessoa**. Dá para
+compartilhar uma instância com um grupo pequeno — o bot diferencia pelo
+telefone, o painel pelo login — mas cada pessoa continua tendo o seu Postgres e
+a sua chave da Anthropic. O isolamento é a **conexão**, não um `where usuario =`:
+o schema é de uma carteira por banco (`posicoes` com `ticker` como chave
+primária, `perfil` com `check (id = 1)`), e é assim que fica.
+
+O que está fora de escopo, e PRs nessa direção vão ser recusados — não por
+serem ruins, mas por mudarem o que o sistema é:
+
+- **cadastro aberto**: criar conta pela tela, cobrança, convite por e-mail.
+  Quem entra, entra porque alguém pôs as credenciais dessa pessoa no registro;
+- **carteira de várias pessoas no mesmo banco**, via coluna `usuario` e
+  `where`. Um `where` esquecido em uma das ~20 funções do `repo.py` vaza
+  carteira entre pessoas; a separação por banco não tem essa classe de bug;
+- **chave de API compartilhada**: cada pessoa traz a sua. Sem isso o uso de uma
+  sai do crédito de quem hospeda, e o gasto de uma bloqueia a IA das outras.
+
+O porquê de cada uma dessas decisões está em
+[docs/design.md](docs/design.md#várias-pessoas-um-banco-para-cada).
 
 Também não é conselho de investimento, e nenhuma contribuição pode fingir que
 é. Ver [a seção de aviso no README](README.md#aviso).

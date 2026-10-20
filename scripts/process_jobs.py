@@ -83,13 +83,40 @@ def _validar_tickers() -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--max", type=int, default=5,
-                        help="quantos jobs processar nesta passada")
+                        help="quantos jobs processar nesta passada (por pessoa)")
+    parser.add_argument("--usuario", default="",
+                        help="processa só a fila desta pessoa (id do registro)")
     args = parser.parse_args()
 
+    from investai import tenants
+
+    alvos = tenants.todos()
+    if args.usuario:
+        escolhido = tenants.por_id(args.usuario)
+        if escolhido is None:
+            log.error("usuário %r não está no registro", args.usuario)
+            return 1
+        alvos = [escolhido]
+
+    # Cada pessoa tem a própria tabela `jobs`, no próprio banco. Sem registro,
+    # este laço roda uma vez, com o tenant do .env — igual ao comportamento antigo.
+    falhas = 0
+    for dono in alvos:
+        with tenants.usar(dono):
+            try:
+                if _processar_fila(args, dono.id) != 0:
+                    falhas += 1
+            except Exception:  # noqa: BLE001 — um banco fora não derruba os outros
+                log.exception("falha ao processar a fila de %s", dono.id)
+                falhas += 1
+    return 1 if falhas else 0
+
+
+def _processar_fila(args, usuario: str) -> int:
     from investai.data import repo
 
     if not repo.configurado():
-        log.error("DATABASE_URL não configurada.")
+        log.error("[%s] DATABASE_URL não configurada.", usuario)
         return 1
 
     # Conferência de ticker é barata e não precisa de pedido explícito: se há o
@@ -111,7 +138,7 @@ def main() -> int:
                  f"com erro: {resultado.get('erro')}")
         processados += 1
 
-    log.info("%d job(s) processado(s)", processados)
+    log.info("[%s] %d job(s) processado(s)", usuario, processados)
     return 0
 
 

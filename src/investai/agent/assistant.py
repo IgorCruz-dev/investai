@@ -153,7 +153,7 @@ def responder(
     mensagens = _aparar(list(historico or []))
     mensagens.append({"role": "user", "content": texto})
 
-    client = anthropic.Anthropic(timeout=LLM_TIMEOUT, max_retries=2)
+    client = anthropic.Anthropic(api_key=anthropic_key(), timeout=LLM_TIMEOUT, max_retries=2)
     usadas: list[str] = []
     entrada = saida = cache_lido = cache_escrito = 0
     ultima = None

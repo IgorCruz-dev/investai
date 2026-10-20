@@ -165,7 +165,7 @@ def gerar(ticker: str, model: str = LLM_MODEL) -> Analise:
     except ImportError:
         return Analise(erro="Pacote `anthropic` não instalado.")
 
-    client = anthropic.Anthropic(timeout=LLM_TIMEOUT, max_retries=2)
+    client = anthropic.Anthropic(api_key=anthropic_key(), timeout=LLM_TIMEOUT, max_retries=2)
     try:
         mensagem = client.messages.create(
             model=model,

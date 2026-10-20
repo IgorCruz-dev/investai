@@ -1,0 +1,22 @@
+[
+  {
+    "id": "igor",
+    "nome": "Igor",
+    "telefone": "5516900000000",
+    "database_url": "postgresql://usuario:senha@ep-xxx.sa-east-1.aws.neon.tech/neondb?sslmode=require",
+    "database_url_pooled": "postgresql://usuario:senha@ep-xxx-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require",
+    "anthropic_key": "sk-ant-a-chave-do-igor",
+    "web_password_hash": "pbkdf2$210000$SALT_EM_BASE64$HASH_EM_BASE64",
+    "budget_usd": 5
+  },
+  {
+    "id": "amigo",
+    "nome": "Amigo",
+    "telefone": "5516911111111",
+    "database_url": "postgresql://usuario:senha@ep-yyy.sa-east-1.aws.neon.tech/neondb?sslmode=require",
+    "database_url_pooled": "postgresql://usuario:senha@ep-yyy-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require",
+    "anthropic_key": "sk-ant-a-chave-do-amigo",
+    "web_password_hash": "pbkdf2$210000$SALT_EM_BASE64$HASH_EM_BASE64",
+    "budget_usd": 5
+  }
+]

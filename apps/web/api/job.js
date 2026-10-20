@@ -14,12 +14,12 @@ import { db, mensagemDeErro } from "./_db.js";
 
 const TIPOS = new Set(["briefing", "snapshot", "validar_tickers"]);
 
-async function handler(req, res) {
+async function handler(req, res, dono) {
   res.setHeader("Cache-Control", "no-store");
 
   if (req.method === "GET") {
     try {
-      const fila = await db()`
+      const fila = await db(dono)`
         select id, tipo, estado, criado, fechado, resultado from jobs
          order by criado desc limit 10`;
       return res.status(200).json({ jobs: fila });
@@ -36,7 +36,7 @@ async function handler(req, res) {
   }
 
   try {
-    const sql = db();
+    const sql = db(dono);
     // Um pendente do mesmo tipo já basta: clicar três vezes em "gerar
     // briefing" não deve gerar (e cobrar) três briefings.
     const [jaTem] = await sql`

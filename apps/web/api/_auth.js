@@ -1,20 +1,24 @@
 /**
- * Autenticação da interface: senha única e cookie assinado.
+ * Autenticação da interface: um login por pessoa e cookie assinado.
  *
- * É uma interface de um usuário só, exposta na internet. O desenho:
+ * Interface exposta na internet, com uma carteira por usuário. O desenho:
  *
  * - a senha **não existe** em lugar nenhum — nem no repositório, nem no banco,
- *   nem em variável de ambiente. O que fica guardado é um hash PBKDF2-SHA256
- *   com 210 mil iterações e salt aleatório;
- * - acertar a senha devolve um cookie `exp.assinatura`, onde a assinatura é um
- *   HMAC-SHA256 do prazo com um segredo do servidor. O cookie não carrega
- *   nenhum dado além da validade, e adulterar o prazo invalida a assinatura;
+ *   nem em texto puro. O que fica guardado é um hash PBKDF2-SHA256 com 210 mil
+ *   iterações e salt aleatório, um por pessoa, no registro de tenants;
+ * - acertar a senha devolve um cookie `usuario.exp.assinatura`, onde a
+ *   assinatura é um HMAC-SHA256 de `usuario|prazo` com um segredo do servidor.
+ *   O usuário entra **dentro** do que é assinado de propósito: se a assinatura
+ *   cobrisse só o prazo, trocar o nome no cookie daria acesso à carteira de
+ *   outra pessoa com um cookie legítimo;
  * - `HttpOnly` fecha a porta para XSS; `Secure` e `SameSite=Lax` fecham para
  *   sniffing e CSRF.
  *
  * PBKDF2 e HMAC vêm do Web Crypto, que já existe no runtime — zero dependência
  * de biblioteca de autenticação.
  */
+
+import { multiusuario, padrao, porId } from "./_tenants.js";
 
 const COOKIE = "investai_sess";
 const DIAS = 30;
@@ -68,9 +72,10 @@ async function assinar(valor, segredo) {
   return hex(await crypto.subtle.sign("HMAC", chave, enc.encode(String(valor))));
 }
 
-export async function criarCookie(segredo) {
+export async function criarCookie(usuario, segredo) {
   const expira = Date.now() + DIAS * 24 * 60 * 60 * 1000;
-  const token = `${expira}.${await assinar(expira, segredo)}`;
+  const id = String(usuario || "").trim().toLowerCase();
+  const token = `${id}.${expira}.${await assinar(`${id}|${expira}`, segredo)}`;
   return `${COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${DIAS * 86400}`;
 }
 
@@ -87,29 +92,38 @@ function lerCookie(req) {
   return "";
 }
 
-export async function autenticado(req) {
+/**
+ * Devolve o tenant da sessão, ou `null`. Nunca um booleano: quem chama precisa
+ * saber **de quem** é a sessão para escolher o banco, e devolver só `true`
+ * convidaria a ler o usuário do cookie sem verificar a assinatura.
+ */
+export async function usuarioDaSessao(req) {
   const segredo = process.env.WEB_SESSION_SECRET;
-  if (!segredo) return false;
+  if (!segredo) return null;
 
   const token = lerCookie(req);
-  if (!token) return false;
+  if (!token) return null;
 
-  const [expira, assinatura] = token.split(".");
-  if (!expira || !assinatura) return false;
-  if (Number(expira) < Date.now()) return false;
+  const [id, expira, assinatura] = token.split(".");
+  if (!id || !expira || !assinatura) return null;
+  if (Number(expira) < Date.now()) return null;
+  if (!iguais(await assinar(`${id}|${expira}`, segredo), assinatura)) return null;
 
-  return iguais(await assinar(expira, segredo), assinatura);
+  // A assinatura confere, mas o registro pode ter mudado desde o login: quem
+  // saiu do registro perde o acesso na hora, sem esperar o cookie expirar.
+  return multiusuario() ? porId(id) : padrao();
 }
 
-/** Envolve um handler exigindo sessão válida. 401 é o sinal que o front usa
- *  para mostrar a tela de senha. */
+/** Envolve um handler exigindo sessão válida, passando o tenant adiante.
+ *  401 é o sinal que o front usa para mostrar a tela de senha. */
 export function protegido(handler) {
   return async (req, res) => {
-    if (!(await autenticado(req))) {
+    const dono = await usuarioDaSessao(req);
+    if (!dono) {
       res.setHeader("Cache-Control", "no-store");
       return res.status(401).json({ erro: "nao_autenticado" });
     }
-    return handler(req, res);
+    return handler(req, res, dono);
   };
 }
 

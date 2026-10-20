@@ -191,9 +191,9 @@ async function apagar(req, res, sql, id, ticker) {
   return res.status(200).json({ ok: true, apagadas: 1 });
 }
 
-async function handler(req, res) {
+async function handler(req, res, dono) {
   res.setHeader("Cache-Control", "no-store");
-  const sql = db();
+  const sql = db(dono);
   const url = new URL(req.url, "http://localhost");
   const id = Number(url.searchParams.get("id") || 0);
   const ticker = url.searchParams.get("ticker");

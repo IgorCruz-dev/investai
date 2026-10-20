@@ -8,16 +8,34 @@
  */
 
 import { neon } from "@neondatabase/serverless";
+import { padrao } from "./_tenants.js";
 
-let cliente = null;
+//: Um cliente por usuário. A chave é o id do tenant, nunca um cliente só com a
+//: URL trocada: duas requisições concorrentes na mesma instância da função
+//: compartilhariam o objeto, e a query de uma pessoa sairia no banco da outra.
+const clientes = new Map();
 
-export function db() {
-  if (!cliente) {
-    const url = process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL;
-    if (!url) throw new Error("DATABASE_URL_POOLED não configurada");
-    cliente = neon(url);
+/**
+ * Cliente do banco **daquele** usuário.
+ *
+ * `tenant` vem do `protegido()`, que só o entrega depois de validar a
+ * assinatura do cookie. Chamar sem argumento só funciona no modo de uma
+ * pessoa — em modo multiusuário é erro, de propósito: cair num banco
+ * "padrão" seria responder com a carteira de alguém que não pediu.
+ */
+export function db(tenant = null) {
+  const alvo = tenant || padrao();
+  if (!alvo) {
+    throw new Error("db() sem usuário em modo multiusuário");
   }
-  return cliente;
+  const existente = clientes.get(alvo.id);
+  if (existente) return existente;
+
+  const url = alvo.databaseUrl;
+  if (!url) throw new Error(`usuário ${alvo.id} sem database_url_pooled`);
+  const criado = neon(url);
+  clientes.set(alvo.id, criado);
+  return criado;
 }
 
 /** Erro do Postgres → mensagem em português para a tela.

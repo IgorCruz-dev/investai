@@ -263,8 +263,13 @@
       </svg>
     </span>
     <h1>InvestAI</h1>
-    <p>Painel pessoal. Entre com sua senha.</p>
+    <p>Entre para ver a sua carteira.</p>
     <form id="login-form" autocomplete="on">
+      <!-- O campo de usuário é ignorado quando a instância é de uma pessoa só
+           (sem INVESTAI_TENANTS no servidor): o back-end cai no único tenant. -->
+      <input type="text" id="login-usuario" name="usuario" placeholder="Usuário"
+             autocomplete="username" autocapitalize="none" spellcheck="false"
+             aria-label="Usuário" />
       <input type="password" id="login-senha" name="senha" placeholder="Senha"
              autocomplete="current-password" required aria-label="Senha" />
       <button type="submit" class="botao botao-primario">Entrar</button>

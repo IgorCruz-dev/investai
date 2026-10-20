@@ -23,7 +23,7 @@ echo "==> Dependências e verificação"
 ssh "$VM" "cd ~/investai \
   && .venv/bin/pip install -q -e . \
   && .venv/bin/python -c 'from investai.whatsapp.app import app; print(\"    servidor importa\")' \
-  && .venv/bin/python -c 'from investai.data import repo; print(\"    banco:\", \"configurado\" if repo.configurado() else \"SEM DATABASE_URL\")'"
+  && .venv/bin/python -c 'from investai import tenants; ts = tenants.todos(); print(\"    usuarios:\", \", \".join(t.id for t in ts) if tenants.multiusuario() else (\"instancia pessoal\" if ts[0].database_url else \"SEM DATABASE_URL\"))'"
 
 echo "==> Reiniciando serviços"
 ssh "$VM" "sudo systemctl restart investai && sleep 3 && curl -sf localhost:8000/health" | head -c 400

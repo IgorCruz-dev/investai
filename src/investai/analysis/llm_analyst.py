@@ -318,7 +318,7 @@ def generate_briefing(
             model=model,
         )
 
-    client = anthropic.Anthropic(timeout=timeout, max_retries=2)
+    client = anthropic.Anthropic(api_key=anthropic_key(), timeout=timeout, max_retries=2)
     try:
         with client.messages.stream(
             model=model,

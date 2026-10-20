@@ -196,6 +196,69 @@ dado.
 
 ---
 
+## Várias pessoas, um banco para cada
+
+O sistema nasceu para uma pessoa, e isso está no **schema**: `posicoes` tem
+`ticker` como chave primária e `perfil` é `check (id = 1)` — uma carteira e um
+perfil por banco.
+
+Quando apareceu a necessidade de três pessoas usarem o mesmo bot, havia dois
+caminhos:
+
+| | Coluna `usuario` + `where` | **Um banco por pessoa** |
+|---|---|---|
+| Migração do schema | todas as tabelas, todas as chaves primárias | nenhuma: `001_initial.sql` aplica igual em cada Neon |
+| Como vaza | um `where` esquecido em 1 das ~20 funções do `repo.py` | não tem esse caminho: a conexão é o escopo |
+| Custo | um Postgres | um Postgres por pessoa (o free tier do Neon basta) |
+| Quem paga a API | de quem hospeda, salvo accounting extra | de cada um: a chave é parte da credencial |
+
+Escolhemos o segundo. O `check (id = 1)` do `perfil`, que era limitação, passa a
+ser a modelagem **correta** por tenant.
+
+### O `ContextVar` não é preciosismo
+
+O usuário ativo viaja num `contextvars.ContextVar` (`src/investai/tenants.py`),
+não numa variável global. A razão é concreta: os handlers do FastAPI são `def`
+síncrono, então o framework os executa num **threadpool**. Com uma global, duas
+mensagens no mesmo segundo fazem a thread A escrever a URL do Kaua, a thread B
+sobrescrever com a do Ricardo, e a query da thread A sair no banco do Ricardo.
+
+Medido com 16 threads entrelaçadas por uma barreira: a versão com global vaza em
+**8 delas**; a com `ContextVar`, em nenhuma. O teste que fixa isso é
+`tests/test_tenants.py::test_escopo_nao_vaza_entre_threads_concorrentes`.
+
+Dois corolários no código:
+
+- o tenant é resolvido **dentro** do `_processar`, não no handler que recebe o
+  POST: `BackgroundTasks` executa noutro contexto, e um `ContextVar` setado
+  fora não atravessaria;
+- o pool do psycopg virou `dict[tenant, ConnectionPool]`. Um pool com a URL
+  trocada entre mensagens teria exatamente o mesmo problema da global.
+
+### Fora de escopo é erro, não fallback
+
+Com registro configurado, `repo.url()` devolve `None` e `tenants.ativo_ou_padrao()`
+levanta quando não há usuário ativo. A alternativa — cair no `DATABASE_URL` do
+`.env` — mandaria a operação para o banco de quem hospeda. Falhar alto é o
+desfecho correto: o único inaceitável é responder com a carteira de alguém que
+não pediu nada.
+
+A mesma regra vale para a chave da API: `config.anthropic_key()` **não** cai na
+chave do `.env` quando há usuário ativo. Se o registro de alguém ficar sem
+chave, a rota de IA diz "não configurada" em vez de gastar o crédito de outra
+pessoa.
+
+### O que o bot compartilhado realmente economiza
+
+Cada pessoa precisa, de qualquer forma, do próprio Neon e da própria chave da
+Anthropic. O que o compartilhamento poupa é **o chip de WhatsApp e a VM** — e o
+chip dedicado para o Baileys é a parte genuinamente chata de montar. Em troca,
+quem hospeda passa a guardar as connection strings dos outros: um
+comprometimento da VM atinge as três carteiras, não uma. É uma troca
+consciente, não um detalhe.
+
+---
+
 ## Limitações conhecidas
 
 - **yfinance é uma biblioteca não oficial.** Pode mudar de formato, devolver campos

@@ -414,7 +414,7 @@ def recommend(profile: InvestorProfile, market_data: dict[str, dict[str, Any]],
     try:
         import anthropic
 
-        client = anthropic.Anthropic(timeout=LLM_TIMEOUT, max_retries=2)
+        client = anthropic.Anthropic(api_key=anthropic_key(), timeout=LLM_TIMEOUT, max_retries=2)
         with client.messages.stream(
             model=LLM_MODEL,
             max_tokens=LLM_MAX_TOKENS,

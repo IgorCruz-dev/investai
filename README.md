@@ -19,13 +19,23 @@ também registra as suas movimentações por conversa.
 > não é consultoria e não substitui um profissional certificado. As decisões e
 > os resultados são seus. O briefing é texto gerado por um modelo de
 > linguagem a partir de dados públicos: **confira antes de agir**.
-### Escopo: um sistema pessoal, não uma plataforma
+### Escopo: uma carteira por pessoa, não uma plataforma
 
-Cada pessoa roda a **sua** instância, com a sua chave da Anthropic, o seu banco
-e o seu número de WhatsApp. Não há cadastro, não há multiusuário e não é
-objetivo virar plataforma — é o que mantém o sistema simples, barato e com os
-seus dados apenas na sua infraestrutura. Quer usar? Veja
-[Instalação](#instalação). Quer contribuir? Veja
+Roda de dois jeitos, e a diferença é só configuração:
+
+- **Instância pessoal** (o padrão) — você, a sua chave da Anthropic, o seu
+  banco, o seu número. Nada a configurar além do `.env`.
+- **Compartilhado entre poucas pessoas** — um bot e um painel para um grupo
+  pequeno, onde **cada pessoa tem o próprio banco** e a própria chave da API. O
+  bot diferencia pelo telefone, o painel pelo login. Veja
+  [Várias pessoas na mesma instância](docs/deploy.md#46-várias-pessoas-na-mesma-instância).
+
+O que o projeto **não** é: uma plataforma com cadastro aberto. Não há criação
+de conta, cobrança, nem carteira de terceiros num banco só — quem entra, entra
+porque alguém colocou as credenciais dessa pessoa no registro. É o que mantém o
+sistema simples, barato e com os dados de cada um na infraestrutura dele.
+
+Quer usar? Veja [Instalação](#instalação). Quer contribuir? Veja
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---

@@ -179,13 +179,8 @@ ou pelo CLI):
 Gerando os dois segredos:
 
 ```bash
-cd apps/web
-node --input-type=module -e "
-  import { gerarHash } from './api/_auth.js';
-  import crypto from 'node:crypto';
-  console.log('WEB_PASSWORD_HASH =', await gerarHash(process.argv[1]));
-  console.log('WEB_SESSION_SECRET =', crypto.randomBytes(32).toString('hex'));
-" "SUA-SENHA-AQUI"
+node scripts/gerar-hash-senha.mjs 'SUA-SENHA-AQUI'     # WEB_PASSWORD_HASH
+openssl rand -hex 32                                   # WEB_SESSION_SECRET
 ```
 
 A senha em si não é guardada em lugar nenhum — nem no repositório, nem no
@@ -193,6 +188,132 @@ banco, nem no `.env`. Só o hash PBKDF2 vai para a Vercel.
 
 Por fim, ponha a URL publicada em `INVESTAI_WEB_URL` no `.env` da VM, para o
 comando `/web` do assistente devolver o endereço.
+
+---
+
+## 4.6 Várias pessoas na mesma instância
+
+Opcional. Sem isto, a instância é sua e nada muda.
+
+Um bot e um painel servindo um grupo pequeno, onde **cada pessoa tem o próprio
+banco e a própria chave da Anthropic**. O bot diferencia pelo telefone; o painel,
+pelo login. O porquê desse desenho (e não de uma coluna `usuario`) está em
+[design.md](design.md#várias-pessoas-um-banco-para-cada).
+
+### O que cada pessoa precisa trazer
+
+| | Como consegue |
+|---|---|
+| Um projeto no **Neon** | [neon.tech](https://neon.tech), free tier. Duas URLs: a direta e a com `-pooler` |
+| Uma chave da **Anthropic** | [console.anthropic.com](https://console.anthropic.com/settings/keys). **Obrigatória** — não existe cair na chave de quem hospeda |
+| O **telefone** do WhatsApp | só dígitos, com DDI e DDD |
+| Uma **senha** para o painel | você gera o hash; a senha em si ninguém guarda |
+
+O chip do bot e a VM continuam sendo só os de quem hospeda — é o que o
+compartilhamento economiza.
+
+### 1. Aplicar o schema no banco de cada pessoa
+
+Cada banco é um InvestAI vazio, então cada um recebe a migração:
+
+```bash
+DATABASE_URL='postgresql://…da-pessoa…' .venv/bin/python scripts/migrate_to_postgres.py
+```
+
+### 2. Gerar o hash da senha de cada pessoa
+
+```bash
+node scripts/gerar-hash-senha.mjs 'a senha dela'
+```
+
+### 3. Escrever o registro
+
+`config/tenants.json` — fora do git (tem connection string e chave de API).
+Há um modelo em `config/tenants.exemplo.json`:
+
+```json
+[
+  {
+    "id": "igor",
+    "nome": "Igor",
+    "telefone": "5516900000000",
+    "database_url": "postgresql://…ep-xxx…/neondb?sslmode=require",
+    "database_url_pooled": "postgresql://…ep-xxx-pooler…/neondb?sslmode=require",
+    "anthropic_key": "sk-ant-…",
+    "web_password_hash": "pbkdf2$210000$…",
+    "budget_usd": 5
+  }
+]
+```
+
+`budget_usd` é o teto mensal **daquela pessoa**. Mesmo com chave própria ele
+serve de freio: um laço repetindo `/briefing` gastaria sozinho.
+
+O registro é validado ao carregar, e recusa em vez de adivinhar: `id` ou
+telefone repetidos, falta de `anthropic_key` ou JSON inválido levantam erro no
+start. Um telefone duplicado rotearia a mensagem de uma pessoa para o banco de
+outra — melhor não subir.
+
+### 4. Publicar o registro nos dois lados
+
+**Na VM**, basta o arquivo. Reinicie e confira o log:
+
+```bash
+sudo systemctl restart investai
+sudo journalctl -u investai -n 20 | grep "Registro carregado"
+#  Registro carregado | 3 usuário(s): igor, kaua, ricardo
+```
+
+**Na Vercel**, que não tem sistema de arquivos, o mesmo JSON vai na variável
+`INVESTAI_TENANTS` (em uma linha). `DATABASE_URL_POOLED` e `WEB_PASSWORD_HASH`
+deixam de ser usadas quando ela existe:
+
+```bash
+cd apps/web
+jq -c . ../../config/tenants.json | vercel env add INVESTAI_TENANTS production
+vercel --prod
+```
+
+> A Vercel usa o `database_url_pooled` de cada pessoa, e a VM o `database_url`.
+> O pooler em modo transação derruba prepared statement, que o psycopg3 cria
+> sozinho depois de 5 execuções — por isso as duas URLs.
+
+### 5. Conferir o isolamento
+
+```bash
+# Pelo WhatsApp, de cada telefone: cada um tem de ver a SUA carteira
+/carteira
+
+# No painel, cada login tem de abrir a carteira de quem logou
+```
+
+Do lado do servidor, o log de cada mensagem diz de quem era:
+
+```bash
+sudo journalctl -u investai -f | grep usuário=
+#  Respondido 551699… | usuário=kaua | intenção=carteira (custo zero)
+```
+
+Um número fora do registro é recusado — em modo multiusuário o registro **é** a
+lista branca, porque um número sem banco não teria o que consultar.
+
+### O que muda na operação
+
+- os crons passam a **iterar as pessoas**: `publish_snapshot.py` e
+  `process_jobs.py` rodam uma vez por banco, e um banco fora não derruba os
+  outros. Para rodar só um: `--usuario kaua`;
+- o briefing semanal é **um por carteira** (antes era um texto só, enviado a
+  todos — o que com mais de uma pessoa significaria mandar a carteira de uma
+  para o grupo inteiro);
+- o yfinance é chamado uma vez por pessoa, saindo do **mesmo IP**. Com um grupo
+  pequeno está tranquilo; se começar a tomar bloqueio, aumente
+  `INVESTAI_YF_INTERVAL` ou espace os horários do cron.
+
+### Para sair do modo compartilhado
+
+Apague `config/tenants.json` e a variável `INVESTAI_TENANTS`. O sistema volta ao
+`.env` — `DATABASE_URL`, `ANTHROPIC_API_KEY`, `WHATSAPP_ALLOWED_NUMBERS` — sem
+mais nenhuma mudança.
 
 ---
 
