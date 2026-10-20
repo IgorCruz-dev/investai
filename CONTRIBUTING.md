@@ -70,6 +70,11 @@ Rode os dois antes de abrir o PR. `ruff check --fix .` resolve a maioria.
 
 ## Convenções do código
 
+As escolhas de construção por trás do sistema — por que Google Notícias e não
+Currents, onde o modelo decide e onde não, o que o sistema deliberadamente não
+faz — estão em [docs/design.md](docs/design.md). Vale ler antes de propor
+mudança de arquitetura: várias dessas decisões têm medição por trás.
+
 - **Nomes de arquivo, módulo e pasta em inglês**; docstrings, comentários,
   mensagens ao usuário e commits em **português**. O domínio é brasileiro, o
   código segue a convenção de quem lê código.
