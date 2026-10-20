@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.analysis.recommender import (
+from investai.analysis.recommender import (
     MIN_POSITION_BRL,
     RENDA_FIXA_LABEL,
     Recommendation,
@@ -21,7 +21,7 @@ from src.analysis.recommender import (
     distribute,
     recommend,
 )
-from src.analysis.screener import (
+from investai.analysis.screener import (
     ACAO,
     ETF,
     FII,
@@ -33,7 +33,7 @@ from src.analysis.screener import (
     screen_detailed,
     universe_for,
 )
-from src.onboarding.profile import ARROJADO, CONSERVADOR, MODERADO, build_profile
+from investai.onboarding.profile import ARROJADO, CONSERVADOR, MODERADO, build_profile
 from tests.test_onboarding import answers
 
 
@@ -312,7 +312,7 @@ def test_contexto_do_llm_tem_perfil_alocacao_e_candidatos(fake_market_data):
 # --- Com dados reais --------------------------------------------------------
 @pytest.mark.network
 def test_screener_com_dados_reais_diferencia_perfis(require_internet):
-    from src.data import market_data
+    from investai.data import market_data
 
     tickers = [a.ticker for a in UNIVERSE]
     data = market_data.get_portfolio_data(tickers, period="1y")

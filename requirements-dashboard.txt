@@ -1,6 +1,5 @@
 # Interface local de desenvolvimento (streamlit run main.py).
+#
 # Só no notebook: a interface que você acessa de qualquer lugar é a da Vercel,
-# em dashboard/web/, que é HTML/CSS/JS puro e não precisa de Python.
--r requirements.txt
-plotly==7.1.0
-streamlit==1.65.0
+# em apps/web/, que é HTML/CSS/JS puro e não precisa de Python.
+-e .[dashboard]

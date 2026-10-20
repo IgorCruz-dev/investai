@@ -333,7 +333,7 @@ def test_ticker_novo_entra_pendente_de_conferencia(banco):
     mov(banco, "compra", ticker="XPTO3.SA", origem="web")
 
     assert "XPTO3.SA" in banco.tickers_pendentes()
-    assert [l["ticker"] for l in banco.ativos_a_conferir()] == ["XPTO3.SA"]
+    assert [linha["ticker"] for linha in banco.ativos_a_conferir()] == ["XPTO3.SA"]
 
     banco.marcar_conferido("XPTO3.SA", existe=False)
 

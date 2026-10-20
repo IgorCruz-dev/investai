@@ -6,7 +6,7 @@ import time
 
 import pandas as pd
 
-from src.utils.cache import JsonFileCache
+from investai.utils.cache import JsonFileCache
 
 
 def _frame() -> pd.DataFrame:

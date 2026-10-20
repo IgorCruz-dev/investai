@@ -1,4 +1,4 @@
-"""Testes de `src.data.market_data` contra a API real do yfinance."""
+"""Testes de `investai.data.market_data` contra a API real do yfinance."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ import time
 import pandas as pd
 import pytest
 
-from src.data import market_data
-from src.utils.resilience import PermanentError, Throttle, TransientError, retry, safe
+from investai.data import market_data
+from investai.utils.resilience import PermanentError, Throttle, TransientError, retry, safe
 
 VALID_TICKER = "PETR4.SA"
 INVALID_TICKER = "ZZZZ99.SA"
@@ -72,7 +72,7 @@ def test_get_portfolio_data_carteira_vazia_nao_chama_rede():
 
 
 def test_extract_tickers_aceita_formatos_variados():
-    from src.config import Portfolio, Position
+    from investai.config import Portfolio, Position
 
     assert market_data._extract_tickers(["petr4.sa", "VALE3.SA"]) == ["PETR4.SA", "VALE3.SA"]
     assert market_data._extract_tickers([{"ticker": "itub4.sa"}]) == ["ITUB4.SA"]

@@ -9,7 +9,7 @@ Type=simple
 User=ubuntu
 WorkingDirectory=/home/ubuntu/investai
 EnvironmentFile=/home/ubuntu/investai/.env
-ExecStart=/home/ubuntu/investai/.venv/bin/uvicorn server.app:app --host 127.0.0.1 --port 8000
+ExecStart=/home/ubuntu/investai/.venv/bin/uvicorn investai.whatsapp.app:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=5
 

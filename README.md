@@ -1,10 +1,33 @@
-# 📈 InvestAI — Personal Investment Intelligence Agent
+# 📈 InvestAI
 
-Sistema que lê a sua carteira, busca **dados reais** de mercado e notícias, calcula
-indicadores técnicos localmente e usa o **Claude** para gerar um briefing semanal
-em português com recomendações fundamentadas — tudo exibido num dashboard Streamlit.
+[![CI](https://github.com/IgorCruz-dev/investai/actions/workflows/ci.yml/badge.svg)](https://github.com/IgorCruz-dev/investai/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Code style: ruff](https://img.shields.io/badge/lint-ruff-261230.svg)](https://docs.astral.sh/ruff/)
 
-> ⚠️ Conteúdo informativo e educacional. **Não é recomendação de investimento.**
+**Assistente de investimentos que lê a sua carteira, busca dados reais de
+mercado e notícias, calcula os indicadores localmente e usa o Claude para
+escrever um briefing fundamentado em português.**
+
+Três interfaces para o mesmo sistema: um **dashboard Streamlit** local, uma
+**interface web** publicada na Vercel e um **assistente no WhatsApp** que
+também registra as suas movimentações por conversa.
+
+<a name="aviso"></a>
+> ### ⚠️ Aviso
+> Conteúdo **informativo e educacional**. Não é recomendação de investimento,
+> não é consultoria e não substitui um profissional certificado. As decisões e
+> os resultados são seus. O briefing é texto gerado por um modelo de
+> linguagem a partir de dados públicos: **confira antes de agir**.
+
+### Escopo: um sistema pessoal, não uma plataforma
+
+Cada pessoa roda a **sua** instância, com a sua chave da Anthropic, o seu banco
+e o seu número de WhatsApp. Não há cadastro, não há multiusuário e não é
+objetivo virar plataforma — é o que mantém o sistema simples, barato e com os
+seus dados apenas na sua infraestrutura. Quer usar? Veja
+[Instalação](#instalação). Quer contribuir? Veja
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -52,9 +75,9 @@ antes de analisar:
 4. **Como a carteira sugerida é montada** (três etapas separadas de propósito):
    | Decisão | Quem decide | Como |
    |---|---|---|
-   | Quanto em cada classe | `src/onboarding/profile.py` | Regra determinística sobre o questionário (score de risco 0-100 → perfil → alocação, com ajustes por horizonte, liquidez e objetivo) |
-   | Quais ativos podem entrar | `src/analysis/screener.py` | Filtro quantitativo sobre 38 ativos líquidos da B3, com dados reais: liquidez mínima, P/L, dívida/patrimônio, dividend yield, volatilidade e tendência |
-   | Pesos e justificativa | `src/analysis/recommender.py` + Claude | O Claude distribui os pesos **dentro** das classes e explica cada escolha citando o dado. Se sugerir ticker fora da lista aprovada ou furar o peso da classe, a resposta é descartada e vale o rateio determinístico |
+   | Quanto em cada classe | `src/investai/onboarding/profile.py` | Regra determinística sobre o questionário (score de risco 0-100 → perfil → alocação, com ajustes por horizonte, liquidez e objetivo) |
+   | Quais ativos podem entrar | `src/investai/analysis/screener.py` | Filtro quantitativo sobre 38 ativos líquidos da B3, com dados reais: liquidez mínima, P/L, dívida/patrimônio, dividend yield, volatilidade e tendência |
+   | Pesos e justificativa | `src/investai/analysis/recommender.py` + Claude | O Claude distribui os pesos **dentro** das classes e explica cada escolha citando o dado. Se sugerir ticker fora da lista aprovada ou furar o peso da classe, a resposta é descartada e vale o rateio determinístico |
 
    O LLM nunca escolhe um ativo que o filtro reprovou nem muda a alocação por
    classe — e, sem `ANTHROPIC_API_KEY`, a recomendação sai completa pelo caminho
@@ -72,16 +95,20 @@ antes de analisar:
 Requer **Python 3.11+** (testado em 3.12).
 
 ```bash
+# 1. Clone
+git clone https://github.com/IgorCruz-dev/investai.git
 cd investai
 
-# 1. Ambiente virtual (o Python do sistema pode não ter pip; o venv traz o seu)
+# 2. Ambiente virtual (o Python do sistema pode não ter pip; o venv traz o seu)
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
-# 2. Dependências (versões fixadas)
-pip install -r requirements.txt
+# 3. O pacote, em modo editável, com a interface local (versões fixadas)
+pip install -e ".[dashboard]"
+#   pip install -e .               # só o núcleo: WhatsApp, análise e dados
+#   pip install -e ".[dashboard,dev]"   # + pytest e ruff, para contribuir
 
-# 3. Chaves de API
+# 4. Chaves de API
 cp .env.example .env
 # edite .env e preencha ANTHROPIC_API_KEY e (opcionalmente) CURRENTS_API_KEY
 ```
@@ -197,55 +224,63 @@ tipos de falha:
 
 ## Arquitetura
 
+Layout `src/`: o pacote é `investai`, instalável com `pip install -e .` — é o
+que põe os módulos no caminho de import do systemd, do cron e dos testes sem
+gambiarra de `PYTHONPATH`. Estado do usuário (`.env`, `config/`, `cache/`) mora
+**fora** do pacote, de propósito.
+
 ```
 investai/
-├── main.py                       # entry point do Streamlit (interface local)
-├── config/
-│   ├── portfolio.json            # espelho da carteira (a verdade está no Postgres)
-│   └── profile.json              # espelho do perfil
-├── deploy/
-│   ├── sql/001_inicial.sql       # esquema do Postgres + replay do ledger (trigger)
-│   ├── systemd + crontab.txt     # serviços e agendamentos da VM
-│   └── instalar.sh
-├── scripts/
-│   ├── migrar_para_pg.py         # aplica o esquema e semeia o catálogo
-│   ├── publicar_snapshot.py      # cron: calcula e publica o que a web lê
-│   └── processar_jobs.py         # cron: executa o que a web pede
-├── src/
-│   ├── config.py                 # .env, carteira (Postgres ou JSON), constantes
+├── main.py                           # entry point do Streamlit
+├── pyproject.toml                    # pacote, dependências fixadas, pytest, ruff
+├── src/investai/                     # ── o pacote ──────────────────────────
+│   ├── config.py                     # .env, carteira (Postgres ou JSON), constantes
+│   ├── snapshot.py                   # monta o snapshot que a interface web consome
 │   ├── data/
-│   │   ├── repo.py               # acesso ao Postgres (psycopg)
-│   │   ├── market_data.py        # yfinance: preços + fundamentals
-│   │   └── news_fetcher.py       # Google Notícias (RSS) + Currents de reserva
-│   ├── portfolio/
-│   │   └── escrita.py            # parsing, validação em camadas, confirmação
-│   ├── agent/
-│   │   ├── tools.py              # 8 ferramentas — também chamadas direto, sem LLM
-│   │   └── assistant.py          # agente com ferramentas (só no /pergunta)
-│   ├── onboarding/               # questionário e perfil
+│   │   ├── repo.py                   # acesso ao Postgres (psycopg)
+│   │   ├── market_data.py            # yfinance: preços + fundamentals
+│   │   └── news_fetcher.py           # Google Notícias (RSS) + Currents de reserva
 │   ├── analysis/
-│   │   ├── quantitative.py       # médias, RSI de Wilder, métricas da carteira
-│   │   ├── screener.py           # filtro quantitativo do universo da B3
-│   │   ├── recommender.py        # carteira sugerida
-│   │   ├── analise_ativo.py      # análise de um papel em UMA chamada, sem ferramentas
-│   │   ├── briefing.py           # montagem do briefing (devolve o uso de tokens)
-│   │   └── llm_analyst.py        # contexto com orçamento + chamada ao Claude
-│   └── utils/                    # resiliência, cache, formatação pt-BR, tickers
-├── server/                       # assistente no WhatsApp
-│   ├── app.py                    # FastAPI: mensagens, cron do briefing, /health
-│   ├── roteador.py               # resolução de intenção — pura, sem I/O
-│   ├── acoes.py                  # execução das intenções
-│   ├── onboarding_chat.py        # as 18 perguntas por conversa
-│   ├── store.py                  # SQLite: conversas, idempotência, gastos, sessão
-│   └── bridge_client.py          # fala com a ponte Baileys
-├── bridge/                       # ponte Node ↔ WhatsApp (Baileys)
-├── dashboard/
-│   ├── app.py + components/      # Streamlit (interface local de desenvolvimento)
-│   └── web/                      # interface publicada na Vercel
-│       ├── index.html, styles.css, app.js
-│       ├── snapshot.py           # monta o snapshot que a web consome
-│       └── api/                  # funções serverless (login, snapshot, movimento, jobs)
-└── tests/                        # pytest (rede real + offline)
+│   │   ├── quantitative.py           # médias, RSI de Wilder, métricas da carteira
+│   │   ├── screener.py               # filtro quantitativo do universo da B3
+│   │   ├── recommender.py            # carteira sugerida
+│   │   ├── asset_analysis.py         # análise de um papel em UMA chamada, sem ferramentas
+│   │   ├── briefing.py               # montagem do briefing (devolve o uso de tokens)
+│   │   └── llm_analyst.py            # contexto com orçamento + chamada ao Claude
+│   ├── portfolio/
+│   │   └── writes.py                 # parsing, validação em camadas, confirmação
+│   ├── agent/
+│   │   ├── tools.py                  # 8 ferramentas — também chamadas direto, sem LLM
+│   │   └── assistant.py              # agente com ferramentas (só no /pergunta)
+│   ├── onboarding/                   # questionário de 18 perguntas e perfil
+│   ├── utils/                        # resiliência, cache, formatação pt-BR, tickers
+│   ├── whatsapp/                     # assistente no WhatsApp
+│   │   ├── app.py                    # FastAPI: mensagens, cron do briefing, /health
+│   │   ├── router.py                 # resolução de intenção — pura, sem I/O
+│   │   ├── actions.py                # execução das intenções
+│   │   ├── onboarding_chat.py        # as 18 perguntas por conversa
+│   │   ├── store.py                  # SQLite: conversas, idempotência, gastos, sessão
+│   │   └── bridge_client.py          # fala com a ponte Baileys
+│   └── dashboard/                    # Streamlit: 4 abas + onboarding
+├── apps/                             # ── aplicações JS autônomas ───────────
+│   ├── web/                          # interface publicada na Vercel
+│   │   ├── index.html, styles.css, app.js
+│   │   └── api/                      # funções serverless (login, snapshot, movimento, jobs)
+│   └── bridge/                       # ponte Node ↔ WhatsApp (Baileys)
+├── scripts/                          # ── operação ──────────────────────────
+│   ├── migrate_to_postgres.py        # aplica o esquema e semeia o catálogo
+│   ├── publish_snapshot.py           # cron: calcula e publica o que a web lê
+│   ├── process_jobs.py               # cron: executa o que a web pede
+│   ├── export_snapshot.py            # grava apps/web/data.js (uso local, sem banco)
+│   ├── run-local.sh                  # sobe servidor + ponte nesta máquina
+│   └── fetch-qr.sh                   # baixa o QR de pareamento da VM
+├── deploy/
+│   ├── sql/001_initial.sql           # esquema do Postgres + replay do ledger (trigger)
+│   ├── install.sh, update-vm.sh      # instalação e atualização da VM
+│   └── *.service, crontab.example    # serviços e agendamentos
+├── config/                           # carteira e perfil (espelho local, fora do git)
+├── docs/                             # deploy.md e exemplos
+└── tests/                            # pytest (rede real + offline)
 ```
 
 ### Decisões de projeto
@@ -262,7 +297,7 @@ investai/
   clássica (70,46 / 57,92).
 - **Contexto do LLM filtrado e com orçamento.** O prompt leva apenas carteira,
   indicadores já calculados, fundamentals disponíveis e até 5 notícias por ativo.
-- **Uma validação só.** `src/portfolio/escrita.py` é usado pelo WhatsApp e pela web; a
+- **Uma validação só.** `src/investai/portfolio/writes.py` é usado pelo WhatsApp e pela web; a
   regra mais profunda (não vender o que não se tem) mora no **banco**, onde nem um
   `psql` na mão passa por cima.
 
@@ -305,7 +340,7 @@ conversa escreve esse prefixo no cache a 125% do preço de entrada: ~US$ 0,030
 para responder "como está minha carteira?", cuja resposta é um `SELECT` e três
 linhas de formatação.
 
-Agora um roteador determinístico (`server/roteador.py`) resolve a intenção
+Agora um roteador determinístico (`src/investai/whatsapp/router.py`) resolve a intenção
 **antes** de qualquer chamada de modelo:
 
 | | Hoje | Antes |
@@ -364,7 +399,7 @@ bot:   Compra registrada. ✅  _#1_
 ```
 
 Nada é gravado na primeira mensagem. A validação acontece em camadas, da mais
-barata para a mais cara (`src/portfolio/escrita.py`):
+barata para a mais cara (`src/investai/portfolio/writes.py`):
 
 1. **formato e faixa** — quantidade > 0, preço > 0, data não futura;
 2. **posição disponível** — vender 150 de uma posição de 100 é recusado aqui,
@@ -398,20 +433,20 @@ A conexão é via **Baileys** (dispositivo vinculado, como o WhatsApp Web), não
 pela Cloud API da Meta: sem cadastro, sem webhook público, sem domínio, sem
 HTTPS, sem template e sem janela de 24 horas.
 
-**Como rodar:** veja [DEPLOY.md](DEPLOY.md).
+**Como rodar:** veja [docs/deploy.md](docs/deploy.md).
 
 ```bash
-./rodar.sh          # sobe servidor + ponte (mostra o QR na primeira vez)
-./rodar.sh parar    # encerra os dois
+./scripts/run-local.sh          # sobe servidor + ponte (mostra o QR na primeira vez)
+./scripts/run-local.sh parar    # encerra os dois
 curl -s localhost:8000/health | jq
 ```
 
 ### Decisões que importam
 
-- **Reuso sem LLM.** As ferramentas em `src/agent/tools.py` são
+- **Reuso sem LLM.** As ferramentas em `src/investai/agent/tools.py` são
   `BetaFunctionTool`, mas continuam sendo função Python chamável. O roteador as
   invoca direto — mesma formatação que já estava em produção, sem modelo no meio.
-- **Resolução pura.** `roteador.resolver()` não toca em rede, banco nem modelo:
+- **Resolução pura.** `router.resolver()` não toca em rede, banco nem modelo:
   olha o texto e a sessão e devolve a intenção. É isso que permite testar a
   tabela inteira offline e afirmar, com teste, que nenhuma rota barata chama a API.
 - **Comando explícito vence vocabulário.** `/pergunta analisa PETR4` é pergunta
@@ -424,7 +459,7 @@ curl -s localhost:8000/health | jq
 
 ## Interface web — acessível de qualquer lugar
 
-O dashboard em `dashboard/web/` (HTML/CSS/JS puro, gráficos em SVG escritos à
+O dashboard em `apps/web/` (HTML/CSS/JS puro, gráficos em SVG escritos à
 mão, zero bibliotecas) deixou de ser um snapshot estático: agora é a interface
 publicada na **Vercel**, com senha, lendo e escrevendo o mesmo banco que o
 assistente do WhatsApp.
@@ -503,12 +538,12 @@ biblioteca de autenticação.
 
 ```bash
 # Com banco: a interface completa, igual à publicada
-.venv/bin/python scripts/publicar_snapshot.py
-cd dashboard/web && npm install && vercel dev
+.venv/bin/python scripts/publish_snapshot.py
+cd apps/web && npm install && vercel dev
 
 # Sem banco: snapshot estático em arquivo, como antes
-.venv/bin/python dashboard/web/scripts/export_snapshot.py
-cd dashboard/web && python3 -m http.server 8777
+.venv/bin/python scripts/export_snapshot.py --demo
+cd apps/web && python3 -m http.server 8777
 ```
 
 | Arquivo | Papel |
@@ -516,7 +551,7 @@ cd dashboard/web && python3 -m http.server 8777
 | `index.html` | Estrutura, 5 abas, tela de senha e formulário de movimentação |
 | `styles.css` | Tema único: tokens de cor, glassmorphism, orbs de luz |
 | `app.js` | Render, gráficos em SVG, CRUD do extrato, sessão |
-| `snapshot.py` | Monta o snapshot (usado pelo cron e pelo CLI) |
+| `src/investai/snapshot.py` | Monta o snapshot (cron e CLI) |
 | `api/*.js` | Funções serverless: login, snapshot, movimento, fila |
 
 Tipografia: Instrument Serif (display), Manrope (interface) e IBM Plex Mono
@@ -527,7 +562,7 @@ Tipografia: Instrument Serif (display), Manrope (interface) e IBM Plex Mono
 ## Banco de dados
 
 `movimentacoes` é a verdade; `posicoes` é derivada dela por replay, feito por
-um trigger em PL/pgSQL (`deploy/sql/001_inicial.sql`).
+um trigger em PL/pgSQL (`deploy/sql/001_initial.sql`).
 
 | Tabela | Guarda |
 |---|---|
@@ -559,3 +594,28 @@ estiver fora.
 
 ---
 
+## Contribuindo
+
+PRs são bem-vindos. O [CONTRIBUTING.md](CONTRIBUTING.md) tem o ambiente em
+quatro comandos, o que o CI exige e as convenções que o código segue — a mais
+importante delas: **o modelo não decide nada que o Python possa decidir**.
+
+```bash
+pip install -e ".[dashboard,dev]"
+ruff check .              # lint
+pytest -m "not network"   # 414 testes offline, o que o CI roda
+pytest                    # suíte completa, bate nas APIs reais (~12 min)
+```
+
+Bug ou ideia? [Abra uma issue](https://github.com/IgorCruz-dev/investai/issues/new/choose).
+Vulnerabilidade de segurança? Use uma
+[advisory privada](https://github.com/IgorCruz-dev/investai/security/advisories/new),
+não uma issue pública.
+
+## Licença
+
+[MIT](LICENSE) — © 2026 Igor Cruz.
+
+Dependências de terceiros mantêm as suas próprias licenças. O **yfinance** é
+uma biblioteca não oficial que raspa dados do Yahoo Finance: confira os termos
+de uso do Yahoo antes de qualquer utilização comercial.

@@ -1,13 +1,8 @@
 # Núcleo: o que roda na VM (assistente do WhatsApp, análise, dados).
-# A interface local em Streamlit está em requirements-dashboard.txt — a VM tem
-# 1 GB de RAM e nunca executa Streamlit, então não paga por ele.
-anthropic==1.13.0
-fastapi==0.143.0
-numpy==2.5.4
-pandas==3.0.6
-psycopg[binary,pool]==3.3.6
-pytest==9.1.1
-python-dotenv==1.2.4
-requests==2.34.2
-uvicorn==0.54.0
-yfinance==1.7.0
+#
+# As versões moram em pyproject.toml, em um só lugar — este arquivo existe para
+# quem espera o `pip install -r requirements.txt` de sempre, e instala o pacote
+# em modo editável. A interface local em Streamlit está em
+# requirements-dashboard.txt: a VM tem 1 GB de RAM, nunca executa Streamlit e
+# não paga por ele.
+-e .

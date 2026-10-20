@@ -21,7 +21,7 @@ MAIN = Path(__file__).resolve().parent.parent / "main.py"
 @pytest.fixture
 def carteira_real(tmp_path, monkeypatch):
     """Carteira com posições reais, isolada do `config/portfolio.json` do usuário."""
-    from src import config as config_module
+    from investai import config as config_module
 
     arquivo = tmp_path / "portfolio.json"
     arquivo.write_text(
@@ -101,7 +101,7 @@ def carteira_vazia(tmp_path, monkeypatch):
     chave; removendo a variável, a recomendação sai pelo filtro quantitativo e
     o teste não consome créditos a cada execução.
     """
-    from src import config as config_module
+    from investai import config as config_module
 
     vazia = tmp_path / "portfolio.json"
     vazia.write_text('{"portfolio": [], "currency": "BRL"}', encoding="utf-8")
@@ -129,8 +129,8 @@ def test_sem_carteira_o_app_abre_o_onboarding(require_internet, carteira_vazia):
 @pytest.mark.network
 def test_onboarding_chega_na_carteira_sugerida(require_internet, carteira_vazia):
     """Com o questionário respondido, a tela final traz perfil e recomendação."""
-    from dashboard.components.onboarding import STATE_ANSWERS, STATE_PATH, STATE_STEP
-    from src.onboarding.questionnaire import STEPS
+    from investai.dashboard.components.onboarding import STATE_ANSWERS, STATE_PATH, STATE_STEP
+    from investai.onboarding.questionnaire import STEPS
     from tests.test_onboarding import BASE_ANSWERS
 
     app = AppTest.from_file(str(MAIN), default_timeout=300)
@@ -155,7 +155,7 @@ def test_onboarding_chega_na_carteira_sugerida(require_internet, carteira_vazia)
 
 @pytest.mark.network
 def test_onboarding_de_quem_ja_tem_carteira_pede_cotas(require_internet, carteira_vazia):
-    from dashboard.components.onboarding import STATE_PATH
+    from investai.dashboard.components.onboarding import STATE_PATH
 
     app = AppTest.from_file(str(MAIN), default_timeout=300)
     app.session_state[STATE_PATH] = "existing"

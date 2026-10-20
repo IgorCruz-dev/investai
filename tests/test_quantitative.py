@@ -1,4 +1,4 @@
-"""Testes de `src.analysis.quantitative` — matemática, sem rede."""
+"""Testes de `investai.analysis.quantitative` — matemática, sem rede."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.analysis.quantitative import (
+from investai.analysis.quantitative import (
     INDICATOR_FIELDS,
     TREND_SIGNALS,
     calculate_indicators,
@@ -15,7 +15,7 @@ from src.analysis.quantitative import (
     portfolio_totals,
     rsi_series,
 )
-from src.config import Portfolio, Position
+from investai.config import Portfolio, Position
 
 # Série de referência de Wilder (o mesmo exemplo usado para validar ta-lib).
 WILDER_CLOSES = [

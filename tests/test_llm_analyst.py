@@ -1,4 +1,4 @@
-"""Testes de `src.analysis.llm_analyst`.
+"""Testes de `investai.analysis.llm_analyst`.
 
 A construção do prompt é testada offline (é função pura). A chamada real à
 Claude API é um teste `network`+`paid`, desativado por padrão: gastaria
@@ -12,7 +12,7 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from src.analysis.llm_analyst import (
+from investai.analysis.llm_analyst import (
     CONTEXT_TOKEN_BUDGET,
     REQUIRED_CONTEXT_FIELDS,
     SYSTEM_PROMPT,

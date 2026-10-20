@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.onboarding.profile import (
+from investai.onboarding.profile import (
     ARROJADO,
     CONSERVADOR,
     EMERGENCY_MONTHS,
@@ -17,7 +17,7 @@ from src.onboarding.profile import (
     calculate_risk_score,
     classify,
 )
-from src.onboarding.questionnaire import (
+from investai.onboarding.questionnaire import (
     HAS_PORTFOLIO_QUESTION,
     QUESTIONS,
     QUESTIONS_BY_KEY,

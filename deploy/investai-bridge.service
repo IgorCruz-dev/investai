@@ -7,8 +7,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/home/ubuntu/investai/bridge
-EnvironmentFile=/home/ubuntu/investai/bridge/.env
+WorkingDirectory=/home/ubuntu/investai/apps/bridge
+EnvironmentFile=/home/ubuntu/investai/apps/bridge/.env
 ExecStart=/usr/bin/node index.js
 Restart=always
 RestartSec=10

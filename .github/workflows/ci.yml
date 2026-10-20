@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Instala o pacote e as dependências de desenvolvimento
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dashboard,dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      # Só a suíte offline: os testes marcados `network` batem em yfinance e no
+      # Google Notícias de propósito, e um runner do GitHub tomando rate limit
+      # deixaria o CI vermelho por motivo que não é do PR. A suíte completa é
+      # responsabilidade de quem abre o PR (`pytest`), e está no CONTRIBUTING.
+      - name: Testes offline
+        run: pytest -m "not network"
+
+  bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: A ponte Baileys compila
+        working-directory: apps/bridge
+        run: |
+          npm ci
+          node --check index.js

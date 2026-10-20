@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.onboarding.questionnaire import QUESTIONS
+from investai.onboarding.questionnaire import QUESTIONS
 
 NUMERO = "5516999990000"
 
@@ -23,16 +23,16 @@ def conversa(tmp_path, monkeypatch, banco):
     monkeypatch.setenv("INVESTAI_DB", str(tmp_path / "sessao.db"))
     import importlib
 
-    from server import config as config_mod
+    from investai.whatsapp import config as config_mod
     importlib.reload(config_mod)
-    from server import store as store_mod
+    from investai.whatsapp import store as store_mod
     importlib.reload(store_mod)
     store_mod.init()
 
-    from server import onboarding_chat
+    from investai.whatsapp import onboarding_chat
     importlib.reload(onboarding_chat)
 
-    from src.agent import assistant
+    from investai.agent import assistant
     monkeypatch.setattr(assistant, "responder",
                         lambda *a, **k: pytest.fail("onboarding não chama o modelo"))
 
@@ -43,12 +43,12 @@ def conversa(tmp_path, monkeypatch, banco):
 
         def manda(self, texto: str) -> str:
             """Passa pelo roteador de verdade, como uma mensagem do WhatsApp."""
-            from server import acoes
-            from server.roteador import resolver
+            from investai.whatsapp import actions
+            from investai.whatsapp.router import resolver
 
             intencao = resolver(texto, store_mod.ler_sessao(NUMERO))
             assert intencao.usa_llm is False, f'"{texto}" tentou usar IA'
-            return acoes.executar(intencao, NUMERO)
+            return actions.executar(intencao, NUMERO)
 
     return Conversa()
 

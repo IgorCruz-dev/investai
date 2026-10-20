@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from src.agent import tools
-from src.agent.assistant import MAX_HISTORICO, Resposta, _aparar, responder, saudacao
+from investai.agent import tools
+from investai.agent.assistant import MAX_HISTORICO, Resposta, _aparar, responder, saudacao
 
 
 # --- Normalização de ticker -------------------------------------------------
@@ -132,7 +132,7 @@ def test_carteira_vazia_ensina_a_registrar_a_primeira_posicao(monkeypatch, tmp_p
     usuário ainda não cadastrou posições, sugira..."); desde o roteador, essa
     string vai direto para o celular.
     """
-    from src import config as config_mod
+    from investai import config as config_mod
 
     vazia = tmp_path / "portfolio.json"
     vazia.write_text('{"portfolio": [], "currency": "BRL"}', encoding="utf-8")
@@ -146,7 +146,7 @@ def test_carteira_vazia_ensina_a_registrar_a_primeira_posicao(monkeypatch, tmp_p
 
 
 def test_perfil_ausente_orienta_o_onboarding(monkeypatch, tmp_path):
-    from src import config as config_mod
+    from investai import config as config_mod
 
     monkeypatch.setattr(config_mod, "PROFILE_PATH", tmp_path / "inexistente.json")
     assert "onboarding" in tools.status_do_perfil().lower()
@@ -187,7 +187,7 @@ def test_agente_responde_pergunta_real(require_internet):
 @pytest.mark.parametrize("mensagem", ["oi", "Oi!", "OLÁ", "bom dia", "Boa noite",
                                       "tudo bem?", "valeu", "obrigado", "👍"])
 def test_mensagens_triviais_respondem_sem_chamar_o_modelo(mensagem):
-    from src.agent.assistant import resposta_rapida
+    from investai.agent.assistant import resposta_rapida
     assert resposta_rapida(mensagem) is not None
 
 
@@ -199,7 +199,7 @@ def test_mensagens_triviais_respondem_sem_chamar_o_modelo(mensagem):
 ])
 def test_mensagem_com_pedido_real_vai_para_o_modelo(mensagem):
     """Só a saudação pura responde local — pedido junto precisa do modelo."""
-    from src.agent.assistant import resposta_rapida
+    from investai.agent.assistant import resposta_rapida
     assert resposta_rapida(mensagem) is None
 
 

@@ -1,4 +1,4 @@
-"""Testes de `src.data.news_fetcher`.
+"""Testes de `investai.data.news_fetcher`.
 
 A fonte primária (Google Notícias, RSS) não precisa de chave, então a busca real
 é testada de verdade. O parsing do RSS é testado com um XML fixo — não é mock de
@@ -9,11 +9,11 @@ formato real continua casando com ele.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from src.data import news_fetcher
+from investai.data import news_fetcher
 
 RSS_EXEMPLO = """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel>
@@ -149,7 +149,7 @@ def test_parse_currents_ordena_por_relevancia_e_apara_descricao():
 
 def test_start_date_da_currents_fica_abaixo_do_limite_da_api():
     """A Currents devolve 400 se a janela alcançar 7 dias exatos."""
-    now = datetime(2026, 10, 12, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 10, 12, 12, 0, tzinfo=UTC)
 
     for days in (7, 15, 365):
         inicio = datetime.fromisoformat(news_fetcher.start_date_for(days, now))
@@ -197,10 +197,10 @@ def test_fonte_que_falha_nao_derruba_a_busca(monkeypatch):
 
 def test_fallback_entra_quando_a_primaria_vem_vazia(monkeypatch):
     monkeypatch.setenv("CURRENTS_API_KEY", "chave")
-    monkeypatch.setitem(news_fetcher.PROVIDERS, "google", lambda t, d, l: [])
+    monkeypatch.setitem(news_fetcher.PROVIDERS, "google", lambda t, d, limite: [])
     monkeypatch.setitem(
         news_fetcher.PROVIDERS, "currents",
-        lambda t, d, l: [{"title": "da reserva", "description": "", "url": "u",
+        lambda t, d, limite: [{"title": "da reserva", "description": "", "url": "u",
                           "published": "", "source": "Currents"}],
     )
     news = news_fetcher.fetch_financial_news(["PETR4.SA"], provider="auto", use_cache=False)
@@ -223,7 +223,7 @@ def test_busca_real_no_google_traz_noticias_relevantes(require_internet):
     if not any(news.values()):
         pytest.skip("Google Notícias não respondeu agora")
 
-    for ticker, articles in news.items():
+    for _ticker, articles in news.items():
         assert len(articles) <= 5, "máximo de 5 artigos por ativo"
         for article in articles:
             assert set(article) == set(news_fetcher.ARTICLE_FIELDS)

@@ -25,12 +25,14 @@ def ambiente(tmp_path, monkeypatch):
     monkeypatch.setenv("INVESTAI_MONTHLY_BUDGET_USD", "5")
 
     import importlib
-    from server import config as config_mod
+
+    from investai.whatsapp import config as config_mod
     importlib.reload(config_mod)
-    from server import bridge_client as bridge_mod, store as store_mod
+    from investai.whatsapp import bridge_client as bridge_mod
+    from investai.whatsapp import store as store_mod
     importlib.reload(store_mod)
     importlib.reload(bridge_mod)
-    from server import app as app_mod
+    from investai.whatsapp import app as app_mod
     importlib.reload(app_mod)
 
     enviadas: list[tuple[str, str]] = []
@@ -45,10 +47,10 @@ def ambiente(tmp_path, monkeypatch):
     # caiu na rota de análise (a palavra "analisa" casava antes do comando) e
     # fez uma chamada paga de verdade, silenciosamente. Um teste jamais deve
     # poder gastar crédito: a lista abaixo é a fronteira.
-    from src.agent import assistant as assistant_mod
-    from src.analysis import analise_ativo as analise_mod
-    from src.analysis import briefing as briefing_mod
-    from src.analysis import llm_analyst as llm_mod
+    from investai.agent import assistant as assistant_mod
+    from investai.analysis import asset_analysis as analise_mod
+    from investai.analysis import briefing as briefing_mod
+    from investai.analysis import llm_analyst as llm_mod
 
     def _nao_chamar(*a, **k):
         pytest.fail("este teste não deveria chamar a API da Anthropic")
@@ -70,7 +72,7 @@ def ambiente(tmp_path, monkeypatch):
 def agente_falso(ambiente, monkeypatch):
     """Substitui o agente por um registrador. Devolve a lista de chamadas."""
     app_mod, _store, _enviadas = ambiente
-    from src.agent import assistant as assistant_mod
+    from investai.agent import assistant as assistant_mod
 
     chamadas: list[str] = []
 
@@ -100,7 +102,7 @@ def postar(client, texto, numero=NUMERO, message_id="m1", segredo=SEGREDO):
 
 
 def _resposta_fake(texto: str = "resposta de teste"):
-    from src.agent.assistant import Resposta
+    from investai.agent.assistant import Resposta
     return Resposta(texto=texto, historico=[{"role": "user", "content": "oi"}],
                     input_tokens=10, output_tokens=20)
 
@@ -159,7 +161,7 @@ def test_comando_de_limpar_apaga_o_historico(client, ambiente):
 def test_pergunta_livre_responde_e_guarda_historico(client, ambiente, monkeypatch):
     """`/pergunta` é a única rota de conversa livre — e a única com histórico."""
     app_mod, store_mod, enviadas = ambiente
-    from src.agent import assistant as assistant_mod
+    from investai.agent import assistant as assistant_mod
 
     resposta = _resposta_fake("PETR4 está em R$ 56,00")
     monkeypatch.setattr(assistant_mod, "responder", lambda *a, **k: resposta)
@@ -171,8 +173,8 @@ def test_pergunta_livre_responde_e_guarda_historico(client, ambiente, monkeypatc
 
 
 def test_erro_do_agente_vira_mensagem_amigavel(client, ambiente, monkeypatch):
-    from src.agent import assistant as assistant_mod
-    from src.agent.assistant import Resposta
+    from investai.agent import assistant as assistant_mod
+    from investai.agent.assistant import Resposta
 
     _app, _store, enviadas = ambiente
     monkeypatch.setattr(assistant_mod, "responder",
@@ -185,13 +187,13 @@ def test_erro_do_agente_vira_mensagem_amigavel(client, ambiente, monkeypatch):
 
 
 def test_excecao_inesperada_nao_derruba_o_servidor(client, ambiente, monkeypatch):
-    from server import acoes
+    from investai.whatsapp import actions
 
     def explode(*a, **k):
         raise RuntimeError("boom")
 
     _app, _store, enviadas = ambiente
-    monkeypatch.setitem(acoes.ACOES, "carteira", explode)
+    monkeypatch.setitem(actions.ACOES, "carteira", explode)
 
     resposta = postar(client, "minha carteira")
 
@@ -260,7 +262,7 @@ def test_cron_exige_token(client):
 def test_cron_com_token_valido_agenda_o_envio(client, ambiente, monkeypatch):
     # O endpoint roda o briefing em segundo plano, e o `TestClient` executa a
     # tarefa de verdade — sem este patch o teste geraria um briefing pago.
-    monkeypatch.setattr("src.agent.tools.gerar_briefing", lambda: "BRIEFING DE TESTE")
+    monkeypatch.setattr("investai.agent.tools.gerar_briefing", lambda: "BRIEFING DE TESTE")
 
     resposta = client.post("/cron/briefing", params={"token": "token-cron"})
 
@@ -272,7 +274,7 @@ def test_briefing_semanal_envia_para_os_autorizados(ambiente, monkeypatch):
     app_mod, _store, enviadas = ambiente
     monkeypatch.setattr(app_mod, "_enviar_briefing_semanal",
                         app_mod._enviar_briefing_semanal)  # usa o real
-    monkeypatch.setattr("src.agent.tools.gerar_briefing", lambda: "BRIEFING DE TESTE")
+    monkeypatch.setattr("investai.agent.tools.gerar_briefing", lambda: "BRIEFING DE TESTE")
 
     app_mod._enviar_briefing_semanal()
 
@@ -298,7 +300,7 @@ def test_pergunta_com_palavra_de_outra_rota_no_argumento(client, ambiente, monke
     conversa livre e recebia — e pagava — outra rota. Comando com barra é
     declaração de intenção: o que vem depois é argumento.
     """
-    from server.roteador import resolver
+    from investai.whatsapp.router import resolver
 
     intencao = resolver("/pergunta analisa PETR4")
 
@@ -307,7 +309,7 @@ def test_pergunta_com_palavra_de_outra_rota_no_argumento(client, ambiente, monke
 
 
 def test_comando_explicito_vence_qualquer_palavra_chave():
-    from server.roteador import resolver
+    from investai.whatsapp.router import resolver
 
     casos = {
         "/pergunta me manda o briefing da carteira": "pergunta",
@@ -352,7 +354,7 @@ def test_menu_numerado_responde_ao_que_nao_foi_entendido(client, ambiente):
 def test_flag_desligada_volta_ao_agente_antigo(client, ambiente, monkeypatch):
     """`INVESTAI_ROTEADOR=0` é o rollback do deploy e precisa continuar valendo."""
     app_mod, _store, enviadas = ambiente
-    from src.agent import assistant as assistant_mod
+    from investai.agent import assistant as assistant_mod
 
     monkeypatch.setattr(app_mod, "ROTEADOR", False)
     monkeypatch.setattr(assistant_mod, "responder",

@@ -66,7 +66,7 @@ def skip_if_api_down():
 @pytest.fixture(autouse=True)
 def isolated_cache(tmp_path, monkeypatch):
     """Cada teste usa um arquivo de cache próprio, para não contaminar os outros."""
-    from src.utils import cache as cache_module
+    from investai.utils import cache as cache_module
 
     monkeypatch.setattr(cache_module.cache, "path", tmp_path / "data_cache.json")
     return cache_module.cache
@@ -109,7 +109,7 @@ def banco(monkeypatch):
         pytest.skip("psycopg não instalado")
 
     schema = f"t_{uuid.uuid4().hex[:12]}"
-    sql = (pathlib.Path(__file__).resolve().parents[1] / "deploy" / "sql" / "001_inicial.sql")
+    sql = (pathlib.Path(__file__).resolve().parents[1] / "deploy" / "sql" / "001_initial.sql")
     migracao = sql.read_text(encoding="utf-8")
 
     try:
@@ -124,7 +124,7 @@ def banco(monkeypatch):
             # `begin/commit` do arquivo brigam com autocommit; o schema já isola.
             cur.execute(migracao.replace("begin;", "").replace("commit;", ""))
 
-    from src.data import repo
+    from investai.data import repo
 
     separador = "&" if "?" in url else "?"
     monkeypatch.setenv("DATABASE_URL", f"{url}{separador}options=-csearch_path%3D{schema}")
