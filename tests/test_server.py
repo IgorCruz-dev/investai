@@ -35,6 +35,12 @@ def ambiente(tmp_path, monkeypatch):
     from investai.whatsapp import app as app_mod
     importlib.reload(app_mod)
 
+    # O reload acima re-executa `load_dotenv()`, que ressuscita a DATABASE_URL
+    # que a fixture `sem_banco_por_padrao` tinha escondido. Sem esta linha a
+    # suíte offline passa a falar com o Postgres remoto de quem tem `.env` —
+    # e quebra em quem não tem, o que é o caso do CI e de todo clone novo.
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
     enviadas: list[tuple[str, str]] = []
     monkeypatch.setattr(app_mod.bridge_client, "enviar_texto",
                         lambda numero, texto, jid="": enviadas.append((numero, texto)) or True)
@@ -346,9 +352,13 @@ def test_menu_numerado_responde_ao_que_nao_foi_entendido(client, ambiente):
 
     postar(client, "6", message_id="m-2")
 
-    # Item 6 é o extrato; sem movimentação, ele diz exatamente isso.
-    assert "movimenta" in enviadas[-1][1], "o número do menu tem de executar o item"
-    assert "1. Carteira" not in enviadas[-1][1], "não pode repetir o menu"
+    # Item 6 é o extrato. Com banco ele diz que não há movimentação; sem banco,
+    # que não conseguiu consultar. As duas respostas provam o que o teste quer:
+    # o número executou o item em vez de repetir o menu.
+    resposta = enviadas[-1][1]
+    assert "movimenta" in resposta or "banco de dados" in resposta, \
+        "o número do menu tem de executar o item"
+    assert "1. Carteira" not in resposta, "não pode repetir o menu"
 
 
 def test_flag_desligada_volta_ao_agente_antigo(client, ambiente, monkeypatch):

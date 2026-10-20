@@ -1,7 +1,7 @@
 # 📈 InvestAI
 
 [![CI](https://github.com/IgorCruz-dev/investai/actions/workflows/ci.yml/badge.svg)](https://github.com/IgorCruz-dev/investai/actions/workflows/ci.yml)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/lint-ruff-261230.svg)](https://docs.astral.sh/ruff/)
 
@@ -92,7 +92,7 @@ antes de analisar:
 
 ## Instalação
 
-Requer **Python 3.11+** (testado em 3.12).
+Requer **Python 3.12+** (os pins de numpy e pandas não têm build para 3.11).
 
 ```bash
 # 1. Clone

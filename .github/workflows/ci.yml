@@ -19,7 +19,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        # 3.12 é o piso: os pins de numpy e pandas não têm build para 3.11.
+        # 3.13 entra quando eu tiver confirmado os wheels de todas as pinagens.
+        python-version: ["3.12"]
 
     steps:
       - uses: actions/checkout@v4

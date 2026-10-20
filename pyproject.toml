@@ -7,7 +7,7 @@ name = "investai"
 version = "0.1.0"
 description = "Assistente de investimentos que lê sua carteira, busca dados reais de mercado e usa o Claude para escrever um briefing fundamentado"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = "MIT"
 authors = [{ name = "Igor Cruz" }]
 keywords = ["investimentos", "b3", "yfinance", "claude", "anthropic", "whatsapp"]
@@ -15,7 +15,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: End Users/Desktop",
     "Natural Language :: Portuguese (Brazilian)",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business :: Financial :: Investment",
 ]
@@ -57,7 +56,7 @@ filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 src = ["src", "scripts", "tests"]
 
 [tool.ruff.lint]
@@ -66,4 +65,7 @@ ignore = [
     "E501",  # o comprimento de linha é guia, não erro: quebrar uma f-string de
              # mensagem ao usuário no meio costuma piorar a leitura
     "B008",  # Depends() no default de parâmetro é o idioma do FastAPI
+    "UP047",  # a sintaxe de genérico do PEP 695 fica para um PR próprio: o
+              # TypeVar de resilience.py é compartilhado por `retry` e `safe`,
+              # e migrar só uma das duas deixaria o módulo em dois estilos
 ]
