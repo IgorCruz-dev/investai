@@ -242,15 +242,32 @@ def _enviar_briefing_semanal() -> None:
 
     cabecalho = "📊 *Seu briefing semanal do InvestAI*\n\n"
 
-    for dono in tenants.todos():
-        escopo = tenants.usar(dono) if tenants.multiusuario() else contextlib.nullcontext()
-        with escopo:
-            try:
-                texto = gerar_briefing()  # a ferramenta já trata os próprios erros
-            except Exception as exc:  # noqa: BLE001
-                logger.exception("Falha ao gerar o briefing de %s", dono.id)
-                texto = f"Não consegui gerar o briefing desta semana ({exc.__class__.__name__})."
+    def gerar(rotulo: str) -> str:
+        try:
+            return gerar_briefing()  # a ferramenta já trata os próprios erros
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Falha ao gerar o briefing de %s", rotulo)
+            return f"Não consegui gerar o briefing desta semana ({exc.__class__.__name__})."
 
+    if not tenants.multiusuario():
+        # Instância pessoal: uma carteira só, enviada a cada número autorizado
+        # (dá para ter o celular e o tablet na lista). Os números saem do
+        # ambiente, não do tenant sintético — ele é só um lugar para pendurar o
+        # pool, e o telefone dele é uma cópia do `.env` feita no carregamento.
+        texto = gerar("instância pessoal")
+        for numero in sorted(tenants.telefones_autorizados()):
+            if bridge_client.enviar_texto(numero, cabecalho + texto):
+                logger.info("Briefing semanal enviado para %s", numero[:6] + "…")
+            else:
+                logger.error("Falha ao enviar o briefing para %s", numero[:6] + "…")
+        return
+
+    # Um briefing por carteira: antes era um texto só, enviado a todo número da
+    # lista — o que com mais de uma pessoa significaria mandar a carteira de
+    # alguém para o grupo inteiro.
+    for dono in tenants.todos():
+        with tenants.usar(dono):
+            texto = gerar(dono.id)
             if not dono.telefone:
                 logger.warning("Usuário %s sem telefone — briefing não enviado", dono.id)
                 continue

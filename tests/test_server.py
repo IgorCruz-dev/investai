@@ -24,6 +24,12 @@ def ambiente(tmp_path, monkeypatch):
     monkeypatch.setenv("INVESTAI_CRON_TOKEN", "token-cron")
     monkeypatch.setenv("INVESTAI_MONTHLY_BUDGET_USD", "5")
 
+    # Registro recarregado: um `INVESTAI_TENANTS` deixado por outro teste faria
+    # este servidor nascer multiusuário sem ninguém pedir.
+    from investai import tenants
+    monkeypatch.delenv("INVESTAI_TENANTS", raising=False)
+    tenants.recarregar()
+
     import importlib
 
     from investai.whatsapp import config as config_mod

@@ -27,6 +27,15 @@ Onde o registro mora, em ordem de precedência:
 3. nenhum dos dois: o sistema opera **como sempre operou**, com um tenant só
    montado a partir de `DATABASE_URL` e `ANTHROPIC_API_KEY`. É o que mantém a
    instalação de uma pessoa (e a suíte de testes) funcionando sem registro.
+
+Regra para quem for mexer: **o tenant sintético do caso 3 não é fonte de
+configuração.** Ele existe para dar uma chave ao pool e um item ao laço dos
+crons; os campos dele são uma cópia do ambiente feita no carregamento, e ler
+`tenant.algo` em modo pessoal entrega um valor possivelmente velho, ou vazio se
+o `.env` só apareceu depois. Quem consome campo de tenant guarda com
+`if multiusuario():` e, no outro ramo, lê o ambiente. Três bugs nasceram disso
+(chave da Anthropic, URL do banco e destinatário do briefing semanal) — todos
+com teste de regressão hoje.
 """
 
 from __future__ import annotations
