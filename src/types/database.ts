@@ -198,18 +198,21 @@ export type Database = {
           criado_em: string
           email: string
           id: string
+          meta_caixinha: number | null
           nome: string
         }
         Insert: {
           criado_em?: string
           email: string
           id: string
+          meta_caixinha?: number | null
           nome: string
         }
         Update: {
           criado_em?: string
           email?: string
           id?: string
+          meta_caixinha?: number | null
           nome?: string
         }
         Relationships: []
