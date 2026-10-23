@@ -36,7 +36,7 @@ src/
     assinaturas/, comparativo/, caixinha/
   hooks/            useAuth
   services/         funções que falam com o Supabase
-  types/            database.ts (gerado do banco), financas.ts, perfil.ts
+  types/            database.ts (gerado do banco), financas.ts
 supabase/
   migrations/       SQL aplicado no banco (nome = versão registrada no Supabase)
   functions/        Edge Functions da Pluggy (Open Finance)

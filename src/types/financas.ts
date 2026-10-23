@@ -26,4 +26,3 @@ export type NovaTransacao = Omit<TablesInsert<'transacoes'>, 'tipo' | 'forma' | 
 }
 
 export type MovimentoCaixinha = Omit<Tables<'caixinha_movimentos'>, 'tipo'> & { tipo: TipoMovimentoCaixinha }
-export type NovoMovimentoCaixinha = Omit<TablesInsert<'caixinha_movimentos'>, 'tipo'> & { tipo: TipoMovimentoCaixinha }

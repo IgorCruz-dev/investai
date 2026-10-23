@@ -35,12 +35,6 @@ export const IconeOlhoFechado = (p: Props) => (
     d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"
   />
 )
-export const IconeCarrinho = (p: Props) => (
-  <Icone
-    {...p}
-    d="M3 4h2l2.4 11.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6.2M9 20.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm8 0a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"
-  />
-)
 export const IconeCheck = (p: Props) => <Icone {...p} d="M5 12.5l4.5 4.5L19 7.5" />
 export const IconeAlerta = (p: Props) => (
   <Icone {...p} d="M12 8v5m0 3.5v.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
