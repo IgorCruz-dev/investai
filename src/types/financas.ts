@@ -10,6 +10,7 @@ export type TipoMovimentoCaixinha = 'deposito' | 'retirada'
 export type Categoria = Tables<'categorias'>
 export type Conta = Tables<'contas'>
 export type Cartao = Tables<'cartoes'>
+export type NovoCartao = Pick<TablesInsert<'cartoes'>, 'nome' | 'bandeira' | 'limite' | 'dia_fechamento' | 'dia_vencimento' | 'cor'>
 export type Assinatura = Tables<'assinaturas'>
 
 export type Transacao = Omit<Tables<'transacoes'>, 'tipo' | 'forma' | 'origem'> & {

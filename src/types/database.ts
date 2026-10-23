@@ -230,6 +230,8 @@ export type Database = {
           local: string | null
           observacao: string | null
           origem: string
+          pagamento_cartao_id: string | null
+          pagamento_fatura: string | null
           parcela_atual: number | null
           tipo: string
           total_parcelas: number | null
@@ -251,6 +253,8 @@ export type Database = {
           local?: string | null
           observacao?: string | null
           origem?: string
+          pagamento_cartao_id?: string | null
+          pagamento_fatura?: string | null
           parcela_atual?: number | null
           tipo: string
           total_parcelas?: number | null
@@ -272,6 +276,8 @@ export type Database = {
           local?: string | null
           observacao?: string | null
           origem?: string
+          pagamento_cartao_id?: string | null
+          pagamento_fatura?: string | null
           parcela_atual?: number | null
           tipo?: string
           total_parcelas?: number | null
@@ -300,6 +306,13 @@ export type Database = {
             referencedRelation: "contas"
             referencedColumns: ["id", "user_id"]
           },
+          {
+            foreignKeyName: "transacoes_pagamento_cartao_id_user_id_fkey"
+            columns: ["pagamento_cartao_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "cartoes"
+            referencedColumns: ["id", "user_id"]
+          },
         ]
       }
     }
@@ -310,6 +323,13 @@ export type Database = {
       criar_categorias_padrao: {
         Args: { p_user_id: string }
         Returns: undefined
+      }
+      limite_usado_cartoes: {
+        Args: never
+        Returns: {
+          cartao_id: string
+          usado: number
+        }[]
       }
       saldo_atual: { Args: never; Returns: number }
     }
