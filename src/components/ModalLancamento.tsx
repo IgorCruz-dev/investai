@@ -12,6 +12,7 @@ import {
   excluirTransacao,
   type DadosLancamento,
 } from '../services/transacoes'
+import type { PadraoLancamento } from '../contexts/lancamentos'
 import type { Cartao, Categoria, Conta, FormaPagamento, TipoTransacao, Transacao } from '../types/financas'
 import Alerta from './Alerta'
 import Botao from './Botao'
@@ -24,6 +25,10 @@ import SeletorCategoria from './SeletorCategoria'
 type Props = {
   /** null = novo lançamento */
   transacao: Transacao | null
+  /** Valores já escolhidos num lançamento novo (ex.: crédito no cartão X) */
+  padrao?: PadraoLancamento
+  /** Abre direto na confirmação de exclusão */
+  iniciarExcluindo?: boolean
   aoFechar: () => void
   /** Chamado depois de salvar ou excluir, para as telas recarregarem */
   aoSalvar: () => void
@@ -42,9 +47,10 @@ const formasDeReceita = todasAsFormas.filter((f) => f.valor !== 'credito')
 
 const opcoesParcelas = Array.from({ length: 12 }, (_, i) => i + 1)
 
-export default function ModalLancamento({ transacao, aoFechar, aoSalvar }: Props) {
+export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = false, aoFechar, aoSalvar }: Props) {
   const editando = transacao !== null
   const ehParcela = Boolean(transacao?.grupo_parcela)
+  const ehPagamento = Boolean(transacao?.pagamento_cartao_id)
 
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [contas, setContas] = useState<Conta[]>([])
@@ -52,19 +58,20 @@ export default function ModalLancamento({ transacao, aoFechar, aoSalvar }: Props
 
   const [tipo, setTipo] = useState<TipoTransacao>(transacao?.tipo ?? 'despesa')
   const [centavos, setCentavos] = useState(transacao ? Math.round(transacao.valor * 100) : 0)
-  const [forma, setForma] = useState<FormaPagamento>(transacao?.forma ?? 'pix')
-  const [cartaoId, setCartaoId] = useState<string | null>(transacao?.cartao_id ?? null)
+  const [forma, setForma] = useState<FormaPagamento>(transacao?.forma ?? padrao?.forma ?? 'pix')
+  const [cartaoId, setCartaoId] = useState<string | null>(transacao?.cartao_id ?? padrao?.cartaoId ?? null)
   const [contaId, setContaId] = useState<string | null>(transacao?.conta_id ?? null)
   const [parcelas, setParcelas] = useState(1)
   const [local, setLocal] = useState(transacao?.local ?? '')
   const [descricao, setDescricao] = useState(transacao?.descricao ?? '')
+  const [observacao, setObservacao] = useState(transacao?.observacao ?? '')
   const [categoriaId, setCategoriaId] = useState<string | null>(transacao?.categoria_id ?? null)
   const [data, setData] = useState(transacao?.data ?? hojeISO())
 
   const [tentouSalvar, setTentouSalvar] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
-  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(iniciarExcluindo)
 
   useEffect(() => {
     let ativo = true
@@ -77,7 +84,7 @@ export default function ModalLancamento({ transacao, aoFechar, aoSalvar }: Props
         // Num lançamento novo, com uma só conta/cartão, já deixa escolhido
         if (!transacao) {
           if (cts.length === 1) setContaId(cts[0].id)
-          if (crts.length === 1) setCartaoId(crts[0].id)
+          if (crts.length === 1) setCartaoId((atual) => atual ?? crts[0].id)
         }
       })
       .catch(() => ativo && setErro('Não foi possível carregar categorias, contas e cartões.'))
@@ -119,6 +126,7 @@ export default function ModalLancamento({ transacao, aoFechar, aoSalvar }: Props
       valorCentavos: centavos,
       local,
       descricao,
+      observacao,
       categoriaId,
       data,
       contaId,
@@ -159,7 +167,9 @@ export default function ModalLancamento({ transacao, aoFechar, aoSalvar }: Props
           <p className="text-texto-suave">
             {ehParcela
               ? `Esta é a parcela ${transacao.parcela_atual} de ${transacao.total_parcelas}. O que você quer excluir?`
-              : 'Tem certeza? Essa ação não pode ser desfeita.'}
+              : ehPagamento
+                ? 'Excluir este pagamento faz a fatura voltar a ficar em aberto/fechada. Tem certeza?'
+                : 'Tem certeza? Essa ação não pode ser desfeita.'}
           </p>
           {erro && <Alerta>{erro}</Alerta>}
           <div className="flex flex-col gap-2">
@@ -224,7 +234,7 @@ export default function ModalLancamento({ transacao, aoFechar, aoSalvar }: Props
               key={t}
               type="button"
               aria-pressed={tipo === t}
-              disabled={ehParcela}
+              disabled={ehParcela || ehPagamento}
               onClick={() => mudarTipo(t)}
               className={`h-10 rounded-lg text-sm font-semibold transition disabled:cursor-not-allowed ${tipo === t ? `bg-white shadow-sm ${t === 'despesa' ? 'text-despesa' : 'text-receita'}` : 'text-texto-suave'}`}
             >
@@ -242,12 +252,19 @@ export default function ModalLancamento({ transacao, aoFechar, aoSalvar }: Props
           </p>
         )}
 
+        {ehPagamento && (
+          <p className="rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-texto-suave">
+            Pagamento de fatura de cartão. Ele desconta do saldo, mas não entra nas despesas do mês (as compras já
+            contaram quando foram feitas).
+          </p>
+        )}
+
         <Escolha
           label="Forma de pagamento"
           opcoes={tipo === 'receita' ? formasDeReceita : todasAsFormas}
           valor={forma}
           aoMudar={setForma}
-          desabilitado={ehParcela}
+          desabilitado={ehParcela || ehPagamento}
         />
 
         {noCredito && (
@@ -348,6 +365,15 @@ export default function ModalLancamento({ transacao, aoFechar, aoSalvar }: Props
           maxLength={140}
           value={descricao}
           onChange={(e) => setDescricao(e.target.value)}
+        />
+
+        <Campo
+          id="observacao"
+          label="Observação (opcional)"
+          placeholder="Ex.: dividido com fulano, garantia até..."
+          maxLength={280}
+          value={observacao}
+          onChange={(e) => setObservacao(e.target.value)}
         />
 
         {erro && <Alerta>{erro}</Alerta>}

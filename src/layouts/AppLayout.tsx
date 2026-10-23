@@ -3,20 +3,24 @@ import { Outlet } from 'react-router'
 import BottomNav from '../components/BottomNav'
 import ModalLancamento from '../components/ModalLancamento'
 import { IconeMais, IconeSair } from '../components/icones'
-import { LancamentosContext, type ControleLancamentos } from '../contexts/lancamentos'
+import { LancamentosContext, type ControleLancamentos, type PadraoLancamento } from '../contexts/lancamentos'
 import { sair } from '../services/auth'
 import type { Transacao } from '../types/financas'
 
 /** Moldura das telas logadas: barra do topo, conteúdo, botão "+" de lançamento e navegação fixa embaixo. */
 export default function AppLayout() {
   // null = modal fechado; { transacao: null } = novo lançamento
-  const [modal, setModal] = useState<{ transacao: Transacao | null } | null>(null)
+  const [modal, setModal] = useState<{
+    transacao: Transacao | null
+    padrao?: PadraoLancamento
+    excluir?: boolean
+  } | null>(null)
   const [versao, setVersao] = useState(0)
 
   const controle = useMemo<ControleLancamentos>(
     () => ({
-      novoLancamento: () => setModal({ transacao: null }),
-      editarLancamento: (transacao) => setModal({ transacao }),
+      novoLancamento: (padrao) => setModal({ transacao: null, padrao }),
+      editarLancamento: (transacao, opcoes) => setModal({ transacao, excluir: opcoes?.excluir }),
       versao,
     }),
     [versao],
@@ -47,7 +51,7 @@ export default function AppLayout() {
 
         {/* Botão flutuante: alinhado à direita do conteúdo, acima da BottomNav */}
         <button
-          onClick={controle.novoLancamento}
+          onClick={() => controle.novoLancamento()}
           aria-label="Novo lançamento"
           title="Novo lançamento"
           className="fixed right-[max(1.25rem,calc((100vw-64rem)/2+1.25rem))] bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primaria text-white shadow-lg shadow-emerald-900/25 transition hover:bg-primaria-escura active:scale-95"
@@ -61,6 +65,8 @@ export default function AppLayout() {
       {modal && (
         <ModalLancamento
           transacao={modal.transacao}
+          padrao={modal.padrao}
+          iniciarExcluindo={modal.excluir}
           aoFechar={() => setModal(null)}
           aoSalvar={() => setVersao((v) => v + 1)}
         />
