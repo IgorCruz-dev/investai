@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Alerta from '../../components/Alerta'
 import Card from '../../components/Card'
+import Esqueleto, { EsqueletoLista } from '../../components/Esqueleto'
 import ModalAssinatura from '../../components/ModalAssinatura'
 import { IconeMais, IconeRepetir } from '../../components/icones'
 import { useLancamentos } from '../../hooks/useLancamentos'
@@ -129,8 +130,12 @@ export default function Assinaturas() {
       {/* Total mensal */}
       <div className="mt-6 rounded-2xl bg-linear-to-br from-violet-600 to-violet-800 p-5 text-white shadow-lg shadow-violet-900/15">
         <p className="text-sm text-violet-100">Total mensal com assinaturas</p>
-        <p className="mt-2 text-3xl font-bold tracking-tight">{formatarMoeda(totalMensal)}</p>
-        <p className="mt-1 text-sm text-violet-100">
+        {carregando ? (
+          <Esqueleto className="mt-3 h-8 w-36 bg-white/25" />
+        ) : (
+          <p className="mt-2 text-3xl font-bold tracking-tight">{formatarMoeda(totalMensal)}</p>
+        )}
+        <p className={`mt-1 text-sm text-violet-100 ${carregando ? 'invisible' : ''}`}>
           {ativas.length} {ativas.length === 1 ? 'assinatura ativa' : 'assinaturas ativas'}
           {proximas.length > 0 && (
             <>
@@ -142,9 +147,9 @@ export default function Assinaturas() {
       </div>
 
       {carregando ? (
-        <div className="flex justify-center py-16">
-          <span className="h-7 w-7 animate-spin rounded-full border-3 border-emerald-100 border-t-primaria" />
-        </div>
+        <Card titulo="Ativas" className="mt-6" semEspaco>
+          <EsqueletoLista linhas={3} />
+        </Card>
       ) : assinaturas.length === 0 ? (
         <div className="mt-6 flex flex-col items-center rounded-2xl border border-borda bg-white px-5 py-14 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-texto-suave">

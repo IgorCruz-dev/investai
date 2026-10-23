@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Alerta from '../../components/Alerta'
 import Botao from '../../components/Botao'
 import Card from '../../components/Card'
+import Esqueleto, { EsqueletoLista } from '../../components/Esqueleto'
 import GraficoCaixinha from '../../components/GraficoCaixinha'
 import ModalCaixinha from '../../components/ModalCaixinha'
 import ModalMetaCaixinha from '../../components/ModalMetaCaixinha'
@@ -61,9 +62,13 @@ export default function Caixinha() {
       {/* Total guardado (+ meta) */}
       <div className="mt-6 rounded-2xl bg-linear-to-br from-teal-600 to-teal-800 p-6 text-white shadow-lg shadow-teal-900/15">
         <p className="text-sm text-teal-100">Total guardado</p>
-        <p className="mt-2 text-4xl font-bold tracking-tight">{carregando ? '—' : formatarMoeda(total)}</p>
+        {carregando ? (
+          <Esqueleto className="mt-3 h-10 w-44 bg-white/25" />
+        ) : (
+          <p className="mt-2 text-4xl font-bold tracking-tight">{formatarMoeda(total)}</p>
+        )}
 
-        {meta ? (
+        {carregando ? null : meta ? (
           <div className="mt-5">
             <div className="flex items-baseline justify-between gap-3 text-sm">
               <span className="text-teal-100">Meta: {formatarMoeda(meta)}</span>
@@ -103,7 +108,16 @@ export default function Caixinha() {
         </Botao>
       </div>
 
-      {!carregando && movimentos.length === 0 ? (
+      {carregando ? (
+        <>
+          <Card titulo="Evolução do total guardado" className="mt-6">
+            <Esqueleto className="h-52" />
+          </Card>
+          <Card titulo="Histórico" className="mt-6" semEspaco>
+            <EsqueletoLista linhas={3} />
+          </Card>
+        </>
+      ) : movimentos.length === 0 ? (
         <div className="mt-6 flex flex-col items-center rounded-2xl border border-borda bg-white px-5 py-14 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-texto-suave">
             <IconeCaixa className="h-6 w-6" />

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import Alerta from '../../components/Alerta'
 import CartaoVisual, { UsoDoLimite } from '../../components/CartaoVisual'
+import Esqueleto from '../../components/Esqueleto'
 import ModalCartao from '../../components/ModalCartao'
 import { IconeCartao, IconeLapis, IconeMais } from '../../components/icones'
 import { useLancamentos } from '../../hooks/useLancamentos'
@@ -56,9 +57,19 @@ export default function Cartoes() {
       )}
 
       {carregando ? (
-        <div className="flex justify-center py-20">
-          <span className="h-7 w-7 animate-spin rounded-full border-3 border-emerald-100 border-t-primaria" />
-        </div>
+        <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-label="Carregando">
+          {[0, 1].map((i) => (
+            <li key={i} className="rounded-2xl border border-borda bg-white">
+              <div className="p-3 pb-0">
+                <Esqueleto className="aspect-[1.75] rounded-2xl" />
+              </div>
+              <div className="flex flex-col gap-2 p-4">
+                <Esqueleto className="h-4 w-1/2" />
+                <Esqueleto className="h-2 w-full" />
+              </div>
+            </li>
+          ))}
+        </ul>
       ) : cartoes.length === 0 ? (
         <div className="mt-6 flex flex-col items-center rounded-2xl border border-borda bg-white px-5 py-14 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-texto-suave">

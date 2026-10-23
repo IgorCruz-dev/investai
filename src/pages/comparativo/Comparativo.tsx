@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Alerta from '../../components/Alerta'
 import Card from '../../components/Card'
+import Esqueleto, { EsqueletoLista } from '../../components/Esqueleto'
 import GraficoComparativoCategorias, { type BarraCategoria } from '../../components/GraficoComparativoCategorias'
 import IconeCategoria from '../../components/IconeCategoria'
 import SeletorMes from '../../components/SeletorMes'
@@ -107,6 +108,8 @@ export default function Comparativo() {
   // Aviso quando o mês A ainda não terminou (a comparação com um mês fechado fica desigual)
   const hoje = new Date()
   const mesAEmAndamento = paraMesISO(mesA) === paraMesISO(hoje)
+  // As categorias padrão sempre existem: lista vazia = primeira carga ainda não chegou
+  const primeiraCarga = carregando && categorias.length === 0
   const recarregando = carregando ? 'opacity-60 transition' : 'transition'
 
   return (
@@ -132,7 +135,26 @@ export default function Comparativo() {
         </div>
       )}
 
-      {mesmoMes ? (
+      {primeiraCarga && !mesmoMes ? (
+        <div aria-busy="true" aria-label="Carregando">
+          <Esqueleto className="mt-5 h-16 rounded-2xl" />
+          <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="flex flex-col gap-2 rounded-2xl border border-borda bg-white p-4">
+                <Esqueleto className="h-4 w-1/2" />
+                <Esqueleto className="h-6 w-3/4" />
+                <Esqueleto className="h-3 w-2/3" />
+              </div>
+            ))}
+          </div>
+          <Card titulo="Gastos por categoria" className="mt-6">
+            <Esqueleto className="h-64" />
+          </Card>
+          <Card titulo="Por categoria" className="mt-6" semEspaco>
+            <EsqueletoLista linhas={4} />
+          </Card>
+        </div>
+      ) : mesmoMes ? (
         <p className="mt-6 rounded-2xl border border-borda bg-white px-5 py-8 text-center text-texto-suave">
           Escolha dois meses diferentes para comparar.
         </p>

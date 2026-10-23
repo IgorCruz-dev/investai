@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import Alerta from '../../components/Alerta'
 import Card from '../../components/Card'
+import { EsqueletoLista } from '../../components/Esqueleto'
 import ListaLancamentos from '../../components/ListaLancamentos'
 import SeletorMes from '../../components/SeletorMes'
 import { IconeChevronEsquerda, IconeLista } from '../../components/icones'
@@ -127,9 +128,7 @@ export default function Lancamentos() {
 
       <Card className="mt-3" semEspaco>
         {carregando && transacoes.length === 0 ? (
-          <div className="flex justify-center py-14">
-            <span className="h-7 w-7 animate-spin rounded-full border-3 border-emerald-100 border-t-primaria" />
-          </div>
+          <EsqueletoLista linhas={6} />
         ) : filtradas.length === 0 ? (
           <div className="flex flex-col items-center px-5 py-14 text-center">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-texto-suave">

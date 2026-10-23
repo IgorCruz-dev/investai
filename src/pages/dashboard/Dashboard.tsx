@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import Alerta from '../../components/Alerta'
 import Card from '../../components/Card'
+import Esqueleto, { EsqueletoLista } from '../../components/Esqueleto'
 import GraficoGastosDiarios from '../../components/GraficoGastosDiarios'
 import ListaLancamentos from '../../components/ListaLancamentos'
 import SeletorMes from '../../components/SeletorMes'
@@ -94,8 +95,10 @@ export default function Dashboard() {
   const nomeMesAnterior = formatarNomeDoMes(mesAnterior(mes))
   const linkDoMes = `/lancamentos?mes=${paraMesISO(mes)}`
   const primeiroNome = nome.split(' ')[0]
-  // Na primeira carga mostra o indicador; nas seguintes mantém o conteúdo meio apagado
+  // Na primeira carga mostra o esqueleto; nas seguintes mantém o conteúdo meio apagado
+  const primeiraCarga = carregando && saldo === null
   const recarregando = carregando ? 'opacity-60 transition' : 'transition'
+  const semGastos = pontos.every((p) => !p.atual && !p.anterior)
 
   return (
     <>
@@ -113,12 +116,17 @@ export default function Dashboard() {
       <div className={`mt-6 grid gap-4 sm:grid-cols-3 ${recarregando}`}>
         <div className="rounded-2xl bg-linear-to-br from-emerald-600 to-emerald-800 p-5 text-white shadow-lg shadow-emerald-900/15">
           <p className="text-sm text-emerald-100">Saldo atual da conta</p>
-          <p className="mt-2 text-3xl font-bold tracking-tight">{saldo === null ? '—' : formatarMoeda(saldo)}</p>
+          {primeiraCarga ? (
+            <Esqueleto className="mt-3 h-8 w-40 bg-white/25" />
+          ) : (
+            <p className="mt-2 text-3xl font-bold tracking-tight">{saldo === null ? '—' : formatarMoeda(saldo)}</p>
+          )}
           <p className="mt-1 text-xs text-emerald-100/80">Compras no crédito só descontam quando a fatura é paga</p>
         </div>
         <CartaoResumo
           titulo="Receitas do mês"
           valor={totais.receitas}
+          carregando={primeiraCarga}
           cor="text-receita"
           fundo="bg-emerald-50"
           icone={<IconeSetaCima className="h-4 w-4" />}
@@ -126,6 +134,7 @@ export default function Dashboard() {
         <CartaoResumo
           titulo="Despesas do mês"
           valor={totais.despesas}
+          carregando={primeiraCarga}
           cor="text-despesa"
           fundo="bg-red-50"
           icone={<IconeSetaBaixo className="h-4 w-4" />}
@@ -135,11 +144,21 @@ export default function Dashboard() {
 
       <div className={`mt-6 grid gap-6 lg:grid-cols-5 ${recarregando}`}>
         <Card titulo="Gastos acumulados no mês" className="lg:col-span-3">
-          <GraficoGastosDiarios pontos={pontos} nomeMes={nomeMes} nomeMesAnterior={nomeMesAnterior} />
+          {primeiraCarga ? (
+            <Esqueleto className="h-64" />
+          ) : semGastos ? (
+            <p className="py-16 text-center text-sm text-texto-suave">
+              Nenhum gasto em {nomeMes} nem em {nomeMesAnterior}.
+            </p>
+          ) : (
+            <GraficoGastosDiarios pontos={pontos} nomeMes={nomeMes} nomeMesAnterior={nomeMesAnterior} />
+          )}
         </Card>
 
         <Card titulo="Principais categorias" className="lg:col-span-2" semEspaco>
-          {porCategoria.length === 0 ? (
+          {primeiraCarga ? (
+            <EsqueletoLista linhas={QUANTAS_CATEGORIAS} />
+          ) : porCategoria.length === 0 ? (
             <p className="px-5 py-10 text-center text-sm text-texto-suave">Nenhum gasto neste mês.</p>
           ) : (
             <ul className="divide-y divide-borda">
@@ -193,10 +212,8 @@ export default function Dashboard() {
           )
         }
       >
-        {carregando && transacoes.length === 0 ? (
-          <div className="flex justify-center py-14">
-            <span className="h-7 w-7 animate-spin rounded-full border-3 border-emerald-100 border-t-primaria" />
-          </div>
+        {primeiraCarga ? (
+          <EsqueletoLista linhas={QUANTOS_ULTIMOS} />
         ) : transacoes.length === 0 ? (
           <div className="flex flex-col items-center px-5 py-14 text-center">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-texto-suave">
@@ -248,17 +265,22 @@ type CartaoResumoProps = {
   fundo: string
   icone: ReactNode
   detalhe?: string
+  carregando?: boolean
 }
 
-function CartaoResumo({ titulo, valor, cor, fundo, icone, detalhe }: CartaoResumoProps) {
+function CartaoResumo({ titulo, valor, cor, fundo, icone, detalhe, carregando }: CartaoResumoProps) {
   return (
     <div className="rounded-2xl border border-borda bg-white p-5">
       <div className="flex items-center gap-2">
         <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${fundo} ${cor}`}>{icone}</span>
         <p className="text-sm text-texto-suave">{titulo}</p>
       </div>
-      <p className={`mt-2 text-2xl font-bold tracking-tight ${cor}`}>{formatarMoeda(valor)}</p>
-      {detalhe && <p className="mt-1 text-xs text-texto-suave">{detalhe}</p>}
+      {carregando ? (
+        <Esqueleto className="mt-3 h-7 w-32" />
+      ) : (
+        <p className={`mt-2 text-2xl font-bold tracking-tight ${cor}`}>{formatarMoeda(valor)}</p>
+      )}
+      {detalhe && !carregando && <p className="mt-1 text-xs text-texto-suave">{detalhe}</p>}
     </div>
   )
 }

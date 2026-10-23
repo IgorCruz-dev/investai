@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import Alerta from '../../components/Alerta'
 import Botao from '../../components/Botao'
 import Card from '../../components/Card'
+import Esqueleto, { EsqueletoLista } from '../../components/Esqueleto'
 import GraficoFaturas, { type BarraFatura } from '../../components/GraficoFaturas'
 import IconeCategoria from '../../components/IconeCategoria'
 import ModalCartao from '../../components/ModalCartao'
@@ -52,6 +53,7 @@ export default function DetalheCartao() {
   const [pagamento, setPagamento] = useState<Transacao | null>(null)
   const [totaisAnteriores, setTotaisAnteriores] = useState<Map<string, number>>(new Map())
   const [carregando, setCarregando] = useState(true)
+  const [faturaCarregada, setFaturaCarregada] = useState(false)
   const [erro, setErro] = useState('')
   const [recarregar, setRecarregar] = useState(0)
 
@@ -102,6 +104,7 @@ export default function DetalheCartao() {
         setTransacoes(ts)
         setPagamento(pg)
         setTotaisAnteriores(totais)
+        setFaturaCarregada(true)
         setErro('')
       })
       .catch(() => ativo && setErro('Não foi possível carregar a fatura.'))
@@ -160,8 +163,19 @@ export default function DetalheCartao() {
     return erro ? (
       <Alerta>{erro}</Alerta>
     ) : (
-      <div className="flex justify-center py-20">
-        <span className="h-7 w-7 animate-spin rounded-full border-3 border-emerald-100 border-t-primaria" />
+      <div aria-busy="true" aria-label="Carregando">
+        <Esqueleto className="h-4 w-20" />
+        <div className="mt-3 flex items-center gap-3">
+          <Esqueleto className="h-12 w-12 rounded-2xl" />
+          <div className="flex flex-1 flex-col gap-2">
+            <Esqueleto className="h-6 w-40" />
+            <Esqueleto className="h-4 w-28" />
+          </div>
+        </div>
+        <Esqueleto className="mt-6 h-44 rounded-2xl" />
+        <Card titulo="Transações da fatura" className="mt-6" semEspaco>
+          <EsqueletoLista linhas={4} />
+        </Card>
       </div>
     )
   }
@@ -250,7 +264,11 @@ export default function DetalheCartao() {
         </div>
         <div className="mt-4 flex flex-col items-center gap-2">
           <p className="text-sm text-texto-suave">Valor da fatura</p>
-          <p className="text-4xl font-bold tracking-tight">{formatarMoeda(totalCentavos / 100)}</p>
+          {faturaCarregada ? (
+            <p className="text-4xl font-bold tracking-tight">{formatarMoeda(totalCentavos / 100)}</p>
+          ) : (
+            <Esqueleto className="h-10 w-40" />
+          )}
           <span className={`rounded-full border px-3 py-0.5 text-xs font-semibold ${selo.classes}`}>{selo.texto}</span>
           {pagamento && (
             <button
@@ -265,7 +283,13 @@ export default function DetalheCartao() {
 
       {/* Faturas anteriores: comparação com os meses anteriores */}
       <Card titulo="Faturas anteriores" className={`mt-6 ${recarregando}`}>
-        <GraficoFaturas barras={barras} aoEscolher={abrirFatura} />
+        {!faturaCarregada ? (
+          <Esqueleto className="h-56" />
+        ) : barras.every((b) => b.centavos === 0) ? (
+          <p className="py-10 text-center text-sm text-texto-suave">Nenhuma fatura com compras nos últimos {FATURAS_NO_GRAFICO} meses.</p>
+        ) : (
+          <GraficoFaturas barras={barras} aoEscolher={abrirFatura} />
+        )}
       </Card>
 
       {/* d) Gastos por categoria */}
@@ -279,7 +303,9 @@ export default function DetalheCartao() {
           </span>
         }
       >
-        {porCategoria.length === 0 ? (
+        {!faturaCarregada ? (
+          <EsqueletoLista linhas={3} />
+        ) : porCategoria.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-texto-suave">Nenhuma compra nesta fatura.</p>
         ) : (
           <>
@@ -370,7 +396,9 @@ export default function DetalheCartao() {
           </div>
         )}
 
-        {transacoesMostradas.length === 0 ? (
+        {!faturaCarregada ? (
+          <EsqueletoLista linhas={4} />
+        ) : transacoesMostradas.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-texto-suave">
             {transacoes.length === 0 ? 'Nenhuma compra nesta fatura.' : 'Nada encontrado com esse filtro.'}
           </p>
