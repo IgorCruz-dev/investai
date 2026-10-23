@@ -5,6 +5,7 @@ import Login from './pages/login/Login'
 import Cadastro from './pages/cadastro/Cadastro'
 import Dashboard from './pages/dashboard/Dashboard'
 import Cartoes from './pages/cartoes/Cartoes'
+import DetalheCartao from './pages/detalhe-cartao/DetalheCartao'
 import Assinaturas from './pages/assinaturas/Assinaturas'
 import Comparativo from './pages/comparativo/Comparativo'
 import Caixinha from './pages/caixinha/Caixinha'
@@ -21,6 +22,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/cartoes" element={<Cartoes />} />
+          <Route path="/cartoes/:id" element={<DetalheCartao />} />
           <Route path="/assinaturas" element={<Assinaturas />} />
           <Route path="/comparativo" element={<Comparativo />} />
           <Route path="/caixinha" element={<Caixinha />} />
