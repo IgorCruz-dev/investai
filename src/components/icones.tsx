@@ -53,3 +53,20 @@ export const IconeSair = (p: Props) => (
 export const IconeLista = (p: Props) => (
   <Icone {...p} d="M6 3h12a1 1 0 0 1 1 1v17l-3-2-2 2-2-2-2 2-2-2-3 2V4a1 1 0 0 1 1-1zM9 8h6M9 12h6M9 16h3" />
 )
+export const IconeCasa = (p: Props) => (
+  <Icone {...p} d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />
+)
+export const IconeCartao = (p: Props) => (
+  <Icone {...p} d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM2 10h20M6 15h4" />
+)
+export const IconeRepetir = (p: Props) => (
+  <Icone {...p} d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4" />
+)
+export const IconeGrafico = (p: Props) => <Icone {...p} d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+export const IconeCaixa = (p: Props) => (
+  <Icone {...p} d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5zM3 7.5 12 12l9-4.5M12 12v9" />
+)
+export const IconeChevronEsquerda = (p: Props) => <Icone {...p} d="M15 18l-6-6 6-6" />
+export const IconeChevronDireita = (p: Props) => <Icone {...p} d="M9 18l6-6-6-6" />
+export const IconeFechar = (p: Props) => <Icone {...p} d="M6 6l12 12M18 6 6 18" />
+export const IconeMais = (p: Props) => <Icone {...p} d="M12 5v14M5 12h14" />

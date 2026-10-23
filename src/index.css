@@ -27,6 +27,29 @@
   --color-despesa: var(--cor-despesa);
 }
 
+/* Animações do Modal: animate-subir (bottom sheet) e animate-aparecer (fundo e versão do computador) */
+@theme {
+  --animate-subir: subir 0.22s ease-out;
+  --animate-aparecer: aparecer 0.18s ease-out;
+
+  @keyframes subir {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  @keyframes aparecer {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
 body {
   @apply bg-fundo text-texto antialiased;
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;

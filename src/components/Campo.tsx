@@ -31,7 +31,7 @@ export default function Campo({ label, id, icone, type, erro, ...props }: Props)
           type={ehSenha && mostrarSenha ? 'text' : type}
           aria-invalid={erro ? true : undefined}
           aria-describedby={erro ? `${id}-erro` : undefined}
-          className={`h-12 w-full rounded-xl border bg-superficie text-base text-texto outline-none transition placeholder:text-texto-suave/70 focus:ring-4 ${erro ? 'border-despesa focus:ring-despesa/15' : 'border-borda hover:border-slate-300 focus:border-primaria focus:ring-primaria/15'} ${icone ? 'pl-11' : 'pl-4'} ${ehSenha ? 'pr-12' : 'pr-4'}`}
+          className={`h-12 w-full rounded-xl border bg-superficie text-base text-texto outline-none transition placeholder:text-texto-suave/70 focus:ring-4 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-texto-suave ${erro ? 'border-despesa focus:ring-despesa/15' : 'border-borda hover:border-slate-300 focus:border-primaria focus:ring-primaria/15'} ${icone ? 'pl-11' : 'pl-4'} ${ehSenha ? 'pr-12' : 'pr-4'}`}
           {...props}
         />
         {ehSenha && (
