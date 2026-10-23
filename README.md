@@ -31,7 +31,9 @@ src/
     login/, cadastro/
     dashboard/      aba "Início": saldo, gráfico, principais categorias, últimos lançamentos
     lancamentos/    todos os lançamentos do mês (/lancamentos?mes=2026-10&categoria=...)
-    cartoes/, assinaturas/, comparativo/, caixinha/
+    cartoes/        lista de cartões com limite usado
+    detalhe-cartao/ fatura do cartão (/cartoes/:id?fatura=2026-11)
+    assinaturas/, comparativo/, caixinha/
   hooks/            useAuth
   services/         funções que falam com o Supabase
   types/            database.ts (gerado do banco), financas.ts, perfil.ts
