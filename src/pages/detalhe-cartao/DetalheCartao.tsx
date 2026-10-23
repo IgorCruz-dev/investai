@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import Alerta from '../../components/Alerta'
 import Botao from '../../components/Botao'
 import Card from '../../components/Card'
+import GraficoFaturas, { type BarraFatura } from '../../components/GraficoFaturas'
 import IconeCategoria from '../../components/IconeCategoria'
 import ModalCartao from '../../components/ModalCartao'
 import ModalDetalheTransacao from '../../components/ModalDetalheTransacao'
@@ -18,15 +19,16 @@ import {
   IconeMais,
 } from '../../components/icones'
 import { useLancamentos } from '../../hooks/useLancamentos'
-import { deMesISO, paraMesISO } from '../../lib/datas'
+import { deMesISO, paraISO, paraMesISO } from '../../lib/datas'
 import { datasDaFatura, mesDaFatura, statusDaFatura, type StatusFatura } from '../../lib/fatura'
 import { formatarDiaMes, formatarMesAno, formatarMoeda } from '../../lib/formatar'
 import { buscarCartao } from '../../services/cartoes'
 import { listarCategorias } from '../../services/categorias'
-import { buscarPagamentoDaFatura, listarTransacoesDaFatura } from '../../services/transacoes'
+import { buscarPagamentoDaFatura, listarTransacoesDaFatura, totaisDasFaturas } from '../../services/transacoes'
 import type { Cartao, Categoria, Transacao } from '../../types/financas'
 
 const CATEGORIAS_VISIVEIS = 6
+const FATURAS_NO_GRAFICO = 6
 const TRANSACOES_VISIVEIS = 10
 
 const selos: Record<StatusFatura, { texto: string; classes: string }> = {
@@ -48,6 +50,7 @@ export default function DetalheCartao() {
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [transacoes, setTransacoes] = useState<Transacao[]>([])
   const [pagamento, setPagamento] = useState<Transacao | null>(null)
+  const [totaisAnteriores, setTotaisAnteriores] = useState<Map<string, number>>(new Map())
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [recarregar, setRecarregar] = useState(0)
@@ -88,11 +91,17 @@ export default function DetalheCartao() {
     if (!fatura) return
     let ativo = true
     setCarregando(true)
-    Promise.all([listarTransacoesDaFatura(id, fatura), buscarPagamentoDaFatura(id, fatura)])
-      .then(([ts, pg]) => {
+    const primeiraDoGrafico = new Date(fatura.getFullYear(), fatura.getMonth() - (FATURAS_NO_GRAFICO - 1), 1)
+    Promise.all([
+      listarTransacoesDaFatura(id, fatura),
+      buscarPagamentoDaFatura(id, fatura),
+      totaisDasFaturas(id, primeiraDoGrafico, fatura),
+    ])
+      .then(([ts, pg, totais]) => {
         if (!ativo) return
         setTransacoes(ts)
         setPagamento(pg)
+        setTotaisAnteriores(totais)
         setErro('')
       })
       .catch(() => ativo && setErro('Não foi possível carregar a fatura.'))
@@ -165,12 +174,21 @@ export default function DetalheCartao() {
   const categoriasMostradas = todasCategorias ? porCategoria : porCategoria.slice(0, CATEGORIAS_VISIVEIS)
   const transacoesMostradas = todasTransacoes ? filtradas : filtradas.slice(0, TRANSACOES_VISIVEIS)
 
-  function irParaFatura(meses: number) {
-    if (!fatura) return
+  function abrirFatura(mes: Date) {
     const proximos = new URLSearchParams(parametros)
-    proximos.set('fatura', paraMesISO(new Date(fatura.getFullYear(), fatura.getMonth() + meses, 1)))
+    proximos.set('fatura', paraMesISO(mes))
     setParametros(proximos, { replace: true })
   }
+
+  function irParaFatura(meses: number) {
+    if (fatura) abrirFatura(new Date(fatura.getFullYear(), fatura.getMonth() + meses, 1))
+  }
+
+  // Últimas faturas até a escolhida, da mais antiga para a mais nova
+  const barras: BarraFatura[] = Array.from({ length: FATURAS_NO_GRAFICO }, (_, i) => {
+    const mes = new Date(fatura.getFullYear(), fatura.getMonth() - (FATURAS_NO_GRAFICO - 1) + i, 1)
+    return { mes, centavos: totaisAnteriores.get(paraISO(mes)) ?? 0, selecionada: i === FATURAS_NO_GRAFICO - 1 }
+  })
 
   const recarregando = carregando ? 'opacity-60 transition' : 'transition'
 
@@ -244,6 +262,11 @@ export default function DetalheCartao() {
           )}
         </div>
       </section>
+
+      {/* Faturas anteriores: comparação com os meses anteriores */}
+      <Card titulo="Faturas anteriores" className={`mt-6 ${recarregando}`}>
+        <GraficoFaturas barras={barras} aoEscolher={abrirFatura} />
+      </Card>
 
       {/* d) Gastos por categoria */}
       <Card

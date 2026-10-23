@@ -142,6 +142,24 @@ export async function listarTransacoesDaFatura(cartaoId: string, fatura: Date) {
   return data as Transacao[]
 }
 
+/** Total (em centavos) de cada fatura do cartão entre duas faturas, inclusive. Chave: "2026-11-01" */
+export async function totaisDasFaturas(cartaoId: string, de: Date, ate: Date) {
+  const { data, error } = await supabase
+    .from('transacoes')
+    .select('fatura, valor, tipo')
+    .eq('cartao_id', cartaoId)
+    .gte('fatura', paraISO(de))
+    .lte('fatura', paraISO(ate))
+  if (error) throw error
+  const totais = new Map<string, number>()
+  for (const t of data) {
+    if (!t.fatura) continue
+    const centavos = Math.round(t.valor * 100) * (t.tipo === 'despesa' ? 1 : -1)
+    totais.set(t.fatura, (totais.get(t.fatura) ?? 0) + centavos)
+  }
+  return totais
+}
+
 /** Pagamento que quitou a fatura, ou null se ela não foi paga */
 export async function buscarPagamentoDaFatura(cartaoId: string, fatura: Date) {
   const { data, error } = await supabase
