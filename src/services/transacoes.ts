@@ -10,6 +10,7 @@ export type DadosLancamento = {
   valorCentavos: number
   local: string
   descricao: string
+  observacao: string
   categoriaId: string | null
   /** "2026-10-23" */
   data: string
@@ -48,6 +49,7 @@ function camposComuns(d: DadosLancamento) {
     forma: d.forma,
     local: d.local.trim() || null,
     descricao: d.descricao.trim() || null,
+    observacao: d.observacao.trim() || null,
     categoria_id: d.categoriaId,
     // compra no crédito não sai de nenhuma conta na hora (só o pagamento da fatura)
     conta_id: d.forma === 'credito' ? null : d.contaId,
@@ -91,14 +93,31 @@ export async function criarLancamento(d: DadosLancamento) {
 }
 
 /**
- * Atualiza um lançamento. Numa parcela, só valor, local, descrição e categoria mudam
+ * Atualiza um lançamento. Numa parcela, só valor, local, descrição, observação e categoria mudam
  * (forma, cartão e datas valem para o grupo; para mudar, exclua e lance de novo).
+ * Num pagamento de fatura, tipo e forma ficam como estão.
  */
 export async function atualizarLancamento(original: Transacao, d: DadosLancamento) {
   const comuns = camposComuns(d)
   const mudancas = original.grupo_parcela
-    ? { valor: d.valorCentavos / 100, local: comuns.local, descricao: comuns.descricao, categoria_id: comuns.categoria_id }
-    : (() => {
+    ? {
+        valor: d.valorCentavos / 100,
+        local: comuns.local,
+        descricao: comuns.descricao,
+        observacao: comuns.observacao,
+        categoria_id: comuns.categoria_id,
+      }
+    : original.pagamento_cartao_id
+      ? {
+          valor: d.valorCentavos / 100,
+          local: comuns.local,
+          descricao: comuns.descricao,
+          observacao: comuns.observacao,
+          categoria_id: comuns.categoria_id,
+          conta_id: d.contaId,
+          data: d.data,
+        }
+      : (() => {
         const fatura = faturaDaCompra(d)
         return { ...comuns, valor: d.valorCentavos / 100, data: d.data, fatura: fatura ? paraISO(fatura) : null }
       })()
@@ -107,6 +126,61 @@ export async function atualizarLancamento(original: Transacao, d: DadosLancament
   if (error) {
     console.error(error)
     throw new Error(ERRO_SALVAR)
+  }
+}
+
+/** Compras e parcelas que caem numa fatura do cartão, da mais recente para a mais antiga */
+export async function listarTransacoesDaFatura(cartaoId: string, fatura: Date) {
+  const { data, error } = await supabase
+    .from('transacoes')
+    .select('*')
+    .eq('cartao_id', cartaoId)
+    .eq('fatura', paraISO(fatura))
+    .order('data', { ascending: false })
+    .order('criado_em', { ascending: false })
+  if (error) throw error
+  return data as Transacao[]
+}
+
+/** Pagamento que quitou a fatura, ou null se ela não foi paga */
+export async function buscarPagamentoDaFatura(cartaoId: string, fatura: Date) {
+  const { data, error } = await supabase
+    .from('transacoes')
+    .select('*')
+    .eq('pagamento_cartao_id', cartaoId)
+    .eq('pagamento_fatura', paraISO(fatura))
+    .maybeSingle()
+  if (error) throw error
+  return data as Transacao | null
+}
+
+type DadosPagamento = {
+  cartao: Cartao
+  fatura: Date
+  valorCentavos: number
+  contaId: string | null
+  /** "2026-10-23" */
+  data: string
+  descricao: string
+}
+
+/** Registra o pagamento da fatura como despesa no débito; a fatura passa a "Paga" */
+export async function pagarFatura(p: DadosPagamento) {
+  const { error } = await supabase.from('transacoes').insert({
+    tipo: 'despesa',
+    forma: 'debito',
+    valor: p.valorCentavos / 100,
+    data: p.data,
+    conta_id: p.contaId,
+    local: `Fatura ${p.cartao.nome}`,
+    descricao: p.descricao,
+    pagamento_cartao_id: p.cartao.id,
+    pagamento_fatura: paraISO(p.fatura),
+  })
+  if (error) {
+    console.error(error)
+    if (error.code === '23505') throw new Error('Essa fatura já foi paga.')
+    throw new Error('Não foi possível registrar o pagamento. Tente de novo.')
   }
 }
 
