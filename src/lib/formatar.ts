@@ -33,6 +33,13 @@ export function formatarNomeDoMes(data: Date) {
   return nomeDoMes.format(data)
 }
 
+const diaMes = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short' })
+
+/** Date ou "2026-10-23" → "23 de out" */
+export function formatarDiaMes(data: Date | string) {
+  return diaMes.format(typeof data === 'string' ? deISO(data) : data).replace(/\.$/, '')
+}
+
 /** "2026-10-23" → "Hoje", "Ontem" ou "qui., 23 de out." */
 export function formatarDia(iso: string) {
   if (iso === hojeISO()) return 'Hoje'
