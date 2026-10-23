@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Outlet } from 'react-router'
 import BottomNav from '../components/BottomNav'
 import ModalLancamento from '../components/ModalLancamento'
-import { IconeMais, IconeSair } from '../components/icones'
+import { IconeFechar, IconeMais, IconeRepetir, IconeSair } from '../components/icones'
 import { LancamentosContext, type ControleLancamentos, type PadraoLancamento } from '../contexts/lancamentos'
+import { lancarAssinaturasPendentes } from '../services/assinaturas'
 import { sair } from '../services/auth'
 import type { Transacao } from '../types/financas'
 
@@ -16,6 +17,32 @@ export default function AppLayout() {
     excluir?: boolean
   } | null>(null)
   const [versao, setVersao] = useState(0)
+  const [aviso, setAviso] = useState('')
+
+  // Ao abrir o app: lança as assinaturas do mês que já venceram (o banco garante que não duplica)
+  useEffect(() => {
+    let ativo = true
+    lancarAssinaturasPendentes()
+      .then((lancadas) => {
+        if (!ativo || lancadas === 0) return
+        setVersao((v) => v + 1)
+        setAviso(
+          lancadas === 1
+            ? '1 assinatura do mês foi lançada automaticamente.'
+            : `${lancadas} assinaturas do mês foram lançadas automaticamente.`,
+        )
+      })
+      .catch((err) => console.error('Falha ao lançar assinaturas', err))
+    return () => {
+      ativo = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!aviso) return
+    const tempo = setTimeout(() => setAviso(''), 6000)
+    return () => clearTimeout(tempo)
+  }, [aviso])
 
   const controle = useMemo<ControleLancamentos>(
     () => ({
@@ -44,6 +71,21 @@ export default function AppLayout() {
             </button>
           </div>
         </header>
+
+        {aviso && (
+          <div className="sticky top-[calc(env(safe-area-inset-top)+3.75rem)] z-20 mx-auto max-w-5xl px-5 pt-3">
+            <div
+              role="status"
+              className="flex items-center gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900 shadow-sm"
+            >
+              <IconeRepetir className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{aviso}</span>
+              <button onClick={() => setAviso('')} aria-label="Fechar aviso" className="text-violet-700 hover:text-violet-900">
+                <IconeFechar className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         <main className="mx-auto max-w-5xl px-5 pt-6 pb-[calc(env(safe-area-inset-bottom)+9rem)]">
           <Outlet />
