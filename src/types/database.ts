@@ -193,6 +193,38 @@ export type Database = {
         }
         Relationships: []
       }
+      mapeamento_categorias: {
+        Row: {
+          categoria_id: string
+          categoria_pluggy: string
+          criado_em: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          categoria_id: string
+          categoria_pluggy: string
+          criado_em?: string
+          id?: string
+          user_id?: string
+        }
+        Update: {
+          categoria_id?: string
+          categoria_pluggy?: string
+          criado_em?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapeamento_categorias_categoria_id_user_id_fkey"
+            columns: ["categoria_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       perfis: {
         Row: {
           criado_em: string
@@ -214,6 +246,140 @@ export type Database = {
           id?: string
           meta_caixinha?: number | null
           nome?: string
+        }
+        Relationships: []
+      }
+      pluggy_conexoes: {
+        Row: {
+          atualizado_no_banco_em: string | null
+          banco: string
+          consentimento_expira_em: string | null
+          erro: string | null
+          item_id: string
+          status: string
+          user_id: string
+          verificado_em: string
+        }
+        Insert: {
+          atualizado_no_banco_em?: string | null
+          banco: string
+          consentimento_expira_em?: string | null
+          erro?: string | null
+          item_id: string
+          status: string
+          user_id?: string
+          verificado_em?: string
+        }
+        Update: {
+          atualizado_no_banco_em?: string | null
+          banco?: string
+          consentimento_expira_em?: string | null
+          erro?: string | null
+          item_id?: string
+          status?: string
+          user_id?: string
+          verificado_em?: string
+        }
+        Relationships: []
+      }
+      pluggy_contas: {
+        Row: {
+          atualizado_em: string
+          banco: string | null
+          id: string
+          item_id: string
+          limite: number | null
+          nome: string
+          numero: string | null
+          saldo: number | null
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          banco?: string | null
+          id: string
+          item_id: string
+          limite?: number | null
+          nome: string
+          numero?: string | null
+          saldo?: number | null
+          tipo: string
+          user_id?: string
+        }
+        Update: {
+          atualizado_em?: string
+          banco?: string | null
+          id?: string
+          item_id?: string
+          limite?: number | null
+          nome?: string
+          numero?: string | null
+          saldo?: number | null
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      regras_categoria_local: {
+        Row: {
+          categoria_id: string
+          criado_em: string
+          id: string
+          local: string
+          user_id: string
+        }
+        Insert: {
+          categoria_id: string
+          criado_em?: string
+          id?: string
+          local: string
+          user_id?: string
+        }
+        Update: {
+          categoria_id?: string
+          criado_em?: string
+          id?: string
+          local?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regras_categoria_local_categoria_id_user_id_fkey"
+            columns: ["categoria_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      sync_log: {
+        Row: {
+          atualizadas: number
+          data: string
+          id: string
+          importadas: number
+          mensagem: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          atualizadas?: number
+          data?: string
+          id?: string
+          importadas?: number
+          mensagem?: string | null
+          status: string
+          user_id?: string
+        }
+        Update: {
+          atualizadas?: number
+          data?: string
+          id?: string
+          importadas?: number
+          mensagem?: string | null
+          status?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -327,6 +493,24 @@ export type Database = {
             referencedColumns: ["id", "user_id"]
           },
         ]
+      }
+      transacoes_ignoradas: {
+        Row: {
+          excluida_em: string
+          id_externo: string
+          user_id: string
+        }
+        Insert: {
+          excluida_em?: string
+          id_externo: string
+          user_id?: string
+        }
+        Update: {
+          excluida_em?: string
+          id_externo?: string
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
