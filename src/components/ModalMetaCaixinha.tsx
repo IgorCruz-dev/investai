@@ -17,6 +17,7 @@ export default function ModalMetaCaixinha({ usuarioId, metaAtual, aoFechar, aoSa
   const [centavos, setCentavos] = useState(metaAtual ? Math.round(metaAtual * 100) : 0)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
+  const [confirmandoRemocao, setConfirmandoRemocao] = useState(false)
 
   async function salvar(valor: number | null) {
     setErro('')
@@ -29,6 +30,31 @@ export default function ModalMetaCaixinha({ usuarioId, metaAtual, aoFechar, aoSa
       setErro((err as Error).message)
       setSalvando(false)
     }
+  }
+
+  if (confirmandoRemocao && metaAtual !== null) {
+    return (
+      <Modal aberto aoFechar={aoFechar} titulo="Remover meta">
+        <div className="flex flex-col gap-4">
+          <p className="text-texto-suave">
+            Remover a meta de <strong className="text-texto">{formatarMoeda(metaAtual)}</strong>? O dinheiro guardado não muda,
+            só some a barra de progresso.
+          </p>
+          {erro && <Alerta>{erro}</Alerta>}
+          <Botao variante="perigo" carregando={salvando} onClick={() => salvar(null)}>
+            Remover meta
+          </Botao>
+          <button
+            type="button"
+            onClick={() => setConfirmandoRemocao(false)}
+            disabled={salvando}
+            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-slate-50 hover:text-texto"
+          >
+            Cancelar
+          </button>
+        </div>
+      </Modal>
+    )
   }
 
   return (
@@ -44,7 +70,7 @@ export default function ModalMetaCaixinha({ usuarioId, metaAtual, aoFechar, aoSa
           {metaAtual !== null && (
             <button
               type="button"
-              onClick={() => salvar(null)}
+              onClick={() => setConfirmandoRemocao(true)}
               disabled={salvando}
               className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-red-50"
             >
