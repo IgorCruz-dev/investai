@@ -70,3 +70,5 @@ export const IconeChevronEsquerda = (p: Props) => <Icone {...p} d="M15 18l-6-6 6
 export const IconeChevronDireita = (p: Props) => <Icone {...p} d="M9 18l6-6-6-6" />
 export const IconeFechar = (p: Props) => <Icone {...p} d="M6 6l12 12M18 6 6 18" />
 export const IconeMais = (p: Props) => <Icone {...p} d="M12 5v14M5 12h14" />
+export const IconeLapis = (p: Props) => <Icone {...p} d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" />
+export const IconeBusca = (p: Props) => <Icone {...p} d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4" />

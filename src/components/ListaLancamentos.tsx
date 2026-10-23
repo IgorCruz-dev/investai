@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { formatarDia, formatarMoeda } from '../lib/formatar'
+import { ehPagamentoDeFatura } from '../lib/resumos'
+import IconeCategoria from './IconeCategoria'
 import type { Cartao, Categoria, FormaPagamento, Transacao } from '../types/financas'
 
 type Props = {
@@ -39,9 +41,10 @@ export default function ListaLancamentos({ transacoes, categorias, cartoes, aoEs
             {doDia.map((t) => {
               const categoria = t.categoria_id ? categoriaPorId.get(t.categoria_id) : undefined
               const cartao = t.cartao_id ? cartaoPorId.get(t.cartao_id) : undefined
+              const pagamento = ehPagamentoDeFatura(t)
               const titulo = t.local || t.descricao || categoria?.nome || (t.tipo === 'receita' ? 'Receita' : 'Despesa')
               const detalhes = [
-                categoria?.nome,
+                pagamento ? 'Pagamento de fatura' : categoria?.nome,
                 t.forma === 'credito' && cartao ? `Crédito · ${cartao.nome}` : nomesDasFormas[t.forma],
                 t.total_parcelas ? `${t.parcela_atual}/${t.total_parcelas}` : null,
               ].filter(Boolean)
@@ -52,12 +55,11 @@ export default function ListaLancamentos({ transacoes, categorias, cartoes, aoEs
                     onClick={() => aoEscolher(t)}
                     className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-slate-50"
                   >
-                    <span
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-                      style={{ backgroundColor: categoria ? `${categoria.cor}26` : '#f1f5f9' }}
-                    >
-                      <span className="h-3 w-3 rounded-full" style={{ backgroundColor: categoria?.cor ?? '#94a3b8' }} />
-                    </span>
+                    {pagamento ? (
+                      <IconeCategoria icone="cartao" cor="#475569" />
+                    ) : (
+                      <IconeCategoria icone={categoria?.icone} cor={categoria?.cor} />
+                    )}
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{titulo}</span>
                       <span className="block truncate text-xs text-texto-suave">{detalhes.join(' · ')}</span>
