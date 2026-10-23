@@ -216,6 +216,7 @@ export type Database = {
       }
       transacoes: {
         Row: {
+          assinatura_id: string | null
           cartao_id: string | null
           categoria_id: string | null
           conta_id: string | null
@@ -239,6 +240,7 @@ export type Database = {
           valor: number
         }
         Insert: {
+          assinatura_id?: string | null
           cartao_id?: string | null
           categoria_id?: string | null
           conta_id?: string | null
@@ -262,6 +264,7 @@ export type Database = {
           valor: number
         }
         Update: {
+          assinatura_id?: string | null
           cartao_id?: string | null
           categoria_id?: string | null
           conta_id?: string | null
@@ -285,6 +288,13 @@ export type Database = {
           valor?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "transacoes_assinatura_id_user_id_fkey"
+            columns: ["assinatura_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "assinaturas"
+            referencedColumns: ["id", "user_id"]
+          },
           {
             foreignKeyName: "transacoes_cartao_id_user_id_fkey"
             columns: ["cartao_id", "user_id"]
@@ -324,12 +334,17 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      lancar_assinaturas_pendentes: { Args: never; Returns: number }
       limite_usado_cartoes: {
         Args: never
         Returns: {
           cartao_id: string
           usado: number
         }[]
+      }
+      mes_da_fatura: {
+        Args: { p_data: string; p_fechamento: number; p_vencimento: number }
+        Returns: string
       }
       saldo_atual: { Args: never; Returns: number }
     }
