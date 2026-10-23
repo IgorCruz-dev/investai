@@ -13,10 +13,23 @@ export type GastoCategoria = {
 
 const centavos = (valor: number) => Math.round(valor * 100)
 
+/**
+ * Pagamento de fatura não é gasto novo: as compras já contaram quando foram feitas no crédito.
+ * Ele só desconta do saldo; fica fora de despesas, categorias e gráficos.
+ */
+export function ehPagamentoDeFatura(t: Pick<Transacao, 'pagamento_cartao_id'>) {
+  return t.pagamento_cartao_id !== null
+}
+
+/** Despesa que conta como gasto (todas as formas, inclusive crédito, menos pagamento de fatura) */
+export function ehGasto(t: Transacao) {
+  return t.tipo === 'despesa' && !ehPagamentoDeFatura(t)
+}
+
 function despesasPorDia(transacoes: Transacao[]) {
   const porDia = new Map<number, number>()
   for (const t of transacoes) {
-    if (t.tipo !== 'despesa') continue
+    if (!ehGasto(t)) continue
     const dia = Number(t.data.slice(8, 10))
     porDia.set(dia, (porDia.get(dia) ?? 0) + centavos(t.valor))
   }
@@ -55,7 +68,7 @@ export function gastosPorCategoria(doMes: Transacao[], doMesAnterior: Transacao[
   const somas = new Map<string, { atual: number; anterior: number }>()
   const somar = (lista: Transacao[], campo: 'atual' | 'anterior') => {
     for (const t of lista) {
-      if (t.tipo !== 'despesa') continue
+      if (!ehGasto(t)) continue
       const chave = t.categoria_id ?? 'sem'
       const soma = somas.get(chave) ?? { atual: 0, anterior: 0 }
       soma[campo] += centavos(t.valor)
