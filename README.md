@@ -34,12 +34,24 @@ src/
     cartoes/        lista de cartões com limite usado
     detalhe-cartao/ fatura do cartão (/cartoes/:id?fatura=2026-11)
     assinaturas/, comparativo/, caixinha/
+    bancos/         Open Finance: conexões, vínculo de contas/cartões e categorias do banco
   hooks/            useAuth
   services/         funções que falam com o Supabase
   types/            database.ts (gerado do banco), financas.ts
 supabase/
   migrations/       SQL aplicado no banco (nome = versão registrada no Supabase)
-  functions/        Edge Functions da Pluggy (Open Finance)
+  functions/        sync-pluggy: importa contas, cartões e transações do Meu Pluggy
 ```
 
 Depois de cada migration, gere de novo `src/types/database.ts` a partir do banco.
+
+## Open Finance (Meu Pluggy)
+
+Uso pessoal, somente leitura. A Edge Function `sync-pluggy` precisa destes secrets no Supabase
+(Edge Functions › Secrets); eles nunca vão para o front:
+
+- `PLUGGY_CLIENT_ID` e `PLUGGY_CLIENT_SECRET`: da aplicação em dashboard.pluggy.ai
+- `PLUGGY_ITEM_IDS`: ids das conexões do meu.pluggy.ai, separados por vírgula
+- `PLUGGY_USER_ID`: id do seu usuário no app (só ele pode sincronizar)
+
+Se reconectar um banco no meu.pluggy.ai, o id da conexão pode mudar: atualize `PLUGGY_ITEM_IDS`.
