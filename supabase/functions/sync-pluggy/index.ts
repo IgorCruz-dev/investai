@@ -195,6 +195,15 @@ type Linha = {
 const RE_PAGAMENTO_FATURA =
   /pagamento.*(fatura|cart[aã]o)|pgto.*(fat|cart)|pag\.? fatura|fatura.*cart[aã]o|gastos cart[aã]o|pagto antec/i
 
+// Fatura não paga inteira: o banco zera a antiga com "Crédito de rotativo" e cobra o resto na nova como "Saldo em rotativo".
+// A Pluggy põe os dois na fatura nova; o crédito é da anterior.
+const RE_CREDITO_ROTATIVO = /cr[eé]dito de rotativo/i
+
+function faturaAnterior(fatura: string) {
+  const [ano, mes] = fatura.split('-').map(Number)
+  return primeiroDoMes(ano, mes - 2)
+}
+
 function ehPagamentoDeFatura(t: TransacaoPluggy) {
   return t.category === 'Credit card payment' || RE_PAGAMENTO_FATURA.test(t.description)
 }
@@ -478,6 +487,8 @@ async function sincronizar(
         const parcela = md?.installmentNumber ?? null
         const total = md?.totalInstallments ?? null
         const parcelado = parcela !== null && total !== null && total > 1 && parcela >= 1 && parcela <= total
+        const fatura =
+          (md?.billId && vencimentoDaFatura.get(md.billId)) || mesDaFatura(data, cartao.dia_fechamento, cartao.dia_vencimento)
         novas.push({
           ...base,
           tipo: t.amount < 0 ? 'receita' : 'despesa',
@@ -485,7 +496,7 @@ async function sincronizar(
           cartao_id: cartao.id,
           local: local ?? 'Compra no cartão',
           categoria_id: categoriaDe(t, local),
-          fatura: (md?.billId && vencimentoDaFatura.get(md.billId)) || mesDaFatura(data, cartao.dia_fechamento, cartao.dia_vencimento),
+          fatura: t.amount < 0 && RE_CREDITO_ROTATIVO.test(t.description) ? faturaAnterior(fatura) : fatura,
           parcela_atual: parcelado ? parcela : null,
           total_parcelas: parcelado ? total : null,
         })
