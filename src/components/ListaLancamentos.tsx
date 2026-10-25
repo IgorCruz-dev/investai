@@ -47,6 +47,7 @@ export default function ListaLancamentos({ transacoes, categorias, cartoes, aoEs
                 pagamento ? 'Pagamento de fatura' : categoria?.nome,
                 t.forma === 'credito' && cartao ? `Crédito · ${cartao.nome}` : nomesDasFormas[t.forma],
                 t.total_parcelas ? `${t.parcela_atual}/${t.total_parcelas}` : null,
+                t.origem === 'pluggy' ? 'Banco' : null,
               ].filter(Boolean)
 
               return (

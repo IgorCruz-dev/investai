@@ -96,10 +96,20 @@ export async function criarLancamento(d: DadosLancamento) {
  * Atualiza um lançamento. Numa parcela, só valor, local, descrição, observação e categoria mudam
  * (forma, cartão e datas valem para o grupo; para mudar, exclua e lance de novo).
  * Num pagamento de fatura, tipo e forma ficam como estão.
+ * Numa importada do banco, só local, descrição, observação e categoria mudam.
  */
 export async function atualizarLancamento(original: Transacao, d: DadosLancamento) {
   const comuns = camposComuns(d)
-  const mudancas = original.grupo_parcela
+  // Importada: o resto vem do banco e a sincronização mantém
+  const doUsuario = {
+    local: comuns.local,
+    descricao: comuns.descricao,
+    observacao: comuns.observacao,
+    categoria_id: comuns.categoria_id,
+  }
+  const mudancas = original.origem === 'pluggy'
+    ? doUsuario
+    : original.grupo_parcela
     ? {
         valor: d.valorCentavos / 100,
         local: comuns.local,

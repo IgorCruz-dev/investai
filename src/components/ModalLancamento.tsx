@@ -5,6 +5,7 @@ import { formatarMoeda } from '../lib/formatar'
 import { listarCartoes } from '../services/cartoes'
 import { listarCategorias } from '../services/categorias'
 import { listarContas } from '../services/contas'
+import { salvarRegraDeLocal } from '../services/openFinance'
 import {
   atualizarLancamento,
   criarLancamento,
@@ -51,6 +52,9 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
   const editando = transacao !== null
   const ehParcela = Boolean(transacao?.grupo_parcela)
   const ehPagamento = Boolean(transacao?.pagamento_cartao_id)
+  // Importada do banco: valor, data, forma e conta/cartão vêm do banco (a sincronização mantém)
+  const ehImportada = transacao?.origem === 'pluggy'
+  const travado = ehParcela || ehPagamento || ehImportada
 
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [contas, setContas] = useState<Conta[]>([])
@@ -72,6 +76,8 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(iniciarExcluindo)
+  // Importada que mudou de categoria: pergunta se vale para as próximas do mesmo local
+  const [perguntandoRegra, setPerguntandoRegra] = useState(false)
 
   useEffect(() => {
     let ativo = true
@@ -138,6 +144,11 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
       if (transacao) await atualizarLancamento(transacao, dados)
       else await criarLancamento(dados)
       aoSalvar()
+      if (ehImportada && transacao?.local && categoriaId && categoriaId !== transacao.categoria_id) {
+        setSalvando(false)
+        setPerguntandoRegra(true)
+        return
+      }
       aoFechar()
     } catch (err) {
       setErro((err as Error).message)
@@ -160,6 +171,46 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
     }
   }
 
+  async function criarRegra() {
+    if (!transacao?.local || !categoriaId) return
+    setErro('')
+    setSalvando(true)
+    try {
+      await salvarRegraDeLocal(transacao.local, categoriaId)
+      aoFechar()
+    } catch (err) {
+      setErro((err as Error).message)
+      setSalvando(false)
+    }
+  }
+
+  if (perguntandoRegra && transacao?.local) {
+    const nomeCategoria = categorias.find((c) => c.id === categoriaId)?.nome ?? 'esta categoria'
+    return (
+      <Modal aberto aoFechar={aoFechar} titulo="Usar nas próximas?">
+        <div className="flex flex-col gap-4">
+          <p className="text-texto-suave">
+            Categoria salva. Quer que as próximas transações importadas de{' '}
+            <strong className="text-texto">{transacao.local}</strong> também entrem em{' '}
+            <strong className="text-texto">{nomeCategoria}</strong>?
+          </p>
+          {erro && <Alerta>{erro}</Alerta>}
+          <Botao carregando={salvando} onClick={criarRegra}>
+            Sim, usar nas próximas
+          </Botao>
+          <button
+            type="button"
+            onClick={aoFechar}
+            disabled={salvando}
+            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-slate-50 hover:text-texto"
+          >
+            Só nesta
+          </button>
+        </div>
+      </Modal>
+    )
+  }
+
   if (confirmandoExclusao && transacao) {
     return (
       <Modal aberto aoFechar={aoFechar} titulo="Excluir lançamento">
@@ -169,7 +220,9 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
               ? `Esta é a parcela ${transacao.parcela_atual} de ${transacao.total_parcelas}. O que você quer excluir?`
               : ehPagamento
                 ? 'Excluir este pagamento faz a fatura voltar a ficar em aberto/fechada. Tem certeza?'
-                : 'Tem certeza? Essa ação não pode ser desfeita.'}
+                : ehImportada
+                  ? 'Ela veio do banco e não volta nas próximas sincronizações. Tem certeza?'
+                  : 'Tem certeza? Essa ação não pode ser desfeita.'}
           </p>
           {erro && <Alerta>{erro}</Alerta>}
           <div className="flex flex-col gap-2">
@@ -234,7 +287,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
               key={t}
               type="button"
               aria-pressed={tipo === t}
-              disabled={ehParcela || ehPagamento}
+              disabled={travado}
               onClick={() => mudarTipo(t)}
               className={`h-10 rounded-lg text-sm font-semibold transition disabled:cursor-not-allowed ${tipo === t ? `bg-white shadow-sm ${t === 'despesa' ? 'text-despesa' : 'text-receita'}` : 'text-texto-suave'}`}
             >
@@ -243,7 +296,13 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
           ))}
         </div>
 
-        <CampoValor centavos={centavos} aoMudar={setCentavos} tipo={tipo} erro={erros.valor} />
+        <CampoValor centavos={centavos} aoMudar={setCentavos} tipo={tipo} erro={erros.valor} desabilitado={ehImportada} />
+
+        {ehImportada && (
+          <p className="rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-texto-suave">
+            Importado do banco. Valor, data e forma vêm do banco; aqui você muda local, categoria, descrição e observação.
+          </p>
+        )}
 
         {ehParcela && (
           <p className="rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-texto-suave">
@@ -264,7 +323,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
           opcoes={tipo === 'receita' ? formasDeReceita : todasAsFormas}
           valor={forma}
           aoMudar={setForma}
-          desabilitado={ehParcela || ehPagamento}
+          desabilitado={travado}
         />
 
         {noCredito && (
@@ -285,7 +344,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
                 valor={cartaoId}
                 aoMudar={setCartaoId}
                 erro={erros.cartao}
-                desabilitado={ehParcela}
+                desabilitado={ehParcela || ehImportada}
               />
             ) : (
               <Alerta>Nenhum cartão cadastrado ainda. Cadastre um cartão para lançar no crédito.</Alerta>
@@ -326,6 +385,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
             opcoes={contas.map((c) => ({ valor: c.id, label: c.nome }))}
             valor={contaId}
             aoMudar={setContaId}
+            desabilitado={ehImportada}
           />
         )}
 
@@ -352,7 +412,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
           label="Data"
           type="date"
           required
-          disabled={ehParcela}
+          disabled={ehParcela || ehImportada}
           value={data}
           onChange={(e) => setData(e.target.value)}
           erro={erros.data}
