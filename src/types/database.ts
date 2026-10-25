@@ -286,6 +286,9 @@ export type Database = {
         Row: {
           atualizado_em: string
           banco: string | null
+          bandeira: string | null
+          dia_fechamento: number | null
+          dia_vencimento: number | null
           id: string
           item_id: string
           limite: number | null
@@ -298,6 +301,9 @@ export type Database = {
         Insert: {
           atualizado_em?: string
           banco?: string | null
+          bandeira?: string | null
+          dia_fechamento?: number | null
+          dia_vencimento?: number | null
           id: string
           item_id: string
           limite?: number | null
@@ -310,6 +316,9 @@ export type Database = {
         Update: {
           atualizado_em?: string
           banco?: string | null
+          bandeira?: string | null
+          dia_fechamento?: number | null
+          dia_vencimento?: number | null
           id?: string
           item_id?: string
           limite?: number | null
@@ -388,6 +397,7 @@ export type Database = {
           assinatura_id: string | null
           cartao_id: string | null
           categoria_id: string | null
+          categoria_pluggy: string | null
           conta_id: string | null
           criado_em: string
           data: string
@@ -412,6 +422,7 @@ export type Database = {
           assinatura_id?: string | null
           cartao_id?: string | null
           categoria_id?: string | null
+          categoria_pluggy?: string | null
           conta_id?: string | null
           criado_em?: string
           data?: string
@@ -436,6 +447,7 @@ export type Database = {
           assinatura_id?: string | null
           cartao_id?: string | null
           categoria_id?: string | null
+          categoria_pluggy?: string | null
           conta_id?: string | null
           criado_em?: string
           data?: string
