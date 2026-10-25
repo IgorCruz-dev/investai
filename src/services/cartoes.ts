@@ -1,5 +1,7 @@
+import { paraISO } from '../lib/datas'
+import { mesDaFatura } from '../lib/fatura'
 import { supabase } from '../lib/supabase'
-import type { NovoCartao } from '../types/financas'
+import type { Cartao, NovoCartao } from '../types/financas'
 
 export async function listarCartoes() {
   const { data, error } = await supabase.from('cartoes').select('*').order('nome')
@@ -24,6 +26,28 @@ export async function salvarCartao(dados: NovoCartao, id?: string) {
     throw new Error('Não foi possível salvar o cartão. Tente de novo.')
   }
   return data
+}
+
+/**
+ * Total (em centavos) da fatura atual de cada cartão: a que recebe as compras de hoje.
+ * Chave: id do cartão.
+ */
+export async function totaisDasFaturasAtuais(cartoes: Cartao[], hoje = new Date()) {
+  const faturaDe = new Map(cartoes.map((c) => [c.id, paraISO(mesDaFatura(hoje, c.dia_fechamento, c.dia_vencimento))]))
+  const totais = new Map(cartoes.map((c) => [c.id, 0]))
+  if (cartoes.length === 0) return { totais, faturaDe }
+
+  const { data, error } = await supabase
+    .from('transacoes')
+    .select('cartao_id, fatura, valor, tipo')
+    .in('cartao_id', cartoes.map((c) => c.id))
+    .in('fatura', [...new Set(faturaDe.values())])
+  if (error) throw error
+  for (const t of data) {
+    if (!t.cartao_id || t.fatura !== faturaDe.get(t.cartao_id)) continue
+    totais.set(t.cartao_id, (totais.get(t.cartao_id) ?? 0) + Math.round(t.valor * 100) * (t.tipo === 'despesa' ? 1 : -1))
+  }
+  return { totais, faturaDe }
 }
 
 /** Limite usado por cartão (compras em faturas ainda não pagas), calculado no banco */
