@@ -415,6 +415,7 @@ export type Database = {
           parcela_atual: number | null
           tipo: string
           total_parcelas: number | null
+          transferencia_interna: boolean
           user_id: string
           valor: number
         }
@@ -440,6 +441,7 @@ export type Database = {
           parcela_atual?: number | null
           tipo: string
           total_parcelas?: number | null
+          transferencia_interna?: boolean
           user_id?: string
           valor: number
         }
@@ -465,6 +467,7 @@ export type Database = {
           parcela_atual?: number | null
           tipo?: string
           total_parcelas?: number | null
+          transferencia_interna?: boolean
           user_id?: string
           valor?: number
         }
