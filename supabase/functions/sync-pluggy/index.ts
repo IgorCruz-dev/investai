@@ -187,12 +187,32 @@ type Linha = {
   total_parcelas: number | null
   pagamento_cartao_id: string | null
   pagamento_fatura: string | null
+  transferencia_interna: boolean
 }
 
 const RE_PAGAMENTO_FATURA = /pagamento.*(fatura|cart[aã]o)|pgto.*(fat|cart)|pag\.? fatura|fatura.*cart[aã]o/i
 
 function ehPagamentoDeFatura(t: TransacaoPluggy) {
   return t.category === 'Credit card payment' || RE_PAGAMENTO_FATURA.test(t.description)
+}
+
+/** Cara de transferência (Pix, TED, "transf..."): candidata a ser entre as próprias contas */
+function pareceTransferencia(t: TransacaoPluggy) {
+  return (
+    ehPix(t) ||
+    t.operationType === 'TED' ||
+    /^Transfer|Same person transfer/.test(t.category ?? '') ||
+    /transf|\bted\b|\bdoc\b/i.test(t.description)
+  )
+}
+
+const semAcento = (texto: string) => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+/** Nomes com que o banco aparece na descrição de um pagamento ("Nubank" também aparece como "Nu Pagamentos") */
+function apelidosDoBanco(banco: string) {
+  const palavra = semAcento(banco).split(/[^a-z0-9]+/).find((p) => p.length >= 3)
+  if (!palavra) return []
+  return palavra === 'nubank' ? ['nubank', 'nu pagamentos', 'nu pag'] : [palavra]
 }
 
 function ehPix(t: TransacaoPluggy) {
@@ -290,12 +310,18 @@ async function atualizarConexoes(db: SupabaseClient, pluggy: Pluggy, userId: str
   const { error: e3 } = ids ? await apagar.not('id', 'in', `(${ids})`) : await apagar
   if (e3) throw e3
 
-  return { conexoes, contas }
+  return { conexoes, contas, bancoDoItem }
 }
 
 // ===================== Sincronização =====================
 
-async function sincronizar(db: SupabaseClient, pluggy: Pluggy, userId: string, contasPluggy: ContaPluggy[]) {
+async function sincronizar(
+  db: SupabaseClient,
+  pluggy: Pluggy,
+  userId: string,
+  contasPluggy: ContaPluggy[],
+  bancoDoItem: Map<string, string>,
+) {
   const hoje = diaFormatado.format(new Date())
 
   const [ultimo, contasApp, cartoesApp, categorias, mapeamento, regras, ignoradas, pagamentos] = await Promise.all([
@@ -316,6 +342,22 @@ async function sincronizar(db: SupabaseClient, pluggy: Pluggy, userId: string, c
   const cartoes = cartoesApp.data as Cartao[]
   const cartaoPorPluggy = new Map(cartoes.filter((c) => c.pluggy_account_id).map((c) => [c.pluggy_account_id!, c]))
   const cartoesVinculados = [...cartaoPorPluggy.values()]
+  // Banco (item) de cada cartão vinculado, para achar o cartão de um pagamento de fatura
+  const itemDaConta = new Map(contasPluggy.map((c) => [c.id, c.itemId]))
+  const itemDoCartao = new Map(cartoesVinculados.map((c) => [c.id, itemDaConta.get(c.pluggy_account_id!)]))
+
+  /** Cartão que um pagamento quita: o citado na descrição; senão o do mesmo banco da conta; senão o único */
+  function cartaoDoPagamento(t: TransacaoPluggy, itemDaContaPagadora: string) {
+    const descricao = semAcento(t.description)
+    const citados = cartoesVinculados.filter((c) => {
+      const banco = bancoDoItem.get(itemDoCartao.get(c.id) ?? '')
+      return banco && apelidosDoBanco(banco).some((apelido) => descricao.includes(apelido))
+    })
+    if (citados.length === 1) return citados[0]
+    const doMesmoBanco = cartoesVinculados.filter((c) => itemDoCartao.get(c.id) === itemDaContaPagadora)
+    if (doMesmoBanco.length === 1) return doMesmoBanco[0]
+    return cartoesVinculados.length === 1 ? cartoesVinculados[0] : undefined
+  }
   const outros = categorias.data!.find((c) => c.nome === 'Outros')?.id ?? null
   const porCategoriaPluggy = new Map(mapeamento.data!.map((m) => [m.categoria_pluggy, m.categoria_id]))
   const porLocal = new Map(regras.data!.map((r) => [r.local, r.categoria_id]))
@@ -327,6 +369,8 @@ async function sincronizar(db: SupabaseClient, pluggy: Pluggy, userId: string, c
     (local && porLocal.get(local.toLowerCase())) || (t.category && porCategoriaPluggy.get(t.category)) || outros
 
   const novas: Linha[] = []
+  // Saídas/entradas com cara de transferência, para parear entre contas depois
+  const pareaveis = new Set<string>()
   const avisos: string[] = []
   let semVinculo = 0
 
@@ -386,6 +430,7 @@ async function sincronizar(db: SupabaseClient, pluggy: Pluggy, userId: string, c
         total_parcelas: null,
         pagamento_cartao_id: null,
         pagamento_fatura: null,
+        transferencia_interna: false,
       }
 
       if (cartao) {
@@ -416,7 +461,7 @@ async function sincronizar(db: SupabaseClient, pluggy: Pluggy, userId: string, c
       if (!entrou && ehPagamentoDeFatura(t) && cartoesVinculados.length > 0) {
         // Pagamento de fatura: marca a fatura como paga e fica fora das despesas do mês
         const pagas_ = new Set([...pagas].filter(([, idExt]) => idExt !== t.id).map(([chave]) => chave))
-        const alvo = cartoesVinculados.length === 1 ? cartoesVinculados[0] : undefined
+        const alvo = cartaoDoPagamento(t, conta.itemId)
         const fatura = alvo ? faturaDoPagamento(data, alvo, pagas_) : null
         if (alvo && fatura) {
           pagas.set(`${alvo.id}|${fatura}`, t.id)
@@ -435,8 +480,36 @@ async function sincronizar(db: SupabaseClient, pluggy: Pluggy, userId: string, c
         avisos.push(`Pagamento de fatura de ${data} entrou como despesa comum (não deu para saber qual cartão).`)
       }
 
-      novas.push({ ...base, tipo: entrou ? 'receita' : 'despesa', forma, conta_id: contaId!, categoria_id: categoriaDe(t, local) })
+      if (pareceTransferencia(t)) pareaveis.add(t.id)
+      novas.push({
+        ...base,
+        tipo: entrou ? 'receita' : 'despesa',
+        forma,
+        conta_id: contaId!,
+        categoria_id: categoriaDe(t, local),
+        // A Pluggy já reconhece algumas transferências para o mesmo CPF
+        transferencia_interna: t.category === 'Same person transfer',
+      })
     }
+  }
+
+  // Transferência entre as próprias contas: saída numa conta e entrada do mesmo valor em outra, com até 1 dia
+  const umDia = 24 * 60 * 60 * 1000
+  const livres = novas.filter((n) => pareaveis.has(n.id_externo) && !n.transferencia_interna)
+  const usadas = new Set<string>()
+  for (const saida of livres.filter((n) => n.tipo === 'despesa')) {
+    const entrada = livres.find(
+      (n) =>
+        n.tipo === 'receita' &&
+        !usadas.has(n.id_externo) &&
+        n.conta_id !== saida.conta_id &&
+        n.valor === saida.valor &&
+        Math.abs(Date.parse(n.data) - Date.parse(saida.data)) <= umDia,
+    )
+    if (!entrada) continue
+    usadas.add(entrada.id_externo)
+    saida.transferencia_interna = true
+    entrada.transferencia_interna = true
   }
 
   // Separa o que já existe (atualiza só o que vem do banco) do que é novo
@@ -532,10 +605,10 @@ Deno.serve(async (req) => {
 
   try {
     const pluggy = await conectarPluggy()
-    const { conexoes, contas } = await atualizarConexoes(db, pluggy, usuario.id, itemIds)
+    const { conexoes, contas, bancoDoItem } = await atualizarConexoes(db, pluggy, usuario.id, itemIds)
     if (acao === 'contas') return json({ conexoes })
 
-    const r = await sincronizar(db, pluggy, usuario.id, contas)
+    const r = await sincronizar(db, pluggy, usuario.id, contas, bancoDoItem)
     const comProblema = conexoes.filter((c) => c.status !== 'UPDATED' && c.status !== 'UPDATING')
     const partes = [
       `${r.importadas} ${r.importadas === 1 ? 'nova' : 'novas'}`,
