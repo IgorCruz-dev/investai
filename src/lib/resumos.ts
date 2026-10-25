@@ -21,9 +21,19 @@ export function ehPagamentoDeFatura(t: Pick<Transacao, 'pagamento_cartao_id'>) {
   return t.pagamento_cartao_id !== null
 }
 
-/** Despesa que conta como gasto (todas as formas, inclusive crédito, menos pagamento de fatura) */
+/** Transferência entre as próprias contas: mexe no saldo de cada conta, mas não é receita nem gasto */
+export function ehTransferencia(t: Pick<Transacao, 'transferencia_interna'>) {
+  return t.transferencia_interna
+}
+
+/** Despesa que conta como gasto (todas as formas, inclusive crédito, menos pagamento de fatura e transferência) */
 export function ehGasto(t: Transacao) {
-  return t.tipo === 'despesa' && !ehPagamentoDeFatura(t)
+  return t.tipo === 'despesa' && !ehPagamentoDeFatura(t) && !ehTransferencia(t)
+}
+
+/** Receita de verdade (transferência entre as próprias contas não conta) */
+export function ehReceita(t: Transacao) {
+  return t.tipo === 'receita' && !ehTransferencia(t)
 }
 
 function despesasPorDia(transacoes: Transacao[]) {

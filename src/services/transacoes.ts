@@ -19,6 +19,8 @@ export type DadosLancamento = {
   cartao: Cartao | null
   /** 1 a 12; só vale no crédito */
   parcelas: number
+  /** Transferência entre as próprias contas (não vale no crédito) */
+  transferencia: boolean
 }
 
 const ERRO_SALVAR = 'Não foi possível salvar. Tente de novo.'
@@ -51,6 +53,7 @@ function camposComuns(d: DadosLancamento) {
     descricao: d.descricao.trim() || null,
     observacao: d.observacao.trim() || null,
     categoria_id: d.categoriaId,
+    transferencia_interna: d.forma !== 'credito' && d.transferencia,
     // compra no crédito não sai de nenhuma conta na hora (só o pagamento da fatura)
     conta_id: d.forma === 'credito' ? null : d.contaId,
     cartao_id: d.forma === 'credito' ? (d.cartao?.id ?? null) : null,
@@ -106,6 +109,7 @@ export async function atualizarLancamento(original: Transacao, d: DadosLancament
     descricao: comuns.descricao,
     observacao: comuns.observacao,
     categoria_id: comuns.categoria_id,
+    ...(original.forma === 'credito' || original.pagamento_cartao_id ? {} : { transferencia_interna: d.transferencia }),
   }
   const mudancas = original.origem === 'pluggy'
     ? doUsuario

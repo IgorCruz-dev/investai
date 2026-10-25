@@ -1,4 +1,4 @@
-import { ehGasto } from './resumos'
+import { ehGasto, ehReceita } from './resumos'
 import type { Categoria, Transacao } from '../types/financas'
 
 export type TotaisDoMes = {
@@ -38,7 +38,7 @@ export function totaisDoMes(transacoes: Transacao[], categoriaPorId: Map<string,
   let assinaturas = 0
   for (const t of transacoes) {
     const valor = centavos(t.valor)
-    if (t.tipo === 'receita') {
+    if (ehReceita(t)) {
       receitas += valor
       continue
     }

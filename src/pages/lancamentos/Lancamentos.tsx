@@ -9,7 +9,7 @@ import { IconeChevronEsquerda, IconeLista } from '../../components/icones'
 import { useLancamentos } from '../../hooks/useLancamentos'
 import { deMesISO, inicioDoMes, paraMesISO } from '../../lib/datas'
 import { formatarMoeda } from '../../lib/formatar'
-import { ehGasto } from '../../lib/resumos'
+import { ehGasto, ehReceita } from '../../lib/resumos'
 import { listarCartoes } from '../../services/cartoes'
 import { listarCategorias } from '../../services/categorias'
 import { listarTransacoesDoMes } from '../../services/transacoes'
@@ -69,7 +69,7 @@ export default function Lancamentos() {
     let receitas = 0
     let despesas = 0
     for (const t of filtradas) {
-      if (t.tipo === 'receita') receitas += Math.round(t.valor * 100)
+      if (ehReceita(t)) receitas += Math.round(t.valor * 100)
       else if (ehGasto(t)) despesas += Math.round(t.valor * 100)
     }
     return { receitas: receitas / 100, despesas: despesas / 100 }

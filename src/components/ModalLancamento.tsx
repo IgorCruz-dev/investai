@@ -70,6 +70,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
   const [descricao, setDescricao] = useState(transacao?.descricao ?? '')
   const [observacao, setObservacao] = useState(transacao?.observacao ?? '')
   const [categoriaId, setCategoriaId] = useState<string | null>(transacao?.categoria_id ?? null)
+  const [transferencia, setTransferencia] = useState(transacao?.transferencia_interna ?? false)
   const [data, setData] = useState(transacao?.data ?? hojeISO())
 
   const [tentouSalvar, setTentouSalvar] = useState(false)
@@ -134,6 +135,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
       descricao,
       observacao,
       categoriaId,
+      transferencia,
       data,
       contaId,
       cartao,
@@ -435,6 +437,21 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
           value={observacao}
           onChange={(e) => setObservacao(e.target.value)}
         />
+
+        {!noCredito && !ehPagamento && !ehParcela && (
+          <label className="flex items-start gap-3 rounded-xl border border-borda px-3.5 py-3 text-sm">
+            <input
+              type="checkbox"
+              checked={transferencia}
+              onChange={(e) => setTransferencia(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-primaria"
+            />
+            <span>
+              <span className="block font-medium">Transferência entre minhas contas</span>
+              <span className="block text-texto-suave">Conta no saldo, mas não entra em receitas nem despesas.</span>
+            </span>
+          </label>
+        )}
 
         {erro && <Alerta>{erro}</Alerta>}
       </form>

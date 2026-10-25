@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { formatarDia, formatarMoeda } from '../lib/formatar'
-import { ehPagamentoDeFatura } from '../lib/resumos'
+import { ehPagamentoDeFatura, ehTransferencia } from '../lib/resumos'
 import IconeCategoria from './IconeCategoria'
 import type { Cartao, Categoria, FormaPagamento, Transacao } from '../types/financas'
 
@@ -42,9 +42,10 @@ export default function ListaLancamentos({ transacoes, categorias, cartoes, aoEs
               const categoria = t.categoria_id ? categoriaPorId.get(t.categoria_id) : undefined
               const cartao = t.cartao_id ? cartaoPorId.get(t.cartao_id) : undefined
               const pagamento = ehPagamentoDeFatura(t)
+              const transferencia = ehTransferencia(t)
               const titulo = t.local || t.descricao || categoria?.nome || (t.tipo === 'receita' ? 'Receita' : 'Despesa')
               const detalhes = [
-                pagamento ? 'Pagamento de fatura' : categoria?.nome,
+                pagamento ? 'Pagamento de fatura' : transferencia ? 'Entre minhas contas' : categoria?.nome,
                 t.forma === 'credito' && cartao ? `Crédito · ${cartao.nome}` : nomesDasFormas[t.forma],
                 t.total_parcelas ? `${t.parcela_atual}/${t.total_parcelas}` : null,
                 t.origem === 'pluggy' ? 'Banco' : null,
@@ -65,7 +66,9 @@ export default function ListaLancamentos({ transacoes, categorias, cartoes, aoEs
                       <span className="block truncate font-medium">{titulo}</span>
                       <span className="block truncate text-xs text-texto-suave">{detalhes.join(' · ')}</span>
                     </span>
-                    <span className={`shrink-0 font-semibold ${t.tipo === 'receita' ? 'text-receita' : 'text-texto'}`}>
+                    <span
+                      className={`shrink-0 font-semibold ${transferencia ? 'text-texto-suave' : t.tipo === 'receita' ? 'text-receita' : 'text-texto'}`}
+                    >
                       {t.tipo === 'receita' ? '+' : '−'}
                       {formatarMoeda(t.valor)}
                     </span>
