@@ -48,7 +48,12 @@ type ContaPluggy = {
   marketingName?: string | null
   number?: string | null
   balance?: number | null
-  creditData?: { creditLimit?: number | null } | null
+  creditData?: {
+    creditLimit?: number | null
+    balanceCloseDate?: string | null
+    balanceDueDate?: string | null
+    brand?: string | null
+  } | null
 }
 
 type TransacaoPluggy = {
@@ -174,6 +179,7 @@ type Linha = {
   local: string | null
   descricao: string | null
   categoria_id: string | null
+  categoria_pluggy: string | null
   conta_id: string | null
   cartao_id: string | null
   fatura: string | null
@@ -269,6 +275,9 @@ async function atualizarConexoes(db: SupabaseClient, pluggy: Pluggy, userId: str
     banco: bancoDoItem.get(c.itemId) ?? null,
     saldo: c.balance ?? null,
     limite: c.creditData?.creditLimit ?? null,
+    bandeira: limpar(c.creditData?.brand),
+    dia_fechamento: c.creditData?.balanceCloseDate ? Number(diaLocal(c.creditData.balanceCloseDate).slice(8, 10)) : null,
+    dia_vencimento: c.creditData?.balanceDueDate ? Number(diaLocal(c.creditData.balanceDueDate).slice(8, 10)) : null,
     atualizado_em: new Date().toISOString(),
   }))
   if (linhas.length) {
@@ -301,7 +310,8 @@ async function sincronizar(db: SupabaseClient, pluggy: Pluggy, userId: string, c
   ])
   for (const r of [ultimo, contasApp, cartoesApp, categorias, mapeamento, regras, ignoradas, pagamentos]) if (r.error) throw r.error
 
-  const desde = ultimo.data ? somarDias(diaLocal(ultimo.data.data), -DIAS_DE_FOLGA) : somarDias(hoje, -DIAS_PRIMEIRA_VEZ)
+  const desdeUltima = ultimo.data ? somarDias(diaLocal(ultimo.data.data), -DIAS_DE_FOLGA) : null
+  const primeiraVez = somarDias(hoje, -DIAS_PRIMEIRA_VEZ)
   const contaPorPluggy = new Map(contasApp.data!.map((c) => [c.pluggy_account_id as string, c.id as string]))
   const cartoes = cartoesApp.data as Cartao[]
   const cartaoPorPluggy = new Map(cartoes.filter((c) => c.pluggy_account_id).map((c) => [c.pluggy_account_id!, c]))
@@ -334,6 +344,18 @@ async function sincronizar(db: SupabaseClient, pluggy: Pluggy, userId: string, c
       if (error) throw error
     }
 
+    // Conta recém-vinculada (nada importado ainda) pega os 90 dias; as outras, desde a última sincronização
+    let desde = primeiraVez
+    if (desdeUltima) {
+      const { count, error } = await db
+        .from('transacoes')
+        .select('id', { count: 'exact', head: true })
+        .eq('origem', 'pluggy')
+        .eq(cartao ? 'cartao_id' : 'conta_id', cartao ? cartao.id : contaId!)
+      if (error) throw error
+      if (count) desde = desdeUltima
+    }
+
     const vencimentoDaFatura = new Map<string, string>()
     if (cartao) {
       for (const f of await pluggy.faturas(conta.id)) {
@@ -356,6 +378,7 @@ async function sincronizar(db: SupabaseClient, pluggy: Pluggy, userId: string, c
         data,
         local,
         descricao: limpar(t.description),
+        categoria_pluggy: limpar(t.category),
         conta_id: null,
         cartao_id: null,
         fatura: null,
@@ -417,12 +440,21 @@ async function sincronizar(db: SupabaseClient, pluggy: Pluggy, userId: string, c
   }
 
   // Separa o que já existe (atualiza só o que vem do banco) do que é novo
-  const existentes = new Map<string, { id: string; valor: number; data: string; fatura: string | null; parcela_atual: number | null; total_parcelas: number | null; pagamento_cartao_id: string | null }>()
+  type Existente = {
+    id: string
+    valor: number
+    data: string
+    fatura: string | null
+    parcela_atual: number | null
+    total_parcelas: number | null
+    categoria_pluggy: string | null
+  }
+  const existentes = new Map<string, Existente>()
   const ids = novas.map((n) => n.id_externo)
   for (let i = 0; i < ids.length; i += 200) {
     const { data, error } = await db
       .from('transacoes')
-      .select('id, id_externo, valor, data, fatura, parcela_atual, total_parcelas, pagamento_cartao_id')
+      .select('id, id_externo, valor, data, fatura, parcela_atual, total_parcelas, categoria_pluggy')
       .in('id_externo', ids.slice(i, i + 200))
     if (error) throw error
     for (const e of data) existentes.set(e.id_externo!, e)
@@ -441,6 +473,7 @@ async function sincronizar(db: SupabaseClient, pluggy: Pluggy, userId: string, c
     const mudancas: Record<string, unknown> = {}
     if (Number(e.valor) !== n.valor) mudancas.valor = n.valor
     if (e.data !== n.data) mudancas.data = n.data
+    if (e.categoria_pluggy !== n.categoria_pluggy) mudancas.categoria_pluggy = n.categoria_pluggy
     if (n.forma === 'credito' && e.fatura !== n.fatura) mudancas.fatura = n.fatura
     if (n.forma === 'credito' && (e.parcela_atual !== n.parcela_atual || e.total_parcelas !== n.total_parcelas)) {
       mudancas.parcela_atual = n.parcela_atual
@@ -470,7 +503,7 @@ async function sincronizar(db: SupabaseClient, pluggy: Pluggy, userId: string, c
     }
   }
 
-  return { importadas, atualizadas, falhas, semVinculo, avisos, desde }
+  return { importadas, atualizadas, falhas, semVinculo, avisos }
 }
 
 // ===================== Entrada =====================
@@ -518,7 +551,8 @@ Deno.serve(async (req) => {
     await db.from('sync_log').insert({ user_id: usuario.id, status, mensagem, importadas: r.importadas, atualizadas: r.atualizadas })
     return json({ status, mensagem, ...r })
   } catch (e) {
-    const mensagem = e instanceof Error ? e.message : 'Erro inesperado.'
+    // Erros do banco (PostgrestError) não são Error, mas têm message
+    const mensagem = (e as { message?: string })?.message || 'Erro inesperado.'
     console.error('sync-pluggy', e)
     await db.from('sync_log').insert({ user_id: usuario.id, status: 'erro', mensagem })
     return json({ erro: mensagem }, 502)
