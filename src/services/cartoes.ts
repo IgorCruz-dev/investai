@@ -50,9 +50,23 @@ export async function totaisDasFaturasAtuais(cartoes: Cartao[], hoje = new Date(
   return { totais, faturaDe }
 }
 
-/** Limite usado por cartão (compras em faturas ainda não pagas), calculado no banco */
+/**
+ * Limite usado por cartão. Cartão ligado ao Open Finance usa o que o banco informa (já conta parcelas
+ * futuras e compras que o banco ainda não publicou); os outros somam as compras em faturas não pagas.
+ */
 export async function buscarLimitesUsados() {
-  const { data, error } = await supabase.rpc('limite_usado_cartoes')
-  if (error) throw error
-  return new Map(data.map((linha) => [linha.cartao_id, Number(linha.usado)]))
+  const [somados, vinculados, doBanco] = await Promise.all([
+    supabase.rpc('limite_usado_cartoes'),
+    supabase.from('cartoes').select('id, pluggy_account_id').not('pluggy_account_id', 'is', null),
+    supabase.from('pluggy_contas').select('id, saldo').eq('tipo', 'CREDIT').not('saldo', 'is', null),
+  ])
+  for (const r of [somados, vinculados, doBanco]) if (r.error) throw r.error
+
+  const usados = new Map(somados.data!.map((linha) => [linha.cartao_id, Number(linha.usado)]))
+  const saldoDoBanco = new Map(doBanco.data!.map((c) => [c.id, Number(c.saldo)]))
+  for (const c of vinculados.data!) {
+    const saldo = saldoDoBanco.get(c.pluggy_account_id!)
+    if (saldo !== undefined) usados.set(c.id, saldo)
+  }
+  return usados
 }
