@@ -11,6 +11,8 @@ export type ControleLancamentos = {
   editarLancamento: (transacao: Transacao, opcoes?: { excluir?: boolean }) => void
   /** Muda a cada lançamento salvo ou excluído; as telas usam para recarregar os dados */
   versao: number
+  /** Faz as telas recarregarem (ex.: depois de sincronizar com o banco) */
+  recarregar: () => void
 }
 
 export const LancamentosContext = createContext<ControleLancamentos | null>(null)

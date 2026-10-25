@@ -66,3 +66,9 @@ export const IconeFechar = (p: Props) => <Icone {...p} d="M6 6l12 12M18 6 6 18" 
 export const IconeMais = (p: Props) => <Icone {...p} d="M12 5v14M5 12h14" />
 export const IconeLapis = (p: Props) => <Icone {...p} d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" />
 export const IconeBusca = (p: Props) => <Icone {...p} d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4" />
+export const IconeBanco = (p: Props) => (
+  <Icone {...p} d="M3 10h18M12 3l9 5H3l9-5zM5 10v8m4.7-8v8m4.6-8v8M19 10v8M3 21h18" />
+)
+export const IconeSincronizar = (p: Props) => (
+  <Icone {...p} d="M20 11a8 8 0 0 0-14.9-3.5M4 4v3.5h3.5M4 13a8 8 0 0 0 14.9 3.5M20 20v-3.5h-3.5" />
+)

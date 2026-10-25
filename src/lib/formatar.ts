@@ -49,3 +49,15 @@ export function formatarDia(iso: string) {
   const texto = diaComSemana.format(deISO(iso))
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
+
+const hora = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' })
+
+/** "2026-10-23T21:02:00Z" → "hoje às 18:02", "ontem às 18:02" ou "20 de out às 18:02" */
+export function formatarDataHora(iso: string) {
+  const data = new Date(iso)
+  const dia = paraISO(data)
+  const ontem = new Date()
+  ontem.setDate(ontem.getDate() - 1)
+  const quando = dia === hojeISO() ? 'hoje' : dia === paraISO(ontem) ? 'ontem' : formatarDiaMes(data)
+  return `${quando} às ${hora.format(data)}`
+}

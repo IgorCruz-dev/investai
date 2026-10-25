@@ -26,3 +26,10 @@ export type NovaTransacao = Omit<TablesInsert<'transacoes'>, 'tipo' | 'forma' | 
 }
 
 export type MovimentoCaixinha = Omit<Tables<'caixinha_movimentos'>, 'tipo'> & { tipo: TipoMovimentoCaixinha }
+
+// Open Finance (Meu Pluggy)
+export type ConexaoPluggy = Tables<'pluggy_conexoes'>
+export type ContaPluggy = Omit<Tables<'pluggy_contas'>, 'tipo'> & { tipo: 'BANK' | 'CREDIT' }
+export type MapeamentoCategoria = Tables<'mapeamento_categorias'>
+export type RegraLocal = Tables<'regras_categoria_local'>
+export type SyncLog = Omit<Tables<'sync_log'>, 'status'> & { status: 'sucesso' | 'parcial' | 'erro' }
