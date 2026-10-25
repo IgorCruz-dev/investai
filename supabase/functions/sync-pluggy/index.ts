@@ -129,6 +129,7 @@ async function conectarPluggy() {
 
   return {
     item: (id: string) => get<ItemPluggy>(`/items/${id}`),
+    identidade: (itemId: string) => get<{ fullName?: string | null }>('/identity', { itemId }),
     contas: (itemId: string) => todasAsPaginas<ContaPluggy>('/accounts', { itemId }),
     faturas: (accountId: string) => todasAsPaginas<FaturaPluggy>('/bills', { accountId }),
     transacoes,
@@ -190,7 +191,9 @@ type Linha = {
   transferencia_interna: boolean
 }
 
-const RE_PAGAMENTO_FATURA = /pagamento.*(fatura|cart[aã]o)|pgto.*(fat|cart)|pag\.? fatura|fatura.*cart[aã]o/i
+// "GASTOS CARTAO DE CREDITO" é o débito automático da fatura no Bradesco; "PAGTO ANTECIPADO" é pagamento antes do vencimento
+const RE_PAGAMENTO_FATURA =
+  /pagamento.*(fatura|cart[aã]o)|pgto.*(fat|cart)|pag\.? fatura|fatura.*cart[aã]o|gastos cart[aã]o|pagto antec/i
 
 function ehPagamentoDeFatura(t: TransacaoPluggy) {
   return t.category === 'Credit card payment' || RE_PAGAMENTO_FATURA.test(t.description)
@@ -213,6 +216,27 @@ function apelidosDoBanco(banco: string) {
   const palavra = semAcento(banco).split(/[^a-z0-9]+/).find((p) => p.length >= 3)
   if (!palavra) return []
   return palavra === 'nubank' ? ['nubank', 'nu pagamentos', 'nu pag'] : [palavra]
+}
+
+/**
+ * Começo do nome do dono, para achar Pix/TED para si mesmo. O banco corta o nome
+ * ("Ricardo Parise Macari"), então compara só as três primeiras palavras, até 18 letras.
+ */
+function comecoDoNome(nomeCompleto: string) {
+  return semAcento(nomeCompleto).split(/\s+/).filter(Boolean).slice(0, 3).join(' ').slice(0, 18)
+}
+
+/** Nome do banco de uma conexão. Pelo Meu Pluggy o conector se chama "MeuPluggy": o banco sai do nome das contas */
+function nomeDoBanco(conector: string, contas: ContaPluggy[]) {
+  if (!/meu ?pluggy/i.test(conector)) return conector
+  // Conta corrente primeiro: nome de cartão ("gold", "ELO MAIS") raramente diz o banco
+  const nomes = [...contas.filter((c) => c.type === 'BANK'), ...contas.filter((c) => c.type !== 'BANK')].map((c) => c.name)
+  for (const nome of nomes) {
+    if (/nu pagamentos|nubank/i.test(nome)) return 'Nubank'
+    const banco = nome.replace(/^banco\s+/i, '').split(/\s+-\s+|\s+s\.?\s?a\.?(\s|$)/i)[0].trim()
+    if (banco) return banco
+  }
+  return conector
 }
 
 function ehPix(t: TransacaoPluggy) {
@@ -246,12 +270,17 @@ async function atualizarConexoes(db: SupabaseClient, pluggy: Pluggy, userId: str
   const conexoes = []
   const contas: ContaPluggy[] = []
   const bancoDoItem = new Map<string, string>()
+  const nomesDoDono = new Set<string>()
 
   for (const itemId of itemIds) {
     try {
       const item = await pluggy.item(itemId)
-      const banco = item.connector?.name ?? 'Banco'
+      const contasDoItem = await pluggy.contas(itemId)
+      const banco = nomeDoBanco(item.connector?.name ?? 'Banco', contasDoItem)
       bancoDoItem.set(itemId, banco)
+      // Sem identidade (banco não compartilha) só deixa de reconhecer Pix para si mesmo pelo nome
+      const identidade = await pluggy.identidade(itemId).catch(() => null)
+      if (identidade?.fullName) nomesDoDono.add(comecoDoNome(identidade.fullName))
       conexoes.push({
         user_id: userId,
         item_id: itemId,
@@ -262,7 +291,7 @@ async function atualizarConexoes(db: SupabaseClient, pluggy: Pluggy, userId: str
         atualizado_no_banco_em: item.lastUpdatedAt ?? null,
         verificado_em: new Date().toISOString(),
       })
-      contas.push(...(await pluggy.contas(itemId)))
+      contas.push(...contasDoItem)
     } catch (e) {
       if (!(e instanceof ErroPluggy) || (e.status !== 404 && e.status !== 403)) throw e
       // Item sumiu (ex.: reautorizou no meu.pluggy.ai e o id mudou)
@@ -290,7 +319,11 @@ async function atualizarConexoes(db: SupabaseClient, pluggy: Pluggy, userId: str
     id: c.id,
     item_id: c.itemId,
     tipo: c.type,
-    nome: limpar(c.marketingName) ?? limpar(c.name) ?? (c.type === 'CREDIT' ? 'Cartão' : 'Conta'),
+    // Conta: "Bradesco Corrente" em vez do nome oficial ("Nu Pagamentos S.A. - Instituição de Pagamento (Conta Pré-paga)")
+    nome:
+      c.type === 'BANK'
+        ? `${bancoDoItem.get(c.itemId) ?? 'Conta'} ${c.subtype === 'SAVINGS_ACCOUNT' ? 'Poupança' : 'Corrente'}`
+        : (limpar(c.marketingName) ?? limpar(c.name) ?? 'Cartão'),
     numero: c.number ?? null,
     banco: bancoDoItem.get(c.itemId) ?? null,
     saldo: c.balance ?? null,
@@ -310,7 +343,7 @@ async function atualizarConexoes(db: SupabaseClient, pluggy: Pluggy, userId: str
   const { error: e3 } = ids ? await apagar.not('id', 'in', `(${ids})`) : await apagar
   if (e3) throw e3
 
-  return { conexoes, contas, bancoDoItem }
+  return { conexoes, contas, bancoDoItem, nomesDoDono: [...nomesDoDono] }
 }
 
 // ===================== Sincronização =====================
@@ -321,6 +354,7 @@ async function sincronizar(
   userId: string,
   contasPluggy: ContaPluggy[],
   bancoDoItem: Map<string, string>,
+  nomesDoDono: string[],
 ) {
   const hoje = diaFormatado.format(new Date())
 
@@ -364,6 +398,10 @@ async function sincronizar(
   const jaIgnoradas = new Set(ignoradas.data!.map((i) => i.id_externo))
   // Faturas já pagas por outra transação (manual ou importada)
   const pagas = new Map(pagamentos.data!.map((p) => [`${p.pagamento_cartao_id}|${p.pagamento_fatura}`, p.id_externo]))
+
+  /** Pix/TED de ou para o próprio nome: a outra ponta é outra conta da pessoa */
+  const ehParaSiMesmo = (t: TransacaoPluggy) =>
+    pareceTransferencia(t) && nomesDoDono.some((nome) => semAcento(t.description).includes(nome))
 
   const categoriaDe = (t: TransacaoPluggy, local: string | null) =>
     (local && porLocal.get(local.toLowerCase())) || (t.category && porCategoriaPluggy.get(t.category)) || outros
@@ -487,8 +525,8 @@ async function sincronizar(
         forma,
         conta_id: contaId!,
         categoria_id: categoriaDe(t, local),
-        // A Pluggy já reconhece algumas transferências para o mesmo CPF
-        transferencia_interna: t.category === 'Same person transfer',
+        // A Pluggy reconhece só algumas transferências para o mesmo CPF; o nome na descrição pega as outras
+        transferencia_interna: t.category === 'Same person transfer' || ehParaSiMesmo(t),
       })
     }
   }
@@ -605,10 +643,10 @@ Deno.serve(async (req) => {
 
   try {
     const pluggy = await conectarPluggy()
-    const { conexoes, contas, bancoDoItem } = await atualizarConexoes(db, pluggy, usuario.id, itemIds)
+    const { conexoes, contas, bancoDoItem, nomesDoDono } = await atualizarConexoes(db, pluggy, usuario.id, itemIds)
     if (acao === 'contas') return json({ conexoes })
 
-    const r = await sincronizar(db, pluggy, usuario.id, contas, bancoDoItem)
+    const r = await sincronizar(db, pluggy, usuario.id, contas, bancoDoItem, nomesDoDono)
     const comProblema = conexoes.filter((c) => c.status !== 'UPDATED' && c.status !== 'UPDATING')
     const partes = [
       `${r.importadas} ${r.importadas === 1 ? 'nova' : 'novas'}`,
