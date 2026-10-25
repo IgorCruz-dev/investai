@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Outlet } from 'react-router'
+import { NavLink, Outlet } from 'react-router'
+import AvisoOpenFinance from '../components/AvisoOpenFinance'
 import BottomNav from '../components/BottomNav'
 import ModalLancamento from '../components/ModalLancamento'
-import { IconeFechar, IconeMais, IconeRepetir, IconeSair } from '../components/icones'
+import { IconeBanco, IconeFechar, IconeMais, IconeRepetir, IconeSair } from '../components/icones'
 import { LancamentosContext, type ControleLancamentos, type PadraoLancamento } from '../contexts/lancamentos'
 import { lancarAssinaturasPendentes } from '../services/assinaturas'
 import { sair } from '../services/auth'
@@ -49,6 +50,7 @@ export default function AppLayout() {
       novoLancamento: (padrao) => setModal({ transacao: null, padrao }),
       editarLancamento: (transacao, opcoes) => setModal({ transacao, excluir: opcoes?.excluir }),
       versao,
+      recarregar: () => setVersao((v) => v + 1),
     }),
     [versao],
   )
@@ -62,6 +64,16 @@ export default function AppLayout() {
               <img src="/icon.svg" alt="" className="h-8 w-8" />
               <span className="font-semibold">Meu Bolso</span>
             </div>
+            <div className="flex items-center gap-1">
+            <NavLink
+              to="/bancos"
+              className={({ isActive }) =>
+                `flex h-9 items-center gap-2 rounded-lg px-2.5 text-sm font-medium transition hover:bg-slate-100 hover:text-texto ${isActive ? 'text-primaria' : 'text-texto-suave'}`
+              }
+            >
+              <IconeBanco className="h-5 w-5" />
+              Bancos
+            </NavLink>
             <button
               onClick={sair}
               className="flex h-9 items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-texto-suave transition hover:bg-slate-100 hover:text-texto"
@@ -69,6 +81,7 @@ export default function AppLayout() {
               <IconeSair className="h-5 w-5" />
               Sair
             </button>
+            </div>
           </div>
         </header>
 
@@ -88,6 +101,9 @@ export default function AppLayout() {
         )}
 
         <main className="mx-auto max-w-5xl px-5 pt-6 pb-[calc(env(safe-area-inset-bottom)+9rem)]">
+          <div className="mb-5 empty:hidden">
+            <AvisoOpenFinance />
+          </div>
           <Outlet />
         </main>
 

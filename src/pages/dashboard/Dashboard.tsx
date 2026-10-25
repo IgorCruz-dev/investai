@@ -6,6 +6,7 @@ import Esqueleto, { EsqueletoLista } from '../../components/Esqueleto'
 import GraficoGastosDiarios from '../../components/GraficoGastosDiarios'
 import ListaLancamentos from '../../components/ListaLancamentos'
 import SeletorMes from '../../components/SeletorMes'
+import Sincronizar from '../../components/Sincronizar'
 import { IconeLista, IconeSetaBaixo, IconeSetaCima } from '../../components/icones'
 import { useAuth } from '../../hooks/useAuth'
 import { useLancamentos } from '../../hooks/useLancamentos'
@@ -105,6 +106,10 @@ export default function Dashboard() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Olá{primeiroNome && `, ${primeiroNome}`}</h1>
         <SeletorMes mes={mes} aoMudar={setMes} />
+      </div>
+
+      <div className="mt-4 empty:hidden">
+        <Sincronizar compacto />
       </div>
 
       {erro && (

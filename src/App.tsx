@@ -10,6 +10,8 @@ import Assinaturas from './pages/assinaturas/Assinaturas'
 import Comparativo from './pages/comparativo/Comparativo'
 import Caixinha from './pages/caixinha/Caixinha'
 import Lancamentos from './pages/lancamentos/Lancamentos'
+import Bancos from './pages/bancos/Bancos'
+import CategoriasDoBanco from './pages/bancos/CategoriasDoBanco'
 
 export default function App() {
   return (
@@ -27,6 +29,8 @@ export default function App() {
           <Route path="/comparativo" element={<Comparativo />} />
           <Route path="/caixinha" element={<Caixinha />} />
           <Route path="/lancamentos" element={<Lancamentos />} />
+          <Route path="/bancos" element={<Bancos />} />
+          <Route path="/bancos/categorias" element={<CategoriasDoBanco />} />
         </Route>
       </Route>
 
