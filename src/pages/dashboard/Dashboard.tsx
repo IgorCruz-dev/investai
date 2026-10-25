@@ -12,7 +12,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useLancamentos } from '../../hooks/useLancamentos'
 import { inicioDoMes, mesAnterior, paraMesISO } from '../../lib/datas'
 import { formatarMoeda, formatarNomeDoMes } from '../../lib/formatar'
-import { ehGasto, ehReceita, gastosAcumuladosPorDia, gastosPorCategoria, variacaoPercentual } from '../../lib/resumos'
+import { ehReceita, gastoEmCentavos, gastosAcumuladosPorDia, gastosPorCategoria, variacaoPercentual } from '../../lib/resumos'
 import { listarCartoes } from '../../services/cartoes'
 import { listarCategorias } from '../../services/categorias'
 import { buscarPerfil } from '../../services/perfis'
@@ -78,12 +78,13 @@ export default function Dashboard() {
     let despesas = 0
     let noCredito = 0
     for (const t of transacoes) {
-      const centavos = Math.round(t.valor * 100)
-      if (ehReceita(t)) receitas += centavos
-      else if (ehGasto(t)) {
-        despesas += centavos
-        if (t.forma === 'credito') noCredito += centavos
+      if (ehReceita(t)) {
+        receitas += Math.round(t.valor * 100)
+        continue
       }
+      const gasto = gastoEmCentavos(t)
+      despesas += gasto
+      if (t.forma === 'credito') noCredito += gasto
     }
     return { receitas: receitas / 100, despesas: despesas / 100, noCredito: noCredito / 100 }
   }, [transacoes])

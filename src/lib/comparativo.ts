@@ -1,4 +1,4 @@
-import { ehGasto, ehReceita } from './resumos'
+import { ehReceita, gastoEmCentavos } from './resumos'
 import type { Categoria, Transacao } from '../types/financas'
 
 export type TotaisDoMes = {
@@ -37,15 +37,15 @@ export function totaisDoMes(transacoes: Transacao[], categoriaPorId: Map<string,
   let despesas = 0
   let assinaturas = 0
   for (const t of transacoes) {
-    const valor = centavos(t.valor)
     if (ehReceita(t)) {
-      receitas += valor
+      receitas += centavos(t.valor)
       continue
     }
-    if (!ehGasto(t)) continue
-    despesas += valor
+    const gasto = gastoEmCentavos(t)
+    if (!gasto) continue
+    despesas += gasto
     const categoria = t.categoria_id ? categoriaPorId.get(t.categoria_id) : undefined
-    if (t.assinatura_id !== null || categoria?.icone === 'assinaturas') assinaturas += valor
+    if (t.assinatura_id !== null || categoria?.icone === 'assinaturas') assinaturas += gasto
   }
   return {
     receitas: receitas / 100,
@@ -60,10 +60,11 @@ export function compararCategorias(mesA: Transacao[], mesB: Transacao[]): LinhaC
   const somas = new Map<string, { a: number; b: number }>()
   const somar = (lista: Transacao[], lado: 'a' | 'b') => {
     for (const t of lista) {
-      if (!ehGasto(t)) continue
+      const gasto = gastoEmCentavos(t)
+      if (!gasto) continue
       const chave = t.categoria_id ?? 'sem'
       const soma = somas.get(chave) ?? { a: 0, b: 0 }
-      soma[lado] += centavos(t.valor)
+      soma[lado] += gasto
       somas.set(chave, soma)
     }
   }

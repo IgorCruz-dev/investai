@@ -31,17 +31,30 @@ export function ehGasto(t: Transacao) {
   return t.tipo === 'despesa' && !ehPagamentoDeFatura(t) && !ehTransferencia(t)
 }
 
-/** Receita de verdade (transferência entre as próprias contas não conta) */
+/** Crédito lançado no cartão (estorno, crédito de rotativo): abate a fatura, não é dinheiro que entrou */
+export function ehCreditoNoCartao(t: Pick<Transacao, 'tipo' | 'forma'>) {
+  return t.tipo === 'receita' && t.forma === 'credito'
+}
+
+/** Receita de verdade (transferência entre as próprias contas e crédito no cartão não contam) */
 export function ehReceita(t: Transacao) {
-  return t.tipo === 'receita' && !ehTransferencia(t)
+  return t.tipo === 'receita' && !ehTransferencia(t) && !ehCreditoNoCartao(t)
+}
+
+/** Quanto o lançamento soma aos gastos, em centavos: crédito no cartão desconta; o que não é gasto vale 0 */
+export function gastoEmCentavos(t: Transacao) {
+  if (ehGasto(t)) return centavos(t.valor)
+  if (ehCreditoNoCartao(t)) return -centavos(t.valor)
+  return 0
 }
 
 function despesasPorDia(transacoes: Transacao[]) {
   const porDia = new Map<number, number>()
   for (const t of transacoes) {
-    if (!ehGasto(t)) continue
+    const gasto = gastoEmCentavos(t)
+    if (!gasto) continue
     const dia = Number(t.data.slice(8, 10))
-    porDia.set(dia, (porDia.get(dia) ?? 0) + centavos(t.valor))
+    porDia.set(dia, (porDia.get(dia) ?? 0) + gasto)
   }
   return porDia
 }
@@ -78,10 +91,11 @@ export function gastosPorCategoria(doMes: Transacao[], doMesAnterior: Transacao[
   const somas = new Map<string, { atual: number; anterior: number }>()
   const somar = (lista: Transacao[], campo: 'atual' | 'anterior') => {
     for (const t of lista) {
-      if (!ehGasto(t)) continue
+      const gasto = gastoEmCentavos(t)
+      if (!gasto) continue
       const chave = t.categoria_id ?? 'sem'
       const soma = somas.get(chave) ?? { atual: 0, anterior: 0 }
-      soma[campo] += centavos(t.valor)
+      soma[campo] += gasto
       somas.set(chave, soma)
     }
   }
