@@ -1,4 +1,4 @@
-import { ehReceita, gastoEmCentavos } from './resumos'
+import { gastoEmCentavos, receitaEmCentavos } from './resumos'
 import type { Categoria, Transacao } from '../types/financas'
 
 export type TotaisDoMes = {
@@ -20,8 +20,6 @@ export type LinhaCategoria = {
   variacao: number | null
 }
 
-const centavos = (valor: number) => Math.round(valor * 100)
-
 /** Variação percentual de b para a (usa |b| para o resultado, que pode ser negativo); null se b = 0 */
 export function variacao(a: number, b: number) {
   if (b === 0) return null
@@ -37,10 +35,7 @@ export function totaisDoMes(transacoes: Transacao[], categoriaPorId: Map<string,
   let despesas = 0
   let assinaturas = 0
   for (const t of transacoes) {
-    if (ehReceita(t)) {
-      receitas += centavos(t.valor)
-      continue
-    }
+    receitas += receitaEmCentavos(t)
     const gasto = gastoEmCentavos(t)
     if (!gasto) continue
     despesas += gasto

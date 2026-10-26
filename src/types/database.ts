@@ -395,6 +395,7 @@ export type Database = {
       transacoes: {
         Row: {
           assinatura_id: string | null
+          caixinha: boolean
           cartao_id: string | null
           categoria_id: string | null
           categoria_pluggy: string | null
@@ -421,6 +422,7 @@ export type Database = {
         }
         Insert: {
           assinatura_id?: string | null
+          caixinha?: boolean
           cartao_id?: string | null
           categoria_id?: string | null
           categoria_pluggy?: string | null
@@ -447,6 +449,7 @@ export type Database = {
         }
         Update: {
           assinatura_id?: string | null
+          caixinha?: boolean
           cartao_id?: string | null
           categoria_id?: string | null
           categoria_pluggy?: string | null

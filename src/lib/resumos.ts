@@ -41,6 +41,16 @@ export function ehReceita(t: Transacao) {
   return t.tipo === 'receita' && !ehTransferencia(t) && !ehCreditoNoCartao(t)
 }
 
+/**
+ * Quanto o lançamento soma às receitas do mês, em centavos. Guardar na caixinha do banco tira das
+ * receitas (o dinheiro fica guardado, não é para gastar); resgatar devolve.
+ */
+export function receitaEmCentavos(t: Transacao) {
+  if (ehReceita(t)) return centavos(t.valor)
+  if (t.caixinha) return t.tipo === 'receita' ? centavos(t.valor) : -centavos(t.valor)
+  return 0
+}
+
 /** Quanto o lançamento soma aos gastos, em centavos: crédito no cartão desconta; o que não é gasto vale 0 */
 export function gastoEmCentavos(t: Transacao) {
   if (ehGasto(t)) return centavos(t.valor)
