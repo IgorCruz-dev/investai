@@ -189,6 +189,7 @@ type Linha = {
   pagamento_cartao_id: string | null
   pagamento_fatura: string | null
   transferencia_interna: boolean
+  caixinha: boolean
 }
 
 // "GASTOS CARTAO DE CREDITO" é o débito automático da fatura no Bradesco; "PAGTO ANTECIPADO" é pagamento antes do vencimento
@@ -492,6 +493,7 @@ async function sincronizar(
         pagamento_cartao_id: null,
         pagamento_fatura: null,
         transferencia_interna: false,
+        caixinha: false,
       }
 
       if (cartao) {
@@ -558,6 +560,8 @@ async function sincronizar(
           RE_CAIXINHA.test(t.description) ||
           RE_PIX_NO_CREDITO.test(t.description) ||
           (!entrou && pagaCartaoDeOutroBanco(t, conta.itemId)),
+        // Guardar tira das receitas do mês; resgatar devolve
+        caixinha: RE_CAIXINHA.test(t.description),
       })
     }
   }
