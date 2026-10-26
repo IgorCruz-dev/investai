@@ -199,6 +199,11 @@ const RE_PAGAMENTO_FATURA =
 // A Pluggy põe os dois na fatura nova; o crédito é da anterior.
 const RE_CREDITO_ROTATIVO = /cr[eé]dito de rotativo/i
 
+// Caixinha do Nubank: dinheiro guardado ("Aplicação RDB") ou tirado ("Resgate RDB") continua sendo da pessoa
+const RE_CAIXINHA = /^(aplica[cç][aã]o|resgate) rdb\b/i
+// Pix no crédito (Nubank): o cartão põe o valor na conta e o Pix sai em seguida; o gasto é a compra no cartão
+const RE_PIX_NO_CREDITO = /valor adicionado na conta por cart[aã]o de cr[eé]dito/i
+
 function faturaAnterior(fatura: string) {
   const [ano, mes] = fatura.split('-').map(Number)
   return primeiroDoMes(ano, mes - 2)
@@ -412,6 +417,15 @@ async function sincronizar(
   const ehParaSiMesmo = (t: TransacaoPluggy) =>
     pareceTransferencia(t) && nomesDoDono.some((nome) => semAcento(t.description).includes(nome))
 
+  /** Pix/TED para o banco de um cartão vinculado de outro banco (ex.: Nubank → Bradesco): é pagamento desse cartão */
+  const pagaCartaoDeOutroBanco = (t: TransacaoPluggy, itemDaContaPagadora: string) =>
+    pareceTransferencia(t) &&
+    cartoesVinculados.some((c) => {
+      const item = itemDoCartao.get(c.id)
+      const banco = bancoDoItem.get(item ?? '')
+      return item !== itemDaContaPagadora && banco && apelidosDoBanco(banco).some((a) => semAcento(t.description).includes(a))
+    })
+
   const categoriaDe = (t: TransacaoPluggy, local: string | null) =>
     (local && porLocal.get(local.toLowerCase())) || (t.category && porCategoriaPluggy.get(t.category)) || outros
 
@@ -536,8 +550,14 @@ async function sincronizar(
         forma,
         conta_id: contaId!,
         categoria_id: categoriaDe(t, local),
-        // A Pluggy reconhece só algumas transferências para o mesmo CPF; o nome na descrição pega as outras
-        transferencia_interna: t.category === 'Same person transfer' || ehParaSiMesmo(t),
+        // Nem receita nem gasto: Pix para si mesmo (a Pluggy reconhece só alguns; o nome pega os outros),
+        // caixinha, Pix no crédito e pagamento de cartão de outro banco
+        transferencia_interna:
+          t.category === 'Same person transfer' ||
+          ehParaSiMesmo(t) ||
+          RE_CAIXINHA.test(t.description) ||
+          RE_PIX_NO_CREDITO.test(t.description) ||
+          (!entrou && pagaCartaoDeOutroBanco(t, conta.itemId)),
       })
     }
   }
@@ -559,6 +579,20 @@ async function sincronizar(
     usadas.add(entrada.id_externo)
     saida.transferencia_interna = true
     entrada.transferencia_interna = true
+  }
+
+  // Pix no crédito: o Pix que sai junto com o "valor adicionado" (mesma conta, dia e valor) também não é gasto da conta
+  for (const entrada of novas.filter((n) => n.tipo === 'receita' && RE_PIX_NO_CREDITO.test(n.descricao ?? ''))) {
+    const saida = novas.find(
+      (n) =>
+        n.tipo === 'despesa' &&
+        n.forma === 'pix' &&
+        !n.transferencia_interna &&
+        n.conta_id === entrada.conta_id &&
+        n.data === entrada.data &&
+        n.valor === entrada.valor,
+    )
+    if (saida) saida.transferencia_interna = true
   }
 
   // Separa o que já existe (atualiza só o que vem do banco) do que é novo
