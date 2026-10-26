@@ -234,11 +234,12 @@ function apelidosDoBanco(banco: string) {
 }
 
 /**
- * Começo do nome do dono, para achar Pix/TED para si mesmo. O banco corta o nome
- * ("Ricardo Parise Macari"), então compara só as três primeiras palavras, até 18 letras.
+ * Nome do dono, para achar Pix/TED para si mesmo. Tem que ser o nome inteiro: parente com nome
+ * parecido ("Ricardo Parise Macarios", pai de "... Junior") é outra pessoa. Quando o banco corta
+ * o nome ("Ricardo Parise Macari"), quem acha a transferência é o pareamento entre as contas.
  */
-function comecoDoNome(nomeCompleto: string) {
-  return semAcento(nomeCompleto).split(/\s+/).filter(Boolean).slice(0, 3).join(' ').slice(0, 18)
+function nomeCompleto(nome: string) {
+  return semAcento(nome).split(/\s+/).filter(Boolean).join(' ')
 }
 
 /** Nome do banco de uma conexão. Pelo Meu Pluggy o conector se chama "MeuPluggy": o banco sai do nome das contas */
@@ -295,7 +296,7 @@ async function atualizarConexoes(db: SupabaseClient, pluggy: Pluggy, userId: str
       bancoDoItem.set(itemId, banco)
       // Sem identidade (banco não compartilha) só deixa de reconhecer Pix para si mesmo pelo nome
       const identidade = await pluggy.identidade(itemId).catch(() => null)
-      if (identidade?.fullName) nomesDoDono.add(comecoDoNome(identidade.fullName))
+      if (identidade?.fullName) nomesDoDono.add(nomeCompleto(identidade.fullName))
       conexoes.push({
         user_id: userId,
         item_id: itemId,
@@ -416,7 +417,7 @@ async function sincronizar(
 
   /** Pix/TED de ou para o próprio nome: a outra ponta é outra conta da pessoa */
   const ehParaSiMesmo = (t: TransacaoPluggy) =>
-    pareceTransferencia(t) && nomesDoDono.some((nome) => semAcento(t.description).includes(nome))
+    pareceTransferencia(t) && nomesDoDono.some((nome) => nomeCompleto(t.description).includes(nome))
 
   /** Pix/TED para o banco de um cartão vinculado de outro banco (ex.: Nubank → Bradesco): é pagamento desse cartão */
   const pagaCartaoDeOutroBanco = (t: TransacaoPluggy, itemDaContaPagadora: string) =>
