@@ -290,7 +290,7 @@ function LinhaVinculo({ banco, contas, cartoes, salvando, aoMudar, aoAjustarSald
           value={vinculada?.id ?? NAO_IMPORTAR}
           disabled={salvando}
           onChange={(e) => aoMudar(e.target.value)}
-          className="h-10 min-w-0 flex-1 rounded-xl border border-borda bg-white px-3 text-sm outline-none focus:border-primaria focus:ring-4 focus:ring-primaria/15 disabled:opacity-60"
+          className="h-10 min-w-0 flex-1 rounded-xl border border-borda bg-white px-3 text-base outline-none sm:text-sm focus:border-primaria focus:ring-4 focus:ring-primaria/15 disabled:opacity-60"
         >
           <option value={NAO_IMPORTAR}>Não importar</option>
           {opcoes.map((o) => (

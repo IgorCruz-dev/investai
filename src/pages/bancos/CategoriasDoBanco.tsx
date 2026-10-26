@@ -170,7 +170,7 @@ export default function CategoriasDoBanco() {
                     value={mapeadas.get(nome) ?? PADRAO}
                     disabled={salvando === nome}
                     onChange={(e) => mudar(nome, e.target.value)}
-                    className="h-10 rounded-xl border border-borda bg-white px-3 text-sm outline-none focus:border-primaria focus:ring-4 focus:ring-primaria/15 disabled:opacity-60 sm:w-56"
+                    className="h-10 rounded-xl border border-borda bg-white px-3 text-base outline-none sm:text-sm focus:border-primaria focus:ring-4 focus:ring-primaria/15 disabled:opacity-60 sm:w-56"
                   >
                     <option value={PADRAO}>Outros (padrão)</option>
                     {categorias

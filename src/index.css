@@ -50,6 +50,21 @@
   }
 }
 
+/*
+ * Nada passa da largura da tela: no celular a página não desliza para o lado por causa de
+ * enfeites que saem da borda. "clip" (e não "hidden") para não quebrar o cabeçalho sticky.
+ */
+html,
+body {
+  overflow-x: clip;
+}
+
+html {
+  /* iPhone deitado não aumenta a letra sozinho */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   @apply bg-fundo text-texto antialiased;
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
