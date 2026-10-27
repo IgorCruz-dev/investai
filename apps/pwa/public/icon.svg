@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#059669"/>
+  <!-- nota de dinheiro -->
+  <rect x="88" y="152" width="336" height="208" rx="28" fill="#fff"/>
+  <rect x="112" y="176" width="288" height="160" rx="16" fill="none" stroke="#059669" stroke-width="8"/>
+  <circle cx="256" cy="256" r="60" fill="#059669"/>
+  <circle cx="152" cy="256" r="12" fill="#059669"/>
+  <circle cx="360" cy="256" r="12" fill="#059669"/>
+  <!-- cifrão -->
+  <path d="M256 210v92M280 230c-4-8-13-13-24-13-14 0-25 8-25 19 0 25 51 13 51 40 0 12-12 20-27 20-12 0-22-5-27-13" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
