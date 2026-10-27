@@ -1,9 +1,0 @@
-{
-  "name": "investai-web",
-  "private": true,
-  "type": "module",
-  "description": "Interface web do InvestAI — estática, com funções serverless lendo o Postgres.",
-  "dependencies": {
-    "@neondatabase/serverless": "^1.0.1"
-  }
-}
