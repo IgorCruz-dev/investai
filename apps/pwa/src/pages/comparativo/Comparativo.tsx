@@ -140,7 +140,7 @@ export default function Comparativo() {
           <Esqueleto className="mt-5 h-16 rounded-2xl" />
           <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="flex flex-col gap-2 rounded-2xl border border-borda bg-white p-4">
+              <div key={i} className="flex flex-col gap-2 rounded-2xl border border-borda bg-superficie p-4">
                 <Esqueleto className="h-4 w-1/2" />
                 <Esqueleto className="h-6 w-3/4" />
                 <Esqueleto className="h-3 w-2/3" />
@@ -155,16 +155,16 @@ export default function Comparativo() {
           </Card>
         </div>
       ) : mesmoMes ? (
-        <p className="mt-6 rounded-2xl border border-borda bg-white px-5 py-8 text-center text-texto-suave">
+        <p className="mt-6 rounded-2xl border border-borda bg-superficie px-5 py-8 text-center text-texto-suave">
           Escolha dois meses diferentes para comparar.
         </p>
       ) : (
         <>
           {/* Resumo em texto */}
-          <div className={`mt-5 rounded-2xl bg-emerald-50 px-5 py-4 ${recarregando}`} aria-live="polite">
-            <p className="font-medium text-emerald-950">{resumo}</p>
+          <div className={`mt-5 rounded-2xl bg-sucesso-fundo px-5 py-4 ${recarregando}`} aria-live="polite">
+            <p className="font-medium text-sucesso-texto">{resumo}</p>
             {mesAEmAndamento && (
-              <p className="mt-1 text-sm text-emerald-900/70">
+              <p className="mt-1 text-sm text-sucesso-texto/70">
                 {formatarNomeDoMes(mesA).charAt(0).toUpperCase() + formatarNomeDoMes(mesA).slice(1)} ainda está em andamento
                 (dia {hoje.getDate()} de {diasNoMes(mesA)}).
               </p>
@@ -180,8 +180,8 @@ export default function Comparativo() {
           </div>
 
           {linhas.length === 0 ? (
-            <div className="mt-6 flex flex-col items-center rounded-2xl border border-borda bg-white px-5 py-14 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-texto-suave">
+            <div className="mt-6 flex flex-col items-center rounded-2xl border border-borda bg-superficie px-5 py-14 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-superficie-3 text-texto-suave">
                 <IconeGrafico className="h-6 w-6" />
               </span>
               <p className="mt-4 font-medium">Nada para comparar ainda</p>
@@ -228,7 +228,7 @@ function CartaoComparacao({ titulo, a, b, subirEhBom, nomeB }: CartaoComparacaoP
   const cor = diferenca === 0 ? 'text-texto-suave' : bom ? 'text-receita' : 'text-despesa'
 
   return (
-    <div className="rounded-2xl border border-borda bg-white p-4">
+    <div className="rounded-2xl border border-borda bg-superficie p-4">
       <p className="text-sm text-texto-suave">{titulo}</p>
       <p className={`mt-1 text-xl font-bold tracking-tight ${a < 0 ? 'text-despesa' : ''}`}>{formatarMoeda(a)}</p>
       <p className={`mt-2 flex items-center gap-1 text-sm font-semibold ${cor}`}>
@@ -297,7 +297,7 @@ function TabelaCategorias({ linhas, categoriaPorId, nomeDaCategoria, nomeA, nome
       </ul>
 
       <table className="hidden w-full text-sm tabular-nums sm:table">
-        <thead className="bg-slate-50 text-left text-xs text-texto-suave">
+        <thead className="bg-superficie-2 text-left text-xs text-texto-suave">
           <tr>
             <th className="px-5 py-2.5 font-medium">Categoria</th>
             <th className="px-3 py-2.5 text-right font-medium capitalize">{nomeA}</th>

@@ -19,7 +19,9 @@ type Props = {
 type Erros = Partial<Record<'nome' | 'limite' | 'fechamento' | 'vencimento', string>>
 
 const bandeiras = ['Visa', 'Mastercard', 'Elo', 'American Express', 'Hipercard', 'Outra'] as const
-const cores = ['#0f172a', '#7c3aed', '#ea580c', '#2563eb', '#059669', '#dc2626', '#db2777', '#0891b2']
+// Tons fundos: num fundo escuro, cartão em cor clara vira um bloco luminoso
+// no meio da tela. O primeiro é o padrão da coluna no banco.
+const cores = ['#0f172a', '#4a3a0f', '#4c1d95', '#1e3a8a', '#064e3b', '#7f1d1d', '#831843', '#164e63']
 
 function diaValido(texto: string) {
   const dia = Number(texto)

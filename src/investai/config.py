@@ -70,21 +70,7 @@ CONTEXT_TOKEN_BUDGET = _env_int("INVESTAI_CONTEXT_BUDGET", 8000)
 
 
 def anthropic_key() -> str | None:
-    """A chave da Anthropic do usuário ativo.
-
-    Cada pessoa traz a sua e paga a própria conta — **sem fallback** para a
-    chave do `.env` quando há um usuário ativo. Esse `return None` é o ponto de
-    aplicação da regra: se o registro de alguém ficar sem chave, a rota de IA
-    diz "não configurada" em vez de gastar o crédito de quem hospeda o bot.
-
-    Import local para não criar ciclo com `tenants`.
-    """
-    from investai import tenants
-
-    if tenants.multiusuario():
-        t = tenants.ativo()
-        if t is not None:
-            return t.anthropic_key or None
+    """A chave Anthropic desta instalação pessoal."""
     return os.getenv("ANTHROPIC_API_KEY") or None
 
 

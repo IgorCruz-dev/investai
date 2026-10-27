@@ -110,7 +110,7 @@ export default function Bancos() {
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Bancos</h1>
         <Link
           to="/bancos/categorias"
-          className="flex h-10 items-center gap-1 rounded-xl border border-borda bg-white px-3.5 text-sm font-semibold transition hover:bg-slate-50"
+          className="flex h-10 items-center gap-1 rounded-xl border border-borda bg-superficie px-3.5 text-sm font-semibold transition hover:bg-superficie-2"
         >
           Categorias do banco
           <IconeChevronDireita className="h-4 w-4" />
@@ -148,7 +148,7 @@ export default function Bancos() {
               const problema = problemaDaConexao(c)
               return (
                 <li key={c.item_id} className="flex items-start gap-3 px-5 py-3.5">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-texto-suave">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-superficie-3 text-texto-suave">
                     <IconeBanco className="h-[18px] w-[18px]" />
                   </span>
                   <div className="min-w-0 flex-1">
@@ -157,10 +157,10 @@ export default function Bancos() {
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                           problema?.grave
-                            ? 'bg-red-50 text-despesa'
+                            ? 'bg-erro-fundo text-despesa'
                             : problema
-                              ? 'bg-amber-50 text-amber-800'
-                              : 'bg-emerald-50 text-emerald-800'
+                              ? 'bg-aviso-fundo text-aviso-texto'
+                              : 'bg-sucesso-fundo text-sucesso-texto'
                         }`}
                       >
                         {problema?.selo ?? 'Conectado'}
@@ -175,7 +175,7 @@ export default function Bancos() {
                         </>
                       )}
                     </p>
-                    {problema && <p className={`mt-1 text-xs ${problema.grave ? 'text-despesa' : 'text-amber-800'}`}>{problema.texto}</p>}
+                    {problema && <p className={`mt-1 text-xs ${problema.grave ? 'text-despesa' : 'text-aviso-texto'}`}>{problema.texto}</p>}
                   </div>
                 </li>
               )
@@ -212,7 +212,7 @@ export default function Bancos() {
           (['BANK', 'CREDIT'] as const).map((tipo) =>
             doBanco(tipo).length === 0 ? null : (
               <div key={tipo}>
-                <p className="bg-slate-50 px-5 py-2 text-xs font-semibold tracking-wide text-texto-suave uppercase">
+                <p className="bg-superficie-2 px-5 py-2 text-xs font-semibold tracking-wide text-texto-suave uppercase">
                   {tipo === 'BANK' ? 'Contas' : 'Cartões de crédito'}
                 </p>
                 <ul className="divide-y divide-borda">
@@ -290,7 +290,7 @@ function LinhaVinculo({ banco, contas, cartoes, salvando, aoMudar, aoAjustarSald
           value={vinculada?.id ?? NAO_IMPORTAR}
           disabled={salvando}
           onChange={(e) => aoMudar(e.target.value)}
-          className="h-10 min-w-0 flex-1 rounded-xl border border-borda bg-white px-3 text-base outline-none sm:text-sm focus:border-primaria focus:ring-4 focus:ring-primaria/15 disabled:opacity-60"
+          className="h-10 min-w-0 flex-1 rounded-xl border border-borda bg-superficie px-3 text-base outline-none sm:text-sm focus:border-primaria focus:ring-4 focus:ring-primaria/15 disabled:opacity-60"
         >
           <option value={NAO_IMPORTAR}>Não importar</option>
           {opcoes.map((o) => (
@@ -304,7 +304,7 @@ function LinhaVinculo({ banco, contas, cartoes, salvando, aoMudar, aoAjustarSald
         {ehConta && vinculada && banco.saldo !== null && (
           <button
             onClick={() => aoAjustarSaldo(vinculada as Conta)}
-            className="h-10 rounded-xl border border-borda px-3 text-sm font-semibold transition hover:bg-slate-50"
+            className="h-10 rounded-xl border border-borda px-3 text-sm font-semibold transition hover:bg-superficie-2"
           >
             Ajustar saldo
           </button>
@@ -354,7 +354,7 @@ function ModalAjustarSaldo({ conta, banco, aoFechar, aoAjustar }: AjusteProps) {
           type="button"
           onClick={aoFechar}
           disabled={salvando}
-          className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-slate-50 hover:text-texto"
+          className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-superficie-2 hover:text-texto"
         >
           Cancelar
         </button>
@@ -384,8 +384,8 @@ function ConecteSeusBancos() {
   return (
     <>
       <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Bancos</h1>
-      <div className="mt-6 rounded-2xl border border-borda bg-white p-6">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-primaria">
+      <div className="mt-6 rounded-2xl border border-borda bg-superficie p-6">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-sucesso-fundo text-primaria">
           <IconeBanco className="h-6 w-6" />
         </span>
         <p className="mt-4 text-lg font-semibold">Conecte seus bancos</p>
@@ -395,7 +395,7 @@ function ConecteSeusBancos() {
         <ol className="mt-5 space-y-3">
           {passos.map((passo, i) => (
             <li key={i} className="flex gap-3 text-sm">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-superficie-3 text-xs font-semibold">
                 {i + 1}
               </span>
               <span className="pt-0.5">{passo}</span>

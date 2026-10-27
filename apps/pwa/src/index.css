@@ -1,30 +1,119 @@
 @import "tailwindcss";
 
-/* Cores do app como variáveis (tema sempre claro) */
+/* =========================================================================
+   InvestAI — dark glassmorphism com acentos dourados.
+   A identidade vem do painel anterior do InvestAI (removido na unificação):
+   a mesma paleta, as mesmas três fontes, o mesmo raio de 18px.
+
+   Tema único de propósito — um terminal financeiro noturno. Nenhuma cor
+   depende de media query, então a tela é a mesma em qualquer aparelho e em
+   qualquer preferência do sistema. Isso é escolha, não omissão.
+   ========================================================================= */
+
 :root {
-  --cor-fundo: #ffffff;
-  --cor-superficie: #ffffff;
-  --cor-borda: #e2e8f0;
-  --cor-texto: #0f172a;
-  --cor-texto-suave: #64748b;
-  --cor-primaria: #059669;
-  --cor-primaria-escura: #047857;
-  --cor-receita: #16a34a;
-  --cor-despesa: #dc2626;
-  color-scheme: light;
+  /* --- fundo e profundidade --- */
+  --cor-fundo: #0a0a0f;
+  --cor-superficie: #10101a;
+  /* Dois níveis de vidro para o que antes era slate-50 (recuado) e
+     slate-100 (um pouco mais forte). No escuro, "recuado" é mais claro que o
+     fundo, não mais escuro — daí serem brancos translúcidos. */
+  --cor-superficie-2: rgba(255, 255, 255, 0.05);
+  --cor-superficie-3: rgba(255, 255, 255, 0.08);
+
+  --cor-borda: rgba(255, 215, 0, 0.15);
+  --cor-borda-forte: rgba(255, 215, 0, 0.42);
+
+  /* --- texto --- */
+  --cor-texto: #f0f0f0;
+  --cor-texto-suave: #8a8a9a;
+  --cor-texto-fraco: rgba(138, 138, 154, 0.5);
+
+  /* --- o ouro, que era o verde esmeralda do Meu Bolso --- */
+  --cor-primaria: #d4af37;
+  --cor-primaria-escura: #b8942c;
+  --cor-primaria-clara: #f5c842;
+  /* Texto que fica em cima do ouro: o dourado é claro demais para texto branco. */
+  --cor-sobre-primaria: #0a0a0f;
+
+  /* --- dinheiro entrando e saindo --- */
+  --cor-receita: #00c896;
+  --cor-despesa: #ff4757;
+
+  /* --- avisos ---
+     Cada aviso é um trio fundo/texto/borda, e não uma cor só. No tema claro o
+     par era "fundo pastel + texto escuro da mesma família"; invertendo o tema,
+     manter o texto escuro deixaria verde-escuro sobre verde-escuro. Então o
+     fundo vira tinta translúcida sobre o escuro e o texto vira a versão clara. */
+  --cor-sucesso-fundo: rgba(0, 200, 150, 0.10);
+  --cor-sucesso-texto: #5ee9c0;
+  --cor-sucesso-borda: rgba(0, 200, 150, 0.28);
+
+  --cor-erro-fundo: rgba(255, 71, 87, 0.10);
+  --cor-erro-texto: #ff9aa2;
+  --cor-erro-borda: rgba(255, 71, 87, 0.28);
+
+  --cor-aviso-fundo: rgba(212, 175, 55, 0.10);
+  --cor-aviso-texto: #f5c842;
+  --cor-aviso-borda: rgba(212, 175, 55, 0.30);
+
+  /* Roxo: identidade da aba Assinaturas, e já na paleta como --orb-violet. */
+  --cor-realce-fundo: rgba(140, 100, 220, 0.12);
+  --cor-realce-texto: #c4abf5;
+  --cor-realce-borda: rgba(140, 100, 220, 0.28);
+
+  --cor-info-fundo: rgba(120, 150, 255, 0.10);
+  --cor-info-texto: #a3b8ff;
+  --cor-info-borda: rgba(120, 150, 255, 0.28);
+
+  color-scheme: dark;
 }
 
-/* Expõe as variáveis como utilitários do Tailwind: bg-fundo, text-texto, text-despesa... */
+/* Expõe as variáveis como utilitários do Tailwind: bg-fundo, text-texto,
+   text-despesa, border-borda, bg-sucesso-fundo… */
 @theme inline {
   --color-fundo: var(--cor-fundo);
   --color-superficie: var(--cor-superficie);
+  --color-superficie-2: var(--cor-superficie-2);
+  --color-superficie-3: var(--cor-superficie-3);
   --color-borda: var(--cor-borda);
+  --color-borda-forte: var(--cor-borda-forte);
+
   --color-texto: var(--cor-texto);
   --color-texto-suave: var(--cor-texto-suave);
+  --color-texto-fraco: var(--cor-texto-fraco);
+
   --color-primaria: var(--cor-primaria);
   --color-primaria-escura: var(--cor-primaria-escura);
+  --color-primaria-clara: var(--cor-primaria-clara);
+  --color-sobre-primaria: var(--cor-sobre-primaria);
+
   --color-receita: var(--cor-receita);
   --color-despesa: var(--cor-despesa);
+
+  --color-sucesso-fundo: var(--cor-sucesso-fundo);
+  --color-sucesso-texto: var(--cor-sucesso-texto);
+  --color-sucesso-borda: var(--cor-sucesso-borda);
+  --color-erro-fundo: var(--cor-erro-fundo);
+  --color-erro-texto: var(--cor-erro-texto);
+  --color-erro-borda: var(--cor-erro-borda);
+  --color-aviso-fundo: var(--cor-aviso-fundo);
+  --color-aviso-texto: var(--cor-aviso-texto);
+  --color-aviso-borda: var(--cor-aviso-borda);
+  --color-realce-fundo: var(--cor-realce-fundo);
+  --color-realce-texto: var(--cor-realce-texto);
+  --color-realce-borda: var(--cor-realce-borda);
+  --color-info-fundo: var(--cor-info-fundo);
+  --color-info-texto: var(--cor-info-texto);
+  --color-info-borda: var(--cor-info-borda);
+
+  /* Instrument Serif para número grande e título; Manrope para interface;
+     IBM Plex Mono para valor em coluna, onde o dígito precisa alinhar. */
+  --font-display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --font-sans: "Manrope", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", ui-monospace, monospace;
+
+  /* O raio do InvestAI é 18px, bem maior que o padrão do Tailwind. */
+  --radius-card: 18px;
 }
 
 /* Animações do Modal: animate-subir (bottom sheet) e animate-aparecer (fundo e versão do computador) */
@@ -67,7 +156,12 @@ html {
 
 body {
   @apply bg-fundo text-texto antialiased;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Número de dinheiro alinha por dígito em qualquer lugar que ele apareça. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Tira o fundo azul que o Chrome coloca nos campos preenchidos automaticamente */
@@ -77,4 +171,47 @@ input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0 1000px var(--cor-superficie) inset;
   -webkit-text-fill-color: var(--cor-texto);
   caret-color: var(--cor-texto);
+}
+
+/* =========================================================================
+   Cartões de destaque (o saldo no Início, o total de assinaturas, a caixinha).
+
+   No Meu Bolso eram blocos de cor saturada — esmeralda, roxo, azul-petróleo.
+   No InvestAI a cor chapada não cabe: o fundo é um terminal noturno e um
+   retângulo verde vivo briga com ele. Então cada um virou escuro com uma luz
+   da própria cor vindo do canto, que é o tratamento dos orbs ambientes
+   herdado do painel anterior.
+
+   As três cores continuam diferentes de propósito: elas são navegação. Saber
+   em que aba você está pela cor do cartão vale mais que uniformidade, e roxo e
+   azul já estão na paleta do InvestAI como --orb-violet e --orb-blue.
+   ========================================================================= */
+.destaque {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--radius-card);
+  box-shadow:
+    0 18px 48px -12px rgba(0, 0, 0, 0.8),
+    0 0 36px -8px rgba(212, 175, 55, 0.18);
+}
+
+.destaque-ouro {
+  background:
+    radial-gradient(125% 150% at 0% 0%, rgba(212, 175, 55, 0.26), transparent 62%),
+    linear-gradient(135deg, #17130a, #0d0c11 72%);
+}
+
+.destaque-violeta {
+  background:
+    radial-gradient(125% 150% at 0% 0%, rgba(86, 48, 148, 0.5), transparent 62%),
+    linear-gradient(135deg, #15102a, #0d0c11 72%);
+  border-color: rgba(140, 100, 220, 0.22);
+}
+
+.destaque-azul {
+  background:
+    radial-gradient(125% 150% at 0% 0%, rgba(22, 52, 122, 0.55), transparent 62%),
+    linear-gradient(135deg, #0d1226, #0d0c11 72%);
+  border-color: rgba(90, 130, 230, 0.22);
 }

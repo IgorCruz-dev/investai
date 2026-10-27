@@ -18,6 +18,7 @@ import { listarCategorias } from '../../services/categorias'
 import { buscarPerfil } from '../../services/perfis'
 import { buscarSaldoAtual, listarTransacoesDoMes } from '../../services/transacoes'
 import type { Cartao, Categoria, Transacao } from '../../types/financas'
+import { COR_SEM_CATEGORIA } from '../../components/IconeCategoria'
 
 const QUANTAS_CATEGORIAS = 5
 const QUANTOS_ULTIMOS = 5
@@ -103,7 +104,10 @@ export default function Dashboard() {
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Olá{primeiroNome && `, ${primeiroNome}`}</h1>
-        <SeletorMes mes={mes} aoMudar={setMes} />
+        <div className="flex items-center gap-3">
+          <Link to="/comparativo" className="text-sm font-semibold text-primaria hover:underline">Comparativo</Link>
+          <SeletorMes mes={mes} aoMudar={setMes} />
+        </div>
       </div>
 
       <div className="mt-4 empty:hidden">
@@ -117,21 +121,21 @@ export default function Dashboard() {
       )}
 
       <div className={`mt-6 grid gap-4 sm:grid-cols-3 ${recarregando}`}>
-        <div className="rounded-2xl bg-linear-to-br from-emerald-600 to-emerald-800 p-5 text-white shadow-lg shadow-emerald-900/15">
-          <p className="text-sm text-emerald-100">Saldo atual da conta</p>
+        <div className="destaque destaque-ouro p-5 text-white">
+          <p className="text-sm text-white/70">Saldo atual da conta</p>
           {primeiraCarga ? (
             <Esqueleto className="mt-3 h-8 w-40 bg-white/25" />
           ) : (
             <p className="mt-2 text-3xl font-bold tracking-tight">{saldo === null ? '—' : formatarMoeda(saldo)}</p>
           )}
-          <p className="mt-1 text-xs text-emerald-100/80">Compras no crédito só descontam quando a fatura é paga</p>
+          <p className="mt-1 text-xs text-white/60">Compras no crédito só descontam quando a fatura é paga</p>
         </div>
         <CartaoResumo
           titulo="Receitas do mês"
           valor={totais.receitas}
           carregando={primeiraCarga}
           cor="text-receita"
-          fundo="bg-emerald-50"
+          fundo="bg-sucesso-fundo"
           icone={<IconeSetaCima className="h-4 w-4" />}
         />
         <CartaoResumo
@@ -139,7 +143,7 @@ export default function Dashboard() {
           valor={totais.despesas}
           carregando={primeiraCarga}
           cor="text-despesa"
-          fundo="bg-red-50"
+          fundo="bg-erro-fundo"
           icone={<IconeSetaBaixo className="h-4 w-4" />}
           detalhe={totais.noCredito > 0 ? `inclui ${formatarMoeda(totais.noCredito)} no crédito` : 'inclui compras no crédito'}
         />
@@ -172,22 +176,22 @@ export default function Dashboard() {
                   <li key={g.chave}>
                     <Link
                       to={`${linkDoMes}&categoria=${g.chave}`}
-                      className="block px-5 py-3.5 transition hover:bg-slate-50"
+                      className="block px-5 py-3.5 transition hover:bg-superficie-2"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <span className="flex min-w-0 items-center gap-2">
                           <span
                             className="h-2.5 w-2.5 shrink-0 rounded-full"
-                            style={{ backgroundColor: categoria?.cor ?? '#94a3b8' }}
+                            style={{ backgroundColor: categoria?.cor ?? COR_SEM_CATEGORIA }}
                           />
                           <span className="truncate font-medium">{categoria?.nome ?? 'Sem categoria'}</span>
                         </span>
                         <span className="shrink-0 font-semibold">{formatarMoeda(g.atual)}</span>
                       </div>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-superficie-3">
                         <div
                           className="h-full rounded-full"
-                          style={{ width: `${fatia}%`, backgroundColor: categoria?.cor ?? '#94a3b8' }}
+                          style={{ width: `${fatia}%`, backgroundColor: categoria?.cor ?? COR_SEM_CATEGORIA }}
                         />
                       </div>
                       <div className="mt-1.5 flex items-center justify-between gap-3 text-xs text-texto-suave">
@@ -219,7 +223,7 @@ export default function Dashboard() {
           <EsqueletoLista linhas={QUANTOS_ULTIMOS} />
         ) : transacoes.length === 0 ? (
           <div className="flex flex-col items-center px-5 py-14 text-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-texto-suave">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-superficie-3 text-texto-suave">
               <IconeLista className="h-6 w-6" />
             </span>
             <p className="mt-4 font-medium">Nenhum lançamento neste mês</p>
@@ -273,7 +277,7 @@ type CartaoResumoProps = {
 
 function CartaoResumo({ titulo, valor, cor, fundo, icone, detalhe, carregando }: CartaoResumoProps) {
   return (
-    <div className="rounded-2xl border border-borda bg-white p-5">
+    <div className="rounded-2xl border border-borda bg-superficie p-5">
       <div className="flex items-center gap-2">
         <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${fundo} ${cor}`}>{icone}</span>
         <p className="text-sm text-texto-suave">{titulo}</p>

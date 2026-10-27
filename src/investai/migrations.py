@@ -8,15 +8,16 @@ erro de coluna inexistente num caminho que a pessoa nem tocou.
 
 O desenho é o mínimo que resolve:
 
-- cada arquivo em `deploy/sql/` é uma migração, nomeada `NNN_descricao.sql`;
+- cada arquivo no diretório escolhido é uma migração, nomeada
+  `NNN_descricao.sql` ou `TIMESTAMP_descricao.sql`;
 - `schema_migrations` guarda o que já rodou, com o hash do arquivo;
 - aplicar é "rodar as pendentes, em ordem, numa transação cada";
 - `pendentes()` responde "este banco está atrás?" sem escrever nada — é o que
   o servidor usa no start para avisar em vez de quebrar no meio de uma query.
 
 O hash serve para pegar o acidente clássico: alguém editar uma migração que já
-rodou. O arquivo já aplicado em três bancos não volta atrás, então editar é
-sempre erro — e o aviso é melhor que a divergência silenciosa.
+rodou. O arquivo aplicado não volta atrás, então editar é erro e impede nova
+aplicação até a correção.
 """
 
 from __future__ import annotations
@@ -102,14 +103,24 @@ def _aplicadas(conn) -> dict[str, str]:
         return {linha[0]: linha[1] for linha in cur.fetchall()}
 
 
-def pendentes(url: str, diretorio: Path | None = None) -> list[Migracao]:
+def _conectar(url: str, schema: str | None = None, *, autocommit: bool = False):
+    import psycopg
+    from psycopg import sql
+
+    conn = psycopg.connect(url, connect_timeout=20, autocommit=autocommit,
+                           prepare_threshold=None)
+    if schema:
+        conn.execute(sql.SQL("set search_path to {}").format(sql.Identifier(schema)))
+    return conn
+
+
+def pendentes(url: str, diretorio: Path | None = None,
+             schema: str | None = None) -> list[Migracao]:
     """O que falta aplicar neste banco. Não escreve schema nenhum.
 
     Cria só a tabela de controle, que é o mínimo para saber a resposta.
     """
-    import psycopg
-
-    with psycopg.connect(url, connect_timeout=20, autocommit=True) as conn:
+    with _conectar(url, schema, autocommit=True) as conn:
         feitas = _aplicadas(conn)
 
     faltando = []
@@ -117,15 +128,15 @@ def pendentes(url: str, diretorio: Path | None = None) -> list[Migracao]:
         if m.versao not in feitas:
             faltando.append(m)
         elif feitas[m.versao] != m.sha256:
-            logger.warning(
-                "%s já foi aplicada neste banco mas o arquivo mudou desde então. "
-                "Migração aplicada não volta atrás: crie uma nova em vez de "
-                "editar esta.", m.nome,
+            raise ErroDeMigracao(
+                f"{m.nome} já foi aplicada mas o arquivo mudou. "
+                "Crie uma migração nova em vez de editar esta."
             )
     return faltando
 
 
-def marcar_aplicadas(url: str, diretorio: Path | None = None) -> list[Migracao]:
+def marcar_aplicadas(url: str, diretorio: Path | None = None,
+                     schema: str | None = None) -> list[Migracao]:
     """Registra as pendentes como aplicadas **sem executá-las**.
 
     É a adoção do controle de versão num banco que já tem o schema: o banco
@@ -136,12 +147,10 @@ def marcar_aplicadas(url: str, diretorio: Path | None = None) -> list[Migracao]:
 
     Use só quando você sabe que o schema daquele arquivo já está no banco.
     """
-    import psycopg
-
-    marcadas = pendentes(url, diretorio)
+    marcadas = pendentes(url, diretorio, schema)
     if not marcadas:
         return []
-    with psycopg.connect(url, connect_timeout=20) as conn:
+    with _conectar(url, schema) as conn:
         for m in marcadas:
             conn.execute(
                 "insert into schema_migrations (versao, arquivo, sha256) "
@@ -155,18 +164,17 @@ def marcar_aplicadas(url: str, diretorio: Path | None = None) -> list[Migracao]:
     return marcadas
 
 
-def aplicar(url: str, diretorio: Path | None = None) -> list[Migracao]:
+def aplicar(url: str, diretorio: Path | None = None,
+            schema: str | None = None) -> list[Migracao]:
     """Aplica as pendentes, em ordem, uma transação por migração.
 
     Uma transação por arquivo, e não uma para todas: se a terceira falhar, as
     duas primeiras continuam aplicadas e registradas, e a próxima execução
     retoma de onde parou. O contrário obrigaria a reaplicar o que já funcionou.
     """
-    import psycopg
-
     aplicadas: list[Migracao] = []
-    for m in pendentes(url, diretorio):
-        with psycopg.connect(url, connect_timeout=20) as conn:
+    for m in pendentes(url, diretorio, schema):
+        with _conectar(url, schema) as conn:
             try:
                 conn.execute(m.sql())
                 conn.execute(

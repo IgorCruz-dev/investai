@@ -14,6 +14,7 @@ import { listarCartoes } from '../../services/cartoes'
 import { listarCategorias } from '../../services/categorias'
 import { listarTransacoesDoMes } from '../../services/transacoes'
 import type { Cartao, Categoria, Transacao } from '../../types/financas'
+import { COR_SEM_CATEGORIA } from '../../components/IconeCategoria'
 
 /** Todos os lançamentos de um mês, com filtro por categoria. Endereço: /lancamentos?mes=2026-10&categoria=<id|sem> */
 export default function Lancamentos() {
@@ -80,7 +81,7 @@ export default function Lancamentos() {
     const usadas = new Set(transacoes.map((t) => t.categoria_id ?? 'sem'))
     if (filtroCategoria) usadas.add(filtroCategoria)
     const lista = categorias.filter((c) => usadas.has(c.id)).map((c) => ({ chave: c.id, nome: c.nome, cor: c.cor }))
-    if (usadas.has('sem')) lista.push({ chave: 'sem', nome: 'Sem categoria', cor: '#94a3b8' })
+    if (usadas.has('sem')) lista.push({ chave: 'sem', nome: 'Sem categoria', cor: COR_SEM_CATEGORIA })
     return lista
   }, [transacoes, categorias, filtroCategoria])
 
@@ -131,7 +132,7 @@ export default function Lancamentos() {
           <EsqueletoLista linhas={6} />
         ) : filtradas.length === 0 ? (
           <div className="flex flex-col items-center px-5 py-14 text-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-texto-suave">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-superficie-3 text-texto-suave">
               <IconeLista className="h-6 w-6" />
             </span>
             <p className="mt-4 font-medium">Nenhum lançamento aqui</p>
@@ -153,7 +154,7 @@ function BotaoFiltro({ escolhido, aoClicar, children }: { escolhido: boolean; ao
       type="button"
       aria-pressed={escolhido}
       onClick={aoClicar}
-      className={`flex h-9 shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm transition ${escolhido ? 'border-primaria bg-emerald-50 font-medium text-primaria' : 'border-borda bg-white text-texto hover:border-slate-300'}`}
+      className={`flex h-9 shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm transition ${escolhido ? 'border-primaria bg-sucesso-fundo font-medium text-primaria' : 'border-borda bg-superficie text-texto hover:border-borda-forte'}`}
     >
       {children}
     </button>

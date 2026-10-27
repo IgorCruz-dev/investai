@@ -136,7 +136,6 @@ def render() -> None:
         onboarding.render(
             load_market_data=load_universe_data,
             currency=portfolio.currency,
-            use_llm=llm_analyst.probe(),
         )
         if portfolio.positions:
             st.divider()

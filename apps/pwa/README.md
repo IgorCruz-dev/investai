@@ -1,6 +1,6 @@
-# Meu Bolso
+# InvestAI PWA
 
-App de controle financeiro pessoal (PWA): React + Vite + TypeScript + Tailwind, com Supabase no backend e deploy na Vercel.
+Controle financeiro e investimentos em uma interface: React + Vite + TypeScript + Tailwind, com Supabase no backend.
 
 ## Rodando localmente
 
@@ -9,6 +9,10 @@ npm install
 cp .env.example .env.local   # preencha com a URL e a chave pública do Supabase
 npm run dev
 ```
+
+Antes de usar, aplique as migrações da raiz com
+`.venv/bin/python scripts/aplicar_supabase.py`. A URL Postgres fica no `.env`
+da raiz; o PWA usa somente a URL de API e a chave publicável em `.env.local`.
 
 ## Scripts
 
@@ -33,13 +37,13 @@ src/
     lancamentos/    todos os lançamentos do mês (/lancamentos?mes=2026-10&categoria=...)
     cartoes/        lista de cartões com limite usado
     detalhe-cartao/ fatura do cartão (/cartoes/:id?fatura=2026-11)
-    assinaturas/, comparativo/, caixinha/
+    assinaturas/, comparativo/, caixinha/, investimentos/
     bancos/         Open Finance: conexões, vínculo de contas/cartões e categorias do banco
   hooks/            useAuth
   services/         funções que falam com o Supabase
   types/            database.ts (gerado do banco), financas.ts
-supabase/
-  migrations/       SQL aplicado no banco (nome = versão registrada no Supabase)
+../../supabase/
+  migrations/       SQL aplicado no banco (na raiz do repositório)
   functions/        sync-pluggy: importa contas, cartões e transações do Meu Pluggy
 ```
 

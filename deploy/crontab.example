@@ -1,17 +1,22 @@
 # Cron da VM do InvestAI.  Instalar com: crontab -e
 # Fuso: sudo timedatectl set-timezone America/Sao_Paulo
 
-# --- Snapshot para a interface web -----------------------------------------
-# A web (Vercel) não roda Python: ela lê o último snapshot publicado aqui.
+# --- Snapshot para o PWA ----------------------------------------------------
+# O PWA (Vercel) não roda Python: lê o último snapshot publicado aqui.
 # De 30 em 30 minutos no horário de pregão, e uma vez à noite para a tela
 # mostrar o fechamento do dia mesmo quem abrir de madrugada.
 */30 10-18 * * 1-5 cd /home/ubuntu/investai && .venv/bin/python scripts/publish_snapshot.py >> cache/cron.log 2>&1
 30 19 * * 1-5 cd /home/ubuntu/investai && .venv/bin/python scripts/publish_snapshot.py >> cache/cron.log 2>&1
 
 # --- Fila de trabalho -------------------------------------------------------
-# O que a web pede e só a VM pode fazer (gerar briefing, conferir ticker novo
-# no yfinance). De 5 em 5 minutos: é a latência entre clicar e ver o resultado.
-*/5 * * * * cd /home/ubuntu/investai && .venv/bin/python scripts/process_jobs.py >> cache/cron.log 2>&1
+# O que o PWA pede e só a VM pode fazer (derivar o perfil e montar a carteira
+# sugerida, gerar briefing, conferir ticker novo no yfinance).
+#
+# De 1 em 1 minuto, e não de 5 em 5: esta fila virou o caminho do onboarding.
+# A pessoa responde 18 perguntas e fica olhando a tela esperando a carteira —
+# 5 minutos de espera ali é abandono, enquanto 5 minutos para conferir um ticker
+# não incomodava ninguém. O job é barato quando a fila está vazia.
+* * * * * cd /home/ubuntu/investai && .venv/bin/python scripts/process_jobs.py >> cache/cron.log 2>&1
 
 # --- Briefing semanal -------------------------------------------------------
 # Domingo às 20h, direto no WhatsApp. Troque SEU_CRON_TOKEN.

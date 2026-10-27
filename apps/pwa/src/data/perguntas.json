@@ -1,0 +1,507 @@
+{
+  "blocos": [
+    {
+      "chave": "situacao",
+      "titulo": "Sua situação hoje"
+    },
+    {
+      "chave": "capacidade",
+      "titulo": "Capacidade financeira"
+    },
+    {
+      "chave": "objetivos",
+      "titulo": "Objetivos e prazo"
+    },
+    {
+      "chave": "risco",
+      "titulo": "Tolerância a risco"
+    }
+  ],
+  "perguntas": [
+    {
+      "chave": "financial_health",
+      "bloco": "situacao",
+      "tipo": "scale",
+      "enunciado": "Sendo honesto, que nota você daria para a sua situação financeira atual?",
+      "ajuda": "1 = muito ruim, 10 = excelente. Vale responder sem romantizar.",
+      "obrigatoria": true,
+      "minimo": 1,
+      "maximo": 10,
+      "passo": 1
+    },
+    {
+      "chave": "commitment",
+      "bloco": "situacao",
+      "tipo": "scale",
+      "enunciado": "Que nota você daria para o seu comprometimento com seus objetivos de vida?",
+      "ajuda": "1 = baixo, 10 = total.",
+      "obrigatoria": true,
+      "minimo": 1,
+      "maximo": 10,
+      "passo": 1
+    },
+    {
+      "chave": "priority",
+      "bloco": "situacao",
+      "tipo": "choice",
+      "enunciado": "Qual é sua PRINCIPAL prioridade financeira para os próximos 12 meses?",
+      "ajuda": "",
+      "obrigatoria": true,
+      "opcoes": [
+        {
+          "valor": "patrimonio",
+          "rotulo": "Construir um patrimônio sólido através de investimentos",
+          "ajuda": ""
+        },
+        {
+          "valor": "renda_passiva",
+          "rotulo": "Aumentar minha renda e criar fontes de renda passiva",
+          "ajuda": ""
+        },
+        {
+          "valor": "dividas",
+          "rotulo": "Quitar dívidas e organizar minha vida financeira",
+          "ajuda": ""
+        },
+        {
+          "valor": "bens",
+          "rotulo": "Comprar bens que preciso (carro, casa, moto…)",
+          "ajuda": ""
+        },
+        {
+          "valor": "manter",
+          "rotulo": "Manter minha situação atual, estou satisfeito assim",
+          "ajuda": ""
+        }
+      ]
+    },
+    {
+      "chave": "knowledge",
+      "bloco": "situacao",
+      "tipo": "choice",
+      "enunciado": "Sobre seu conhecimento em investimentos…",
+      "ajuda": "",
+      "obrigatoria": true,
+      "opcoes": [
+        {
+          "valor": "iniciante",
+          "rotulo": "Sou iniciante e estou pronto pra aprender",
+          "ajuda": ""
+        },
+        {
+          "valor": "tentei",
+          "rotulo": "Já tentei investir, mas me perdi no caminho",
+          "ajuda": ""
+        },
+        {
+          "valor": "sem_consistencia",
+          "rotulo": "Já invisto, mas sem consistência ou clareza",
+          "ajuda": ""
+        },
+        {
+          "valor": "profissionalizar",
+          "rotulo": "Quero profissionalizar minha forma de investir",
+          "ajuda": ""
+        }
+      ]
+    },
+    {
+      "chave": "income_range",
+      "bloco": "situacao",
+      "tipo": "choice",
+      "enunciado": "Quanto você ganha em média por mês?",
+      "ajuda": "",
+      "obrigatoria": true,
+      "opcoes": [
+        {
+          "valor": "estudante",
+          "rotulo": "Sou estudante",
+          "ajuda": ""
+        },
+        {
+          "valor": "desempregado",
+          "rotulo": "Sou desempregado",
+          "ajuda": ""
+        },
+        {
+          "valor": "ate_4500",
+          "rotulo": "Menos de R$ 4.500",
+          "ajuda": ""
+        },
+        {
+          "valor": "4500_10k",
+          "rotulo": "De R$ 4.500 a R$ 10 mil",
+          "ajuda": ""
+        },
+        {
+          "valor": "10k_25k",
+          "rotulo": "De R$ 10 mil a R$ 25 mil",
+          "ajuda": ""
+        },
+        {
+          "valor": "25k_60k",
+          "rotulo": "De R$ 25 mil a R$ 60 mil",
+          "ajuda": ""
+        },
+        {
+          "valor": "acima_60k",
+          "rotulo": "Mais de R$ 60 mil",
+          "ajuda": ""
+        }
+      ]
+    },
+    {
+      "chave": "monthly_expenses",
+      "bloco": "capacidade",
+      "tipo": "number",
+      "enunciado": "Qual é o seu custo de vida mensal, em reais?",
+      "ajuda": "Usado para dimensionar a reserva de emergência (6 meses de despesas).",
+      "obrigatoria": true,
+      "minimo": 0,
+      "maximo": 500000,
+      "passo": 100
+    },
+    {
+      "chave": "initial_amount",
+      "bloco": "capacidade",
+      "tipo": "number",
+      "enunciado": "Quanto você tem disponível para começar a investir agora?",
+      "ajuda": "Dinheiro livre, que não é da reserva de emergência já existente.",
+      "obrigatoria": true,
+      "minimo": 0,
+      "maximo": 100000000,
+      "passo": 500
+    },
+    {
+      "chave": "monthly_contribution",
+      "bloco": "capacidade",
+      "tipo": "number",
+      "enunciado": "Quanto você consegue aportar por mês, de forma realista?",
+      "ajuda": "",
+      "obrigatoria": true,
+      "minimo": 0,
+      "maximo": 1000000,
+      "passo": 100
+    },
+    {
+      "chave": "emergency_fund",
+      "bloco": "capacidade",
+      "tipo": "choice",
+      "enunciado": "Você tem reserva de emergência?",
+      "ajuda": "Dinheiro de liquidez imediata para imprevistos, separado dos investimentos.",
+      "obrigatoria": true,
+      "opcoes": [
+        {
+          "valor": "nenhuma",
+          "rotulo": "Não tenho",
+          "ajuda": ""
+        },
+        {
+          "valor": "ate_3m",
+          "rotulo": "Tenho menos de 3 meses de despesas",
+          "ajuda": ""
+        },
+        {
+          "valor": "3_6m",
+          "rotulo": "Tenho de 3 a 6 meses de despesas",
+          "ajuda": ""
+        },
+        {
+          "valor": "acima_6m",
+          "rotulo": "Tenho mais de 6 meses de despesas",
+          "ajuda": ""
+        }
+      ]
+    },
+    {
+      "chave": "expensive_debt",
+      "bloco": "capacidade",
+      "tipo": "choice",
+      "enunciado": "Você tem dívidas de juros altos (cartão de crédito, cheque especial, empréstimo pessoal)?",
+      "ajuda": "",
+      "obrigatoria": true,
+      "opcoes": [
+        {
+          "valor": "significativas",
+          "rotulo": "Sim, valores significativos",
+          "ajuda": ""
+        },
+        {
+          "valor": "pequenas",
+          "rotulo": "Sim, mas valores pequenos",
+          "ajuda": ""
+        },
+        {
+          "valor": "nenhuma",
+          "rotulo": "Não tenho",
+          "ajuda": ""
+        }
+      ]
+    },
+    {
+      "chave": "income_stability",
+      "bloco": "capacidade",
+      "tipo": "choice",
+      "enunciado": "Como é a estabilidade da sua renda?",
+      "ajuda": "",
+      "obrigatoria": true,
+      "opcoes": [
+        {
+          "valor": "instavel",
+          "rotulo": "Instável — não sei quanto entra mês que vem",
+          "ajuda": ""
+        },
+        {
+          "valor": "variavel",
+          "rotulo": "Variável — autônomo, comissionado ou PJ",
+          "ajuda": ""
+        },
+        {
+          "valor": "estavel",
+          "rotulo": "Estável — CLT, servidor ou renda previsível",
+          "ajuda": ""
+        }
+      ]
+    },
+    {
+      "chave": "main_goal",
+      "bloco": "objetivos",
+      "tipo": "choice",
+      "enunciado": "Qual é o objetivo principal deste dinheiro?",
+      "ajuda": "",
+      "obrigatoria": true,
+      "opcoes": [
+        {
+          "valor": "reserva",
+          "rotulo": "Formar e proteger minha reserva",
+          "ajuda": ""
+        },
+        {
+          "valor": "meta_curta",
+          "rotulo": "Uma meta específica em poucos anos (imóvel, carro, intercâmbio)",
+          "ajuda": ""
+        },
+        {
+          "valor": "renda_passiva",
+          "rotulo": "Construir renda passiva mensal",
+          "ajuda": ""
+        },
+        {
+          "valor": "aposentadoria",
+          "rotulo": "Aposentadoria / independência financeira",
+          "ajuda": ""
+        },
+        {
+          "valor": "crescimento",
+          "rotulo": "Crescimento máximo do patrimônio no longo prazo",
+          "ajuda": ""
+        }
+      ]
+    },
+    {
+      "chave": "horizon",
+      "bloco": "objetivos",
+      "tipo": "choice",
+      "enunciado": "Em quanto tempo você pretende usar esse dinheiro?",
+      "ajuda": "",
+      "obrigatoria": true,
+      "opcoes": [
+        {
+          "valor": "ate_1a",
+          "rotulo": "Menos de 1 ano",
+          "ajuda": ""
+        },
+        {
+          "valor": "1_3a",
+          "rotulo": "De 1 a 3 anos",
+          "ajuda": ""
+        },
+        {
+          "valor": "3_5a",
+          "rotulo": "De 3 a 5 anos",
+          "ajuda": ""
+        },
+        {
+          "valor": "5_10a",
+          "rotulo": "De 5 a 10 anos",
+          "ajuda": ""
+        },
+        {
+          "valor": "acima_10a",
+          "rotulo": "Mais de 10 anos",
+          "ajuda": ""
+        }
+      ]
+    },
+    {
+      "chave": "liquidity_need",
+      "bloco": "objetivos",
+      "tipo": "choice",
+      "enunciado": "Qual a chance de você precisar resgatar antes do prazo?",
+      "ajuda": "",
+      "obrigatoria": true,
+      "opcoes": [
+        {
+          "valor": "alta",
+          "rotulo": "Alta — pode acontecer a qualquer momento",
+          "ajuda": ""
+        },
+        {
+          "valor": "media",
+          "rotulo": "Média — só em caso de imprevisto",
+          "ajuda": ""
+        },
+        {
+          "valor": "baixa",
+          "rotulo": "Baixa — esse dinheiro pode ficar parado",
+          "ajuda": ""
+        }
+      ]
+    },
+    {
+      "chave": "international",
+      "bloco": "objetivos",
+      "tipo": "choice",
+      "enunciado": "Você quer exposição a ativos no exterior (dólar, bolsa americana)?",
+      "ajuda": "",
+      "obrigatoria": true,
+      "opcoes": [
+        {
+          "valor": "sim",
+          "rotulo": "Sim, quero diversificar para fora do Brasil",
+          "ajuda": ""
+        },
+        {
+          "valor": "indiferente",
+          "rotulo": "Tanto faz, decida pelos dados",
+          "ajuda": ""
+        },
+        {
+          "valor": "nao",
+          "rotulo": "Não, prefiro ficar só no Brasil",
+          "ajuda": ""
+        }
+      ]
+    },
+    {
+      "chave": "drawdown_reaction",
+      "bloco": "risco",
+      "tipo": "choice",
+      "enunciado": "Sua carteira cai 30% em um mês de crise. O que você faz?",
+      "ajuda": "A resposta honesta aqui vale mais que qualquer teoria sobre risco.",
+      "obrigatoria": true,
+      "opcoes": [
+        {
+          "valor": "vendo_tudo",
+          "rotulo": "Vendo tudo para não perder mais",
+          "ajuda": ""
+        },
+        {
+          "valor": "vendo_parte",
+          "rotulo": "Vendo parte e espero para entender",
+          "ajuda": ""
+        },
+        {
+          "valor": "nao_faco_nada",
+          "rotulo": "Não faço nada e sigo o plano",
+          "ajuda": ""
+        },
+        {
+          "valor": "aporto_mais",
+          "rotulo": "Aproveito e aporto mais",
+          "ajuda": ""
+        }
+      ]
+    },
+    {
+      "chave": "volatility_preference",
+      "bloco": "risco",
+      "tipo": "choice",
+      "enunciado": "Entre estas opções, qual te descreve melhor?",
+      "ajuda": "",
+      "obrigatoria": true,
+      "opcoes": [
+        {
+          "valor": "previsivel",
+          "rotulo": "Prefiro ganho menor, mas previsível",
+          "ajuda": ""
+        },
+        {
+          "valor": "equilibrio",
+          "rotulo": "Aceito alguma oscilação por um retorno melhor",
+          "ajuda": ""
+        },
+        {
+          "valor": "agressivo",
+          "rotulo": "Aceito oscilação forte buscando o maior retorno",
+          "ajuda": ""
+        }
+      ]
+    },
+    {
+      "chave": "experience",
+      "bloco": "risco",
+      "tipo": "multi",
+      "enunciado": "Com quais produtos você já investiu?",
+      "ajuda": "",
+      "obrigatoria": false,
+      "opcoes": [
+        {
+          "valor": "poupanca",
+          "rotulo": "Poupança",
+          "ajuda": ""
+        },
+        {
+          "valor": "renda_fixa",
+          "rotulo": "Tesouro Direto, CDB, LCI/LCA",
+          "ajuda": ""
+        },
+        {
+          "valor": "fundos",
+          "rotulo": "Fundos de investimento",
+          "ajuda": ""
+        },
+        {
+          "valor": "acoes",
+          "rotulo": "Ações",
+          "ajuda": ""
+        },
+        {
+          "valor": "fiis",
+          "rotulo": "Fundos imobiliários",
+          "ajuda": ""
+        },
+        {
+          "valor": "exterior",
+          "rotulo": "Ativos no exterior (ETFs, stocks, BDRs)",
+          "ajuda": ""
+        },
+        {
+          "valor": "cripto",
+          "rotulo": "Criptomoedas",
+          "ajuda": ""
+        }
+      ]
+    }
+  ],
+  "temCarteira": {
+    "chave": "has_portfolio",
+    "bloco": "situacao",
+    "tipo": "choice",
+    "enunciado": "Você já tem uma carteira de investimentos ativa em bolsa?",
+    "ajuda": "",
+    "obrigatoria": true,
+    "opcoes": [
+      {
+        "valor": "sim",
+        "rotulo": "Sim, já tenho ações / ETFs / FIIs comprados",
+        "ajuda": ""
+      },
+      {
+        "valor": "nao",
+        "rotulo": "Ainda não comprei nada",
+        "ajuda": ""
+      }
+    ]
+  }
+}

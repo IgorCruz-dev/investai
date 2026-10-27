@@ -62,16 +62,17 @@ def test_aplica_na_ordem_e_so_uma_vez(banco, tmp_path):
     import os
 
     url = os.environ["DATABASE_URL"]
+    schema = os.environ["INVESTAI_TEST_SCHEMA"]
     escrever(tmp_path, "001_um.sql", "create table mig_um (id int)")
     escrever(tmp_path, "002_dois.sql", "create table mig_dois (id int)")
 
-    primeira = migrations.aplicar(url, tmp_path)
+    primeira = migrations.aplicar(url, tmp_path, schema)
     assert [m.nome for m in primeira] == ["001_um.sql", "002_dois.sql"]
 
     # Segunda passada não tem o que fazer: é o que permite rodar no deploy
     # sem medo, e o que impede aplicar duas vezes em bancos diferentes.
-    assert migrations.aplicar(url, tmp_path) == []
-    assert migrations.pendentes(url, tmp_path) == []
+    assert migrations.aplicar(url, tmp_path, schema) == []
+    assert migrations.pendentes(url, tmp_path, schema) == []
 
 
 @pytest.mark.network
@@ -80,9 +81,10 @@ def test_pendentes_nao_aplica_nada(banco, tmp_path):
     import os
 
     url = os.environ["DATABASE_URL"]
+    schema = os.environ["INVESTAI_TEST_SCHEMA"]
     escrever(tmp_path, "001_so_checagem.sql", "create table mig_nao_criar (id int)")
 
-    assert [m.nome for m in migrations.pendentes(url, tmp_path)] == ["001_so_checagem.sql"]
+    assert [m.nome for m in migrations.pendentes(url, tmp_path, schema)] == ["001_so_checagem.sql"]
 
     import psycopg
 
@@ -99,11 +101,12 @@ def test_migracao_que_falha_nao_fica_registrada(banco, tmp_path):
     import os
 
     url = os.environ["DATABASE_URL"]
+    schema = os.environ["INVESTAI_TEST_SCHEMA"]
     escrever(tmp_path, "001_ok.sql", "create table mig_ok (id int)")
     escrever(tmp_path, "002_quebrada.sql", "isso nao e sql valido")
 
     with pytest.raises(migrations.ErroDeMigracao, match="002_quebrada"):
-        migrations.aplicar(url, tmp_path)
+        migrations.aplicar(url, tmp_path, schema)
 
     # A primeira continua aplicada; só a quebrada volta para a fila.
-    assert [m.nome for m in migrations.pendentes(url, tmp_path)] == ["002_quebrada.sql"]
+    assert [m.nome for m in migrations.pendentes(url, tmp_path, schema)] == ["002_quebrada.sql"]

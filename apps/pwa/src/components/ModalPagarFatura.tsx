@@ -69,7 +69,7 @@ export default function ModalPagarFatura({ cartao, fatura, totalCentavos, aoFech
       }
     >
       <div className="flex flex-col gap-5">
-        <div className="rounded-xl bg-slate-50 p-4 text-center">
+        <div className="rounded-xl bg-superficie-2 p-4 text-center">
           <p className="text-sm text-texto-suave">
             {cartao.nome} · fatura de {formatarMesAno(fatura).toLowerCase()}
           </p>

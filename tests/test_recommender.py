@@ -1,8 +1,8 @@
 """Testes do screener e do recomendador.
 
 O screener roda contra dados reais do yfinance (é o ponto do sistema), e as
-regras de rateio e validação da resposta do LLM são testadas offline — elas são
-lógica nossa, não dado de mercado.
+regras de rateio e do veto por notícia são testadas offline — elas são lógica
+nossa, não dado de mercado.
 """
 
 from __future__ import annotations
@@ -15,9 +15,7 @@ from investai.analysis.recommender import (
     MIN_POSITION_BRL,
     RENDA_FIXA_LABEL,
     Recommendation,
-    RecommendedPosition,
-    _merge_llm_positions,
-    build_recommendation_context,
+    _aplicar_vetos,
     distribute,
     recommend,
 )
@@ -29,10 +27,12 @@ from investai.analysis.screener import (
     PROFILE_CRITERIA,
     UNIVERSE,
     Asset,
+    Candidate,
     evaluate,
     screen_detailed,
     universe_for,
 )
+from investai.analysis.triagem_noticia import Veto, _validar, triar
 from investai.onboarding.profile import ARROJADO, CONSERVADOR, MODERADO, build_profile
 from tests.test_onboarding import answers
 
@@ -195,79 +195,13 @@ def test_diversificacao_setorial_na_escolha(fake_market_data):
     assert len(set(setores)) == len(setores), f"setor repetido: {setores}"
 
 
-# --- Validação da resposta do LLM -------------------------------------------
-def _positions() -> list[RecommendedPosition]:
-    return [
-        RecommendedPosition(RENDA_FIXA_LABEL, "Renda fixa", "renda_fixa", 40.0, 4_000, None, 1.0),
-        RecommendedPosition("BOVA11.SA", "Ibovespa", ETF, 30.0, 3_000, 100.0, 30),
-        RecommendedPosition("PETR4.SA", "Petrobras", ACAO, 30.0, 3_000, 50.0, 60),
-    ]
-
-
-ALLOCATION = {"renda_fixa": 40.0, "etf": 30.0, "acao": 30.0}
-
-
-def test_merge_aplica_pesos_e_justificativas_do_llm():
-    merged = _merge_llm_positions(
-        _positions(),
-        [{"ticker": "BOVA11.SA", "weight_pct": 30.0, "rationale": "diversificação ampla"},
-         {"ticker": "PETR4.SA", "weight_pct": 30.0, "rationale": "P/L de 5,3"}],
-        ALLOCATION, investable=10_000,
-    )
-    assert merged is not None
-    bova = next(p for p in merged if p.ticker == "BOVA11.SA")
-    assert bova.rationale == "diversificação ampla"
-    assert bova.amount == 3_000
-    assert bova.shares == 30
-    # A linha de renda fixa é preservada mesmo sem o LLM mencioná-la.
-    assert any(p.asset_class == "renda_fixa" for p in merged)
-
-
-def test_merge_ignora_renda_fixa_devolvida_pelo_llm():
-    """O rótulo tem caixa mista; não pode ser lido como ticker desconhecido."""
-    merged = _merge_llm_positions(
-        _positions(),
-        [{"ticker": RENDA_FIXA_LABEL.upper(), "weight_pct": 40.0, "rationale": "reserva"},
-         {"ticker": "BOVA11.SA", "weight_pct": 30.0, "rationale": "x"},
-         {"ticker": "PETR4.SA", "weight_pct": 30.0, "rationale": "y"}],
-        ALLOCATION, investable=10_000,
-    )
-    assert merged is not None
-
-
-def test_merge_rejeita_ticker_fora_dos_candidatos():
-    assert _merge_llm_positions(
-        _positions(),
-        [{"ticker": "MGLU3.SA", "weight_pct": 30.0, "rationale": "chute"}],
-        ALLOCATION, investable=10_000,
-    ) is None
-
-
-def test_merge_rejeita_peso_de_classe_divergente():
-    """O LLM não pode mudar a alocação definida por regra."""
-    assert _merge_llm_positions(
-        _positions(),
-        [{"ticker": "BOVA11.SA", "weight_pct": 10.0, "rationale": "x"},
-         {"ticker": "PETR4.SA", "weight_pct": 30.0, "rationale": "y"}],
-        ALLOCATION, investable=10_000,
-    ) is None
-
-
-def test_merge_rejeita_peso_invalido():
-    assert _merge_llm_positions(
-        _positions(),
-        [{"ticker": "BOVA11.SA", "weight_pct": "muito", "rationale": "x"}],
-        ALLOCATION, investable=10_000,
-    ) is None
-
-
 # --- Recomendação completa --------------------------------------------------
-def test_recomendacao_sem_llm_funciona_e_virou_carteira_planejada(fake_market_data):
+def test_recomendacao_determinista_virou_carteira_planejada(fake_market_data):
     profile = build_profile(answers(emergency_fund="acima_6m", initial_amount=50_000))
-    recommendation = recommend(profile, fake_market_data, use_llm=False)
+    recommendation = recommend(profile, fake_market_data)
 
     assert recommendation.ok
-    assert recommendation.source == "quantitativo"
+    assert not recommendation.triagem_ok, "triagem não foi pedida"
     portfolio = recommendation.to_portfolio()
     assert portfolio.planned
     assert all(p.is_planned for p in portfolio.positions), "nada foi comprado ainda"
@@ -279,7 +213,7 @@ def test_recomendacao_sem_llm_funciona_e_virou_carteira_planejada(fake_market_da
 def test_sem_dados_de_mercado_sai_so_a_renda_fixa_com_aviso():
     """A reserva não depende de cotação; o resto precisa, e o usuário tem de saber."""
     profile = build_profile(answers(emergency_fund="acima_6m", initial_amount=50_000))
-    recommendation = recommend(profile, {}, use_llm=False)
+    recommendation = recommend(profile, {})
 
     assert [p.asset_class for p in recommendation.positions] == ["renda_fixa"]
     assert recommendation.error and "nenhum ativo de bolsa" in recommendation.error
@@ -292,21 +226,10 @@ def test_sem_alocacao_em_renda_fixa_e_sem_dados_nao_ha_recomendacao():
                                     volatility_preference="agressivo",
                                     emergency_fund="acima_6m", initial_amount=50_000))
     profile.allocation = {"acao": 100.0}   # perfil hipotético 100% ações
-    recommendation = recommend(profile, {}, use_llm=False)
+    recommendation = recommend(profile, {})
 
     assert not recommendation.ok
     assert recommendation.error and "Nenhum ativo passou" in recommendation.error
-
-
-def test_contexto_do_llm_tem_perfil_alocacao_e_candidatos(fake_market_data):
-    profile = build_profile(answers(emergency_fund="acima_6m", initial_amount=50_000))
-    approved, _ = screen_detailed(profile.profile, fake_market_data, profile.allocation)
-    context = build_recommendation_context(profile, approved, distribute(profile, approved))
-
-    for esperado in ("PERFIL DO INVESTIDOR", "ALOCAÇÃO POR CLASSE", "CANDIDATOS APROVADOS",
-                     "RATEIO PADRÃO", profile.profile):
-        assert esperado in context
-    assert "BOVA11.SA" in context
 
 
 # --- Com dados reais --------------------------------------------------------
@@ -331,3 +254,334 @@ def test_screener_com_dados_reais_diferencia_perfis(require_internet):
             volatility = candidate.indicators.get("volatility_30d")
             if volatility is not None:
                 assert volatility <= PROFILE_CRITERIA[CONSERVADOR]["max_volatility"]
+
+
+# --- Precisão do rateio (spec 003) ------------------------------------------
+# A fixture `fake_market_data` usa preços redondos (100,00 e 10,00), em que
+# `piso(valor / preço)` quase nunca deixa troco — então ela não exercita a
+# sobra. Estes testes usam preço que não divide exato, que é onde a promessa de
+# "soma exatamente o valor disponível" é de verdade testada.
+@pytest.fixture
+def market_data_preco_quebrado() -> dict:
+    quebrados = (137.43, 89.17, 211.09, 43.71, 23.57)
+    data = {}
+    for i, asset in enumerate(UNIVERSE):
+        data[asset.ticker] = {
+            "prices": synthetic_prices(quebrados[i % len(quebrados)], drift=10.0,
+                                       volume=500_000),
+            "fundamentals": {"pe_ratio": 9.0, "dividend_yield": 6.0,
+                             "debt_to_equity": 40.0, "name": asset.name},
+        }
+    return data
+
+
+def test_soma_das_posicoes_e_exatamente_o_valor_disponivel(market_data_preco_quebrado):
+    profile = build_profile(answers(emergency_fund="acima_6m", initial_amount=37_777))
+    approved, _ = screen_detailed(profile.profile, market_data_preco_quebrado,
+                                  profile.allocation)
+    positions = distribute(profile, approved)
+
+    assert positions
+    total = round(sum(p.amount for p in positions), 2)
+    assert total == pytest.approx(profile.investable_amount, abs=0.01), (
+        "a carteira recomendada tem que somar o valor disponível, até o centavo"
+    )
+
+
+def test_sobra_do_arredondamento_entra_na_renda_fixa_e_e_declarada(market_data_preco_quebrado):
+    profile = build_profile(answers(emergency_fund="acima_6m", initial_amount=37_777))
+    approved, _ = screen_detailed(profile.profile, market_data_preco_quebrado,
+                                  profile.allocation)
+    positions = distribute(profile, approved)
+
+    renda_fixa = next(p for p in positions if p.asset_class == "renda_fixa")
+    alvo = profile.investable_amount * profile.allocation["renda_fixa"] / 100
+    assert renda_fixa.amount > alvo, "a sobra do arredondamento tinha que estar aqui"
+    assert "sobra" in renda_fixa.rationale.lower(), "a sobra precisa ser declarada"
+
+    # E nada ficou pendurado como caixa solta.
+    assert Recommendation(positions=positions).leftover == 0
+
+
+def test_peso_dentro_da_classe_segue_a_nota():
+    from investai.analysis.recommender import _pesos_por_nota
+    from investai.analysis.screener import Candidate
+
+    def candidato(score: float) -> Candidate:
+        c = Candidate(asset=Asset("X.SA", "X", ACAO, "Setor"), indicators={}, fundamentals={})
+        c.score = score
+        return c
+
+    pesos = _pesos_por_nota([candidato(90.0), candidato(60.0), candidato(30.0)], 60.0)
+
+    assert sum(pesos) == pytest.approx(60.0), "os pesos têm que somar o peso da classe"
+    assert pesos[0] > pesos[1] > pesos[2], "nota maior, peso maior"
+
+
+def test_trava_impede_peso_dramatico_entre_notas_extremas():
+    from investai.analysis.recommender import (
+        PESO_MAX_FATOR,
+        PESO_MIN_FATOR,
+        _pesos_por_nota,
+    )
+    from investai.analysis.screener import Candidate
+
+    def candidato(score: float) -> Candidate:
+        c = Candidate(asset=Asset("X.SA", "X", ACAO, "Setor"), indicators={}, fundamentals={})
+        c.score = score
+        return c
+
+    # Proporcionalidade pura daria 99x1: uma posição 99 vezes maior que a outra,
+    # a partir de uma nota que não tem essa precisão.
+    pesos = _pesos_por_nota([candidato(99.0), candidato(1.0)], 60.0)
+
+    assert sum(pesos) == pytest.approx(60.0)
+    assert max(pesos) / min(pesos) <= PESO_MAX_FATOR / PESO_MIN_FATOR + 0.01
+
+
+# --- Regra de custo ---------------------------------------------------------
+def test_recomendacao_nao_chama_a_anthropic_por_padrao(fake_market_data, monkeypatch):
+    """A regra de custo: montar a carteira é de graça, sempre.
+
+    O padrão já foi `use_llm=True`, com um modelo repesando a carteira e nada
+    pegando isso. Hoje o único caminho pago é a triagem de notícia, e ela só
+    roda com `triagem=True` — que o job da VM liga e mais ninguém.
+    """
+    import inspect
+
+    assert inspect.signature(recommend).parameters["triagem"].default is False, (
+        "o padrão de triagem tem que ser False — ver spec 003"
+    )
+
+    def _nao_chamar(*a, **k):
+        pytest.fail("recomendação não pode chamar a API da Anthropic (regra de custo)")
+
+    monkeypatch.setattr("investai.analysis.triagem_noticia.consultar_modelo", _nao_chamar)
+
+    profile = build_profile(answers(emergency_fund="acima_6m", initial_amount=50_000))
+    recommendation = recommend(profile, fake_market_data)
+
+    assert recommendation.ok
+    assert not recommendation.triagem_ok, "triagem não foi pedida"
+    assert recommendation.triagem_motivo == "triagem de notícia não solicitada"
+
+
+def test_classe_sem_candidato_nao_vira_renda_fixa_e_e_declarada(fake_market_data):
+    """Fechar a conta realocando a classe vazia seria carteira de consolação.
+
+    O conserto fácil para a soma fechar é mandar os 30% de ação para a liquidez
+    quando nenhuma ação é aprovada. Isso entrega uma carteira que ninguém pediu
+    com a cara de decisão deliberada, então a regra é: declarar o buraco.
+    """
+    profile = build_profile(answers(emergency_fund="acima_6m", initial_amount=50_000))
+    fiis = {a.ticker for a in UNIVERSE if a.asset_class == FII}
+    parcial = {t: d for t, d in fake_market_data.items() if t in fiis}
+
+    recommendation = recommend(profile, parcial)
+
+    assert recommendation.ok, "o que deu para alocar continua valendo"
+    assert not any(p.asset_class == ACAO for p in recommendation.positions)
+
+    renda_fixa = next(p for p in recommendation.positions
+                      if p.asset_class == "renda_fixa")
+    alvo = profile.investable_amount * profile.allocation["renda_fixa"] / 100
+    # Recebe a sobra do arredondamento dos FIIs, mas não os 30% da ação.
+    assert renda_fixa.amount < alvo + profile.investable_amount * 0.05
+
+    assert recommendation.error and "sem alocação" in recommendation.error
+
+
+# --- O veto por notícia (spec 003, revisão de 27/10/2026) -------------------
+#
+# Cada teste aqui fixa um limite escrito na spec. O veto é a única porta por
+# onde um modelo toca a recomendação, e é por isso que ela tem tranca testada.
+def _candidato(ticker: str, classe: str, nota: float, setor: str = "Diversos") -> Candidate:
+    return Candidate(asset=Asset(ticker, ticker.removesuffix(".SA"), classe, setor),
+                     indicators={"price_current": 10.0}, fundamentals={}, score=nota)
+
+
+def _veto(ticker: str, criterio: str = "fraude", frase: str = "indício de fraude contábil") -> Veto:
+    return Veto(ticker=ticker, criterio=criterio, frase=frase, fonte="Valor")
+
+
+def test_veto_derruba_o_candidato_de_nota_maior_da_classe():
+    """Vetar o que não seria escolhido não protege ninguém."""
+    by_class = {ACAO: [_candidato("AAAA3.SA", ACAO, 80), _candidato("BBBB3.SA", ACAO, 70)]}
+    filtrado, aplicados, descartados = _aplicar_vetos(
+        by_class, {"AAAA3.SA": _veto("AAAA3.SA")}
+    )
+
+    assert [c.asset.ticker for c in filtrado[ACAO]] == ["BBBB3.SA"]
+    assert [v.ticker for v in aplicados] == ["AAAA3.SA"]
+    assert descartados == []
+
+
+def test_veto_tem_teto_de_um_ativo_por_classe():
+    """Sem teto, um dia de manchete ruim derrubaria a carteira inteira."""
+    by_class = {ACAO: [_candidato("AAAA3.SA", ACAO, 80),
+                       _candidato("BBBB3.SA", ACAO, 70),
+                       _candidato("CCCC3.SA", ACAO, 60)]}
+    filtrado, aplicados, descartados = _aplicar_vetos(
+        by_class, {"AAAA3.SA": _veto("AAAA3.SA"), "BBBB3.SA": _veto("BBBB3.SA")}
+    )
+
+    assert len(aplicados) == 1 and aplicados[0].ticker == "AAAA3.SA"
+    assert [v.ticker for v in descartados] == ["BBBB3.SA"]
+    assert [c.asset.ticker for c in filtrado[ACAO]] == ["BBBB3.SA", "CCCC3.SA"]
+
+
+def test_veto_que_esvaziaria_a_classe_e_descartado():
+    """Classe vazia não é realocada, então o veto não pode criar esse buraco."""
+    by_class = {FII: [_candidato("HGLG11.SA", FII, 75)]}
+    filtrado, aplicados, descartados = _aplicar_vetos(
+        by_class, {"HGLG11.SA": _veto("HGLG11.SA")}
+    )
+
+    assert aplicados == []
+    assert [v.ticker for v in descartados] == ["HGLG11.SA"]
+    assert [c.asset.ticker for c in filtrado[FII]] == ["HGLG11.SA"], "o ativo fica"
+
+
+def test_veto_conta_o_teto_por_classe_e_nao_no_total():
+    by_class = {ACAO: [_candidato("AAAA3.SA", ACAO, 80), _candidato("BBBB3.SA", ACAO, 70)],
+                FII: [_candidato("HGLG11.SA", FII, 75), _candidato("KNRI11.SA", FII, 65)]}
+    _, aplicados, _ = _aplicar_vetos(
+        by_class, {"AAAA3.SA": _veto("AAAA3.SA"), "HGLG11.SA": _veto("HGLG11.SA")}
+    )
+
+    assert sorted(v.ticker for v in aplicados) == ["AAAA3.SA", "HGLG11.SA"]
+
+
+def test_criterio_fora_da_lista_e_descartado_em_codigo():
+    """A lista de critérios é código, não prompt."""
+    permitidos = {"AAAA3.SA": "AAAA3.SA"}
+    assert _validar({"ticker": "AAAA3.SA", "criterio": "queda_de_lucro",
+                     "frase": "lucro caiu 30%"}, permitidos) is None
+    assert _validar({"ticker": "AAAA3.SA", "criterio": "fraude",
+                     "frase": "CVM aponta fraude"}, permitidos) is not None
+
+
+def test_veto_de_ticker_fora_dos_candidatos_e_descartado():
+    assert _validar({"ticker": "MGLU3.SA", "criterio": "fraude", "frase": "x"},
+                    {"AAAA3.SA": "AAAA3.SA"}) is None
+
+
+def test_veto_sem_frase_e_descartado():
+    """Veto sem a frase não é explicável, e a spec exige que ele seja."""
+    assert _validar({"ticker": "AAAA3.SA", "criterio": "fraude", "frase": "  "},
+                    {"AAAA3.SA": "AAAA3.SA"}) is None
+
+
+def test_sem_candidato_ou_sem_chave_nao_ha_triagem_nem_chamada(monkeypatch):
+    monkeypatch.setattr("investai.analysis.triagem_noticia.consultar_modelo",
+                        lambda *a, **k: pytest.fail("não deveria consultar o modelo"))
+
+    assert triar([]).ok is False
+    monkeypatch.setattr("investai.analysis.triagem_noticia.anthropic_key", lambda: None)
+    assert triar([_candidato("AAAA3.SA", ACAO, 80)]).ok is False
+
+
+def test_sem_noticia_a_triagem_nao_paga(monkeypatch):
+    """Sem matéria-prima não se chama o modelo — e isso é dinheiro."""
+    monkeypatch.setattr("investai.analysis.triagem_noticia.anthropic_key", lambda: "chave-de-teste")
+    monkeypatch.setattr("investai.analysis.triagem_noticia.fetch_financial_news",
+                        lambda *a, **k: {"AAAA3.SA": []})
+    monkeypatch.setattr("investai.analysis.triagem_noticia.consultar_modelo",
+                        lambda *a, **k: pytest.fail("não deveria consultar o modelo"))
+
+    resultado = triar([_candidato("AAAA3.SA", ACAO, 80)])
+    assert resultado.ok is False
+    assert resultado.vetos == {}
+    assert "nenhuma notícia" in resultado.motivo
+
+
+def test_falha_da_triagem_nao_derruba_a_recomendacao(fake_market_data, monkeypatch):
+    """Degradação honesta: a carteira sai igual, marcada sem triagem."""
+    monkeypatch.setattr("investai.analysis.triagem_noticia.anthropic_key", lambda: "chave-de-teste")
+    monkeypatch.setattr("investai.analysis.triagem_noticia.fetch_financial_news",
+                        lambda *a, **k: {t: [{"title": "algo"}] for t in a[0]})
+
+    def _explode(*a, **k):
+        raise RuntimeError("API fora")
+
+    monkeypatch.setattr("investai.analysis.triagem_noticia.consultar_modelo", _explode)
+    monkeypatch.setattr("investai.analysis.triagem_noticia.cache.get", lambda *a, **k: None)
+    monkeypatch.setattr("investai.analysis.triagem_noticia.cache.set", lambda *a, **k: None)
+
+    profile = build_profile(answers(emergency_fund="acima_6m", initial_amount=50_000))
+    sem_triagem = recommend(profile, fake_market_data)
+    com_falha = recommend(profile, fake_market_data, triagem=True)
+
+    assert com_falha.ok
+    assert com_falha.triagem_ok is False
+    assert "API fora" in com_falha.triagem_motivo
+    assert [p.ticker for p in com_falha.positions] == [p.ticker for p in sem_triagem.positions]
+
+
+def test_veto_aplicado_aparece_nos_rejeitados_com_a_origem(fake_market_data, monkeypatch):
+    monkeypatch.setattr("investai.analysis.triagem_noticia.anthropic_key", lambda: "chave-de-teste")
+    monkeypatch.setattr("investai.analysis.triagem_noticia.fetch_financial_news",
+                        lambda *a, **k: {t: [{"title": "CVM investiga"}] for t in a[0]})
+    monkeypatch.setattr("investai.analysis.triagem_noticia.cache.get", lambda *a, **k: None)
+    monkeypatch.setattr("investai.analysis.triagem_noticia.cache.set", lambda *a, **k: None)
+
+    profile = build_profile(answers(emergency_fund="acima_6m", initial_amount=50_000))
+    base = recommend(profile, fake_market_data)
+    alvo = next(p.ticker for p in base.positions if p.asset_class == ACAO)
+
+    monkeypatch.setattr(
+        "investai.analysis.triagem_noticia.consultar_modelo",
+        lambda *a, **k: [{"ticker": alvo, "criterio": "fraude",
+                          "frase": "CVM aponta fraude contábil", "fonte": "Valor"}],
+    )
+
+    com_veto = recommend(profile, fake_market_data, triagem=True)
+
+    assert com_veto.triagem_ok is True
+    assert [v.ticker for v in com_veto.vetos] == [alvo]
+    assert alvo not in [p.ticker for p in com_veto.positions]
+    marcados = [linha for linhas in com_veto.rejected.values() for linha in linhas
+                if linha.startswith("[notícia]")]
+    assert any(alvo in linha and "fraude" in linha for linha in marcados)
+
+
+def test_soma_fecha_no_centavo_com_notas_e_precos_irregulares():
+    """O caso que a fixture de preço quebrado não pegava.
+
+    Quando todos os ativos têm o mesmo fundamento, `_pesos_por_nota` devolve
+    pesos iguais e o arredondamento de cada `amount` se cancela. Com nota e
+    preço diferentes por ativo — o que o mercado real sempre dá — os pesos
+    viram frações irregulares, e somar a diferença posição por posição deixava
+    a carteira passar alguns centavos do disponível. Foi o que aconteceu na
+    primeira execução real: R$ 24.000,02 para R$ 24.000,00 de disponível.
+    """
+    dados = {}
+    precos = (137.43, 89.17, 211.09, 43.71, 23.57, 61.03, 9.87)
+    for i, asset in enumerate(UNIVERSE):
+        dados[asset.ticker] = {
+            "prices": synthetic_prices(precos[i % len(precos)], drift=10.0, volume=900_000),
+            "fundamentals": {
+                # Fundamento diferente por ativo: é o que faz as notas, e os
+                # pesos, saírem irregulares.
+                "pe_ratio": 5.0 + (i % 11) * 0.9,
+                "dividend_yield": 4.0 + (i % 7) * 0.8,
+                "debt_to_equity": 20.0 + (i % 5) * 12.0,
+                "name": asset.name,
+            },
+        }
+
+    for disponivel in (24_000, 37_777, 13_333.33, 9_111.07):
+        profile = build_profile(answers(emergency_fund="acima_6m", initial_amount=disponivel))
+        aprovados, _ = screen_detailed(profile.profile, dados, profile.allocation)
+        posicoes = distribute(profile, aprovados)
+
+        assert posicoes, f"nada recomendado para {disponivel}"
+        classes_com_peso = {c for c, p in profile.allocation.items() if p > 0}
+        classes_preenchidas = {p.asset_class for p in posicoes}
+        if classes_com_peso - classes_preenchidas:
+            continue  # classe vazia não é realocada: a soma não fecha de propósito
+
+        total = round(sum(p.amount for p in posicoes), 2)
+        assert total == round(profile.investable_amount, 2), (
+            f"com {disponivel} disponível a carteira somou {total}"
+        )

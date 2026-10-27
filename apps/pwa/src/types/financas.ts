@@ -4,7 +4,7 @@ import type { Tables, TablesInsert } from './database'
 // os traz como string; aqui eles ficam restritos às opções válidas.
 export type TipoTransacao = 'receita' | 'despesa'
 export type FormaPagamento = 'debito' | 'pix' | 'dinheiro' | 'credito'
-export type OrigemTransacao = 'manual' | 'pluggy'
+export type OrigemTransacao = 'manual' | 'pluggy' | 'investimento'
 export type TipoMovimentoCaixinha = 'deposito' | 'retirada'
 
 export type Categoria = Tables<'categorias'>

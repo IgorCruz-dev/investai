@@ -12,10 +12,25 @@ type Props = {
 
 // Mês selecionado em destaque (verde do app); mês anterior recua em cinza.
 // O cinza tem contraste baixo com o fundo, por isso a legenda e a tabela abaixo sempre trazem os valores.
-const COR_ATUAL = '#059669'
-const COR_ANTERIOR = '#94a3b8'
-const COR_GRADE = '#e2e8f0'
-const COR_TEXTO_EIXO = '#64748b'
+/*
+ * Cores das marcas, validadas (não escolhidas a olho) com o validador de paleta
+ * para o modo escuro: faixa de luminosidade, piso de croma, separação para
+ * daltonismo (ΔE 28,6 no pior par em protanopia) e contraste contra a
+ * superfície. Ouro e azul é o par mais seguro que existe para todos os tipos de
+ * daltonismo.
+ *
+ * As marcas são um passo mais fundas que o ouro da interface (#d4af37): marca de
+ * gráfico tem exigência de luminosidade que acento de interface não tem.
+ *
+ * Grade e eixo são recessivos de propósito, e o texto do eixo usa o token de
+ * texto — rótulo é texto, não série.
+ */
+const COR_FOCO = '#a8871f'
+const COR_REFERENCIA = '#5c7ce8'
+const COR_GRADE = 'rgba(255, 255, 255, 0.07)'
+const COR_TEXTO_EIXO = '#8a8a9a'
+const COR_ATUAL = COR_FOCO
+const COR_ANTERIOR = COR_REFERENCIA
 
 function ChaveLinha({ cor }: { cor: string }) {
   return <span className="inline-block h-0.5 w-4 shrink-0 rounded-full" style={{ backgroundColor: cor }} />
@@ -73,12 +88,12 @@ export default function GraficoGastosDiarios({ pontos, nomeMes, nomeMesAnterior 
               tickFormatter={(v: number) => formatarMoedaCompacta(v)}
             />
             <Tooltip
-              cursor={{ stroke: '#cbd5e1', strokeWidth: 1 }}
+              cursor={{ stroke: 'rgba(212, 175, 55, 0.35)', strokeWidth: 1 }}
               content={({ active, label }) => {
                 const ponto = active ? pontos.find((p) => p.dia === Number(label)) : undefined
                 if (!ponto) return null
                 return (
-                  <div className="rounded-xl border border-borda bg-white px-3 py-2 text-sm shadow-lg">
+                  <div className="rounded-xl border border-borda bg-superficie px-3 py-2 text-sm shadow-lg">
                     <p className="text-xs text-texto-suave">Dia {ponto.dia}</p>
                     {ponto.atual !== null && (
                       <p className="mt-1 flex items-center gap-2">
@@ -130,7 +145,7 @@ export default function GraficoGastosDiarios({ pontos, nomeMes, nomeMesAnterior 
         <summary className="cursor-pointer text-texto-suave hover:text-texto">Ver em tabela</summary>
         <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-borda">
           <table className="w-full text-left tabular-nums">
-            <thead className="sticky top-0 bg-slate-50 text-xs text-texto-suave">
+            <thead className="sticky top-0 bg-superficie-2 text-xs text-texto-suave">
               <tr>
                 <th className="px-3 py-2 font-medium">Dia</th>
                 <th className="px-3 py-2 text-right font-medium capitalize">{nomeMes}</th>

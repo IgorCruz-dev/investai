@@ -12,7 +12,7 @@ type Props = {
 
 export default function Card({ titulo, acao, children, className = '', semEspaco }: Props) {
   return (
-    <section className={`rounded-2xl border border-borda bg-white ${className}`}>
+    <section className={`rounded-2xl border border-borda bg-superficie ${className}`}>
       {(titulo || acao) && (
         <header className="flex items-center justify-between gap-3 border-b border-borda px-5 py-4">
           {titulo && <h2 className="font-semibold">{titulo}</h2>}

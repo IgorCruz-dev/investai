@@ -1,6 +1,6 @@
-"""Calcula o snapshot e publica no Postgres, para a interface web ler.
+"""Calcula o snapshot e publica no Postgres, para o PWA ler.
 
-Roda no cron da VM. A web nunca chama yfinance: ela lê a última linha de
+Roda no cron da VM. O PWA nunca chama yfinance: lê a última linha de
 `snapshots`, que é JSON pronto.
 
     .venv/bin/python scripts/publish_snapshot.py            # sem briefing
@@ -26,41 +26,16 @@ def main() -> int:
     parser.add_argument("--briefing", action="store_true",
                         help="gera o briefing com IA e inclui no snapshot (custa créditos)")
     parser.add_argument("--sem-noticias", action="store_true")
-    parser.add_argument("--usuario", default="",
-                        help="publica só o snapshot desta pessoa (id do registro)")
     args = parser.parse_args()
-
-    from investai import tenants
-
-    alvos = tenants.todos()
-    if args.usuario:
-        escolhido = tenants.por_id(args.usuario)
-        if escolhido is None:
-            log.error("usuário %r não está no registro", args.usuario)
-            return 1
-        alvos = [escolhido]
-
-    # Uma carteira por banco: o snapshot de cada pessoa sai da conexão dela.
-    # Sem registro configurado, `alvos` é o único tenant, montado do .env — e
-    # este laço executa exatamente uma vez, como antes.
-    falhas = 0
-    for dono in alvos:
-        with tenants.usar(dono):
-            try:
-                if _publicar(args, dono.id) != 0:
-                    falhas += 1
-            except Exception:  # noqa: BLE001 — um banco fora não derruba os outros
-                log.exception("falha ao publicar o snapshot de %s", dono.id)
-                falhas += 1
-    return 1 if falhas else 0
+    return _publicar(args)
 
 
-def _publicar(args, usuario: str) -> int:
+def _publicar(args) -> int:
+    from investai import snapshot as construtor
     from investai.data import repo
-    from investai.snapshot import snapshot as construtor
 
     if not repo.configurado():
-        log.error("[%s] DATABASE_URL não configurada.", usuario)
+        log.error("DATABASE_URL não configurada.")
         return 1
 
     texto_briefing = ""
@@ -94,8 +69,8 @@ def _publicar(args, usuario: str) -> int:
     }
 
     id_snapshot = repo.publicar_snapshot(payload)
-    log.info("[%s] snapshot #%d publicado | %d posição(ões), %d ativo(s), %d notícia(s)",
-             usuario, id_snapshot, len(payload["positions"]), len(payload["assets"]),
+    log.info("snapshot #%d publicado | %d posição(ões), %d ativo(s), %d notícia(s)",
+             id_snapshot, len(payload["positions"]), len(payload["assets"]),
              sum(len(v) for v in (payload.get("news") or {}).values()))
     return 0
 
@@ -103,19 +78,13 @@ def _publicar(args, usuario: str) -> int:
 def _operacao() -> dict:
     """Gasto do mês e estado da ponte — vêm do SQLite local, não do Postgres."""
     try:
-        from investai import tenants
         from investai.whatsapp import bridge_client, store
         from investai.whatsapp.config import MONTHLY_BUDGET_USD
 
         store.init()
-        dono = tenants.ativo()
-        multi = tenants.multiusuario()
         return {
-            # Em modo multiusuário, o gasto que a tela mostra é o de quem está
-            # logado — somar o de todos diria a conta de outra pessoa.
-            "gastoMesUsd": round(
-                store.gasto_do_mes(dono.telefone if (multi and dono) else None), 4),
-            "orcamentoUsd": dono.budget_usd if (multi and dono) else MONTHLY_BUDGET_USD,
+            "gastoMesUsd": round(store.gasto_do_mes(), 4),
+            "orcamentoUsd": MONTHLY_BUDGET_USD,
             "ponteConectada": bool(bridge_client.status().get("conectado")),
         }
     except Exception as exc:  # noqa: BLE001 — o snapshot não cai por causa disso

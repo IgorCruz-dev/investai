@@ -1,18 +1,10 @@
-"""Testes do wizard de primeiro acesso.
-
-O wizard é interativo, então o que se testa aqui é o que ele faz com arquivo e
-com senha — a parte onde um erro é silencioso e caro: sobrescrever o `.env` de
-alguém, duplicar chave, ou gerar um hash que o login da web não valida.
-"""
+"""Testes da escrita do `.env` pelo primeiro acesso."""
 
 from __future__ import annotations
 
-import base64
-import hashlib
-
 import pytest
 
-from investai import setup, tenants
+from investai import setup
 
 
 @pytest.fixture
@@ -52,9 +44,9 @@ def test_reescreve_a_linha_existente_em_vez_de_duplicar(env_falso):
 
 def test_descomenta_a_chave_que_estava_comentada(env_falso):
     """No .env.example as opcionais vêm comentadas; responder tem de ativá-las."""
-    env_falso.write_text("# INVESTAI_TENANT_ID=\n", encoding="utf-8")
-    setup.gravar_env({"INVESTAI_TENANT_ID": "kaua"})
-    assert "INVESTAI_TENANT_ID=kaua" in env_falso.read_text(encoding="utf-8").splitlines()
+    env_falso.write_text("# DATABASE_URL=\n", encoding="utf-8")
+    setup.gravar_env({"DATABASE_URL": "postgresql://host/db"})
+    assert "DATABASE_URL=postgresql://host/db" in env_falso.read_text(encoding="utf-8").splitlines()
 
 
 def test_acrescenta_a_chave_que_nao_existia(env_falso):
@@ -110,38 +102,3 @@ def test_resumir_nao_despeja_connection_string_na_tela():
     resumo = setup._resumir(longa)
     assert "senha-secreta" not in resumo
     assert len(resumo) < len(longa)
-
-
-# --- Senha ------------------------------------------------------------------
-def test_hash_tem_o_formato_que_o_login_da_web_espera():
-    h = tenants.hash_de_senha("uma-senha-bem-longa")
-    algoritmo, iteracoes, salt, derivado = h.split("$")
-    assert algoritmo == "pbkdf2"
-    assert int(iteracoes) == tenants.PBKDF2_ITERACOES
-    assert len(base64.b64decode(salt)) == 16
-    assert len(base64.b64decode(derivado)) == 32, "o JS deriva 256 bits"
-
-
-def test_hash_confere_pelo_mesmo_caminho_do_javascript():
-    """Reproduz o que `senhaConfere()` faz em apps/web/api/_auth.js.
-
-    Se este teste quebrar, ninguém consegue entrar no painel com a senha que o
-    wizard cadastrou — e o sintoma seria "senha incorreta" sem explicação.
-    """
-    senha = "uma-senha-bem-longa"
-    _, iteracoes, salt, esperado = tenants.hash_de_senha(senha).split("$")
-    derivado = hashlib.pbkdf2_hmac(
-        "sha256", senha.encode("utf-8"), base64.b64decode(salt), int(iteracoes), 32
-    )
-    assert base64.b64encode(derivado).decode() == esperado
-
-
-def test_salt_e_aleatorio_por_senha():
-    a = tenants.hash_de_senha("uma-senha-bem-longa")
-    b = tenants.hash_de_senha("uma-senha-bem-longa")
-    assert a != b, "salt fixo deixaria o hash igual para senhas iguais"
-
-
-def test_senha_curta_e_recusada():
-    with pytest.raises(ValueError, match="12 caracteres"):
-        tenants.hash_de_senha("curta")

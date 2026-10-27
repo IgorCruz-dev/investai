@@ -5,7 +5,7 @@ import Botao from '../../components/Botao'
 import Card from '../../components/Card'
 import Esqueleto, { EsqueletoLista } from '../../components/Esqueleto'
 import GraficoFaturas, { type BarraFatura } from '../../components/GraficoFaturas'
-import IconeCategoria from '../../components/IconeCategoria'
+import IconeCategoria, { COR_SEM_CATEGORIA } from '../../components/IconeCategoria'
 import ModalCartao from '../../components/ModalCartao'
 import ModalDetalheTransacao from '../../components/ModalDetalheTransacao'
 import ModalPagarFatura from '../../components/ModalPagarFatura'
@@ -33,9 +33,9 @@ const FATURAS_NO_GRAFICO = 6
 const TRANSACOES_VISIVEIS = 10
 
 const selos: Record<StatusFatura, { texto: string; classes: string }> = {
-  aberta: { texto: 'Em aberto', classes: 'border-amber-200 bg-amber-50 text-amber-800' },
-  fechada: { texto: 'Fechada', classes: 'border-blue-200 bg-blue-50 text-blue-800' },
-  paga: { texto: 'Paga', classes: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
+  aberta: { texto: 'Em aberto', classes: 'border-aviso-borda bg-aviso-fundo text-aviso-texto' },
+  fechada: { texto: 'Fechada', classes: 'border-info-borda bg-info-fundo text-info-texto' },
+  paga: { texto: 'Paga', classes: 'border-sucesso-borda bg-sucesso-fundo text-sucesso-texto' },
 }
 
 type GastoCategoria = { chave: string; centavos: number }
@@ -232,7 +232,7 @@ export default function DetalheCartao() {
           onClick={() => setEditandoCartao(true)}
           aria-label="Editar cartão"
           title="Editar cartão"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-borda bg-white text-texto-suave transition hover:text-texto"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-borda bg-superficie text-texto-suave transition hover:text-texto"
         >
           <IconeLapis className="h-4 w-4" />
         </button>
@@ -250,7 +250,7 @@ export default function DetalheCartao() {
       )}
 
       {/* c) Valor da fatura */}
-      <section className={`mt-4 rounded-2xl border border-borda bg-white p-5 ${recarregando}`} aria-label="Valor da fatura">
+      <section className={`mt-4 rounded-2xl border border-borda bg-superficie p-5 ${recarregando}`} aria-label="Valor da fatura">
         <div className="flex items-center justify-between gap-2">
           <button onClick={() => irParaFatura(-1)} aria-label="Fatura anterior" className={estiloSeta}>
             <IconeChevronEsquerda className="h-5 w-5" />
@@ -318,7 +318,7 @@ export default function DetalheCartao() {
                     <button
                       onClick={() => setFiltroCategoria(escolhida ? null : g.chave)}
                       aria-pressed={escolhida}
-                      className={`flex w-full items-center gap-3 px-5 py-3 text-left transition ${escolhida ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}
+                      className={`flex w-full items-center gap-3 px-5 py-3 text-left transition ${escolhida ? 'bg-sucesso-fundo' : 'hover:bg-superficie-2'}`}
                     >
                       <IconeCategoria icone={categoria?.icone} cor={categoria?.cor} tamanho="pequeno" />
                       <span className="min-w-0 flex-1">
@@ -326,12 +326,12 @@ export default function DetalheCartao() {
                           <span className="truncate text-sm font-medium">{nomeDaCategoria(g.chave)}</span>
                           <span className="shrink-0 text-sm font-semibold">{formatarMoeda(g.centavos / 100)}</span>
                         </span>
-                        <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-slate-100">
+                        <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-superficie-3">
                           <span
                             className="block h-full rounded-full"
                             style={{
                               width: `${maiorCategoria ? (g.centavos / maiorCategoria) * 100 : 0}%`,
-                              backgroundColor: categoria?.cor ?? '#94a3b8',
+                              backgroundColor: categoria?.cor ?? COR_SEM_CATEGORIA,
                             }}
                           />
                         </span>
@@ -344,7 +344,7 @@ export default function DetalheCartao() {
             {porCategoria.length > CATEGORIAS_VISIVEIS && (
               <button
                 onClick={() => setTodasCategorias(!todasCategorias)}
-                className="w-full border-t border-borda py-3 text-sm font-semibold text-primaria transition hover:bg-slate-50"
+                className="w-full border-t border-borda py-3 text-sm font-semibold text-primaria transition hover:bg-superficie-2"
               >
                 {todasCategorias ? 'Mostrar menos' : `+${porCategoria.length - CATEGORIAS_VISIVEIS} categorias`}
               </button>
@@ -365,7 +365,7 @@ export default function DetalheCartao() {
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
                   placeholder="Buscar por local ou descrição"
-                  className="h-10 w-full rounded-lg border border-borda bg-white pr-3 pl-9 text-base outline-none focus:border-primaria focus:ring-4 focus:ring-primaria/15"
+                  className="h-10 w-full rounded-lg border border-borda bg-superficie pr-3 pl-9 text-base outline-none focus:border-primaria focus:ring-4 focus:ring-primaria/15"
                 />
               </label>
             )}
@@ -386,7 +386,7 @@ export default function DetalheCartao() {
             {filtroCategoria && !todasTransacoes && (
               <button
                 onClick={() => setFiltroCategoria(null)}
-                className="flex w-fit items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-primaria"
+                className="flex w-fit items-center gap-1.5 rounded-full bg-sucesso-fundo px-3 py-1 text-sm font-medium text-primaria"
               >
                 {nomeDaCategoria(filtroCategoria)}
                 <IconeFechar className="h-3.5 w-3.5" />
@@ -410,7 +410,7 @@ export default function DetalheCartao() {
                 <li key={t.id}>
                   <button
                     onClick={() => setDetalhe(t)}
-                    className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-slate-50"
+                    className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-superficie-2"
                   >
                     <IconeCategoria icone={categoria?.icone} cor={categoria?.cor} />
                     <span className="min-w-0 flex-1">
@@ -435,7 +435,7 @@ export default function DetalheCartao() {
         {!todasTransacoes && filtradas.length > TRANSACOES_VISIVEIS && (
           <button
             onClick={() => setTodasTransacoes(true)}
-            className="w-full border-t border-borda py-3 text-sm font-semibold text-primaria transition hover:bg-slate-50"
+            className="w-full border-t border-borda py-3 text-sm font-semibold text-primaria transition hover:bg-superficie-2"
           >
             Ver todas ({filtradas.length})
           </button>
@@ -449,7 +449,7 @@ export default function DetalheCartao() {
           Adicionar compra neste cartão
         </Botao>
         {status === 'paga' ? (
-          <p className="flex h-12 items-center justify-center gap-2 rounded-xl bg-emerald-50 font-semibold text-emerald-800">
+          <p className="flex h-12 items-center justify-center gap-2 rounded-xl bg-sucesso-fundo font-semibold text-sucesso-texto">
             <IconeCheck className="h-5 w-5" />
             Fatura paga
           </p>
@@ -493,7 +493,7 @@ export default function DetalheCartao() {
 }
 
 const estiloSeta =
-  'flex h-9 w-9 items-center justify-center rounded-lg text-texto-suave transition hover:bg-slate-100 hover:text-texto'
+  'flex h-9 w-9 items-center justify-center rounded-lg text-texto-suave transition hover:bg-superficie-3 hover:text-texto'
 
 function Filtro({ escolhido, aoClicar, children }: { escolhido: boolean; aoClicar: () => void; children: ReactNode }) {
   return (
@@ -501,7 +501,7 @@ function Filtro({ escolhido, aoClicar, children }: { escolhido: boolean; aoClica
       type="button"
       aria-pressed={escolhido}
       onClick={aoClicar}
-      className={`flex h-8 shrink-0 items-center rounded-full border px-3 text-sm transition ${escolhido ? 'border-primaria bg-emerald-50 font-medium text-primaria' : 'border-borda bg-white text-texto hover:border-slate-300'}`}
+      className={`flex h-8 shrink-0 items-center rounded-full border px-3 text-sm transition ${escolhido ? 'border-primaria bg-sucesso-fundo font-medium text-primaria' : 'border-borda bg-superficie text-texto hover:border-borda-forte'}`}
     >
       {children}
     </button>

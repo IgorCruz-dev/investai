@@ -26,10 +26,10 @@ const texturaPontos = {
 function Logo() {
   return (
     <div className="flex items-center gap-3">
-      <span className="rounded-xl bg-white p-1 shadow-lg shadow-emerald-950/20">
+      <span className="rounded-xl bg-superficie p-1 shadow-lg shadow-black/50">
         <img src="/icon.svg" alt="" className="h-8 w-8 rounded-lg" />
       </span>
-      <span className="text-lg font-semibold">Meu Bolso</span>
+      <span className="text-lg font-semibold">InvestAI</span>
     </div>
   )
 }
@@ -38,9 +38,9 @@ function Logo() {
 export default function AuthLayout({ titulo, subtitulo, rodape, children }: Props) {
   return (
     <div className="flex min-h-dvh flex-col lg:grid lg:grid-cols-2">
-      <aside className="relative hidden overflow-hidden bg-linear-to-br from-emerald-600 via-emerald-700 to-emerald-900 p-12 text-white lg:flex lg:flex-col lg:justify-between lg:gap-10">
+      <aside className="destaque destaque-ouro hidden p-12 text-white lg:flex lg:flex-col lg:justify-between lg:gap-10">
         <div className="absolute inset-0" style={texturaPontos} />
-        <div className="absolute top-1/3 left-1/2 h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-emerald-300/20 blur-3xl" />
+        <div className="absolute top-1/3 left-1/2 h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-primaria/20 blur-3xl" />
 
         <div className="relative">
           <Logo />
@@ -48,11 +48,11 @@ export default function AuthLayout({ titulo, subtitulo, rodape, children }: Prop
 
         <div className="relative mx-auto w-full max-w-md">
           <h2 className="text-4xl leading-tight font-bold tracking-tight">Seu dinheiro, organizado.</h2>
-          <p className="mt-3 text-lg text-emerald-100">Conecte seus bancos e cartões e entenda seu mês em segundos.</p>
+          <p className="mt-3 text-lg text-white/70">Conecte seus bancos e cartões e entenda seu mês em segundos.</p>
 
           <ul className="mt-7 space-y-3">
             {vantagens.map((v) => (
-              <li key={v} className="flex items-center gap-3 text-emerald-50">
+              <li key={v} className="flex items-center gap-3 text-white">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15">
                   <IconeCheck className="h-3.5 w-3.5" />
                 </span>
@@ -64,19 +64,19 @@ export default function AuthLayout({ titulo, subtitulo, rodape, children }: Prop
           <PreviaOpenFinance />
         </div>
 
-        <p className="relative text-sm text-emerald-200">© {new Date().getFullYear()} Meu Bolso</p>
+        <p className="relative text-sm text-white/70">© {new Date().getFullYear()} InvestAI</p>
       </aside>
 
       {/* Cabeçalho do celular: a cor de fundo continua na barra de status (theme-color) */}
-      <header className="relative overflow-hidden bg-linear-to-br from-emerald-600 via-emerald-700 to-emerald-900 px-6 pt-[calc(env(safe-area-inset-top)+1.75rem)] pb-14 text-white lg:hidden">
+      <header className="destaque destaque-ouro px-6 pt-[calc(env(safe-area-inset-top)+1.75rem)] pb-14 text-white lg:hidden">
         <div className="absolute inset-0" style={texturaPontos} />
-        <div className="absolute -top-16 -right-16 h-56 w-56 rounded-full bg-emerald-300/20 blur-3xl" />
+        <div className="absolute -top-16 -right-16 h-56 w-56 rounded-full bg-primaria/20 blur-3xl" />
 
         <div className="relative">
           <Logo />
         </div>
         <p className="relative mt-7 text-[1.65rem] leading-tight font-bold tracking-tight">Seu dinheiro, organizado.</p>
-        <p className="relative mt-1.5 text-sm text-emerald-100">Conecte seus bancos e cartões num só lugar.</p>
+        <p className="relative mt-1.5 text-sm text-white/70">Conecte seus bancos e cartões num só lugar.</p>
 
         {/* Mini prévia dos bancos; some em telas baixas para o formulário caber */}
         <PreviaOpenFinanceCompacta className="relative mt-6 [@media(max-height:700px)]:hidden" />

@@ -43,7 +43,7 @@ export default function Modal({ aberto, aoFechar, titulo, children, rodape }: Pr
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
-      <div className="absolute inset-0 animate-aparecer bg-slate-900/40" onClick={aoFechar} aria-hidden="true" />
+      <div className="absolute inset-0 animate-aparecer bg-black/60" onClick={aoFechar} aria-hidden="true" />
 
       <div
         ref={painel}
@@ -51,9 +51,9 @@ export default function Modal({ aberto, aoFechar, titulo, children, rodape }: Pr
         aria-modal="true"
         aria-labelledby={idTitulo}
         tabIndex={-1}
-        className="relative flex max-h-[90dvh] w-full animate-subir flex-col rounded-t-3xl bg-white shadow-2xl outline-none sm:max-w-md sm:animate-aparecer sm:rounded-2xl"
+        className="relative flex max-h-[90dvh] w-full animate-subir flex-col rounded-t-3xl bg-superficie shadow-2xl outline-none sm:max-w-md sm:animate-aparecer sm:rounded-2xl"
       >
-        <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-slate-200 sm:hidden" />
+        <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-superficie-3 sm:hidden" />
         <div className="flex items-center justify-between gap-3 px-5 pt-3 pb-3 sm:pt-5">
           <h2 id={idTitulo} className="text-lg font-semibold">
             {titulo}
@@ -62,7 +62,7 @@ export default function Modal({ aberto, aoFechar, titulo, children, rodape }: Pr
             type="button"
             onClick={aoFechar}
             aria-label="Fechar"
-            className="-mr-2 flex h-9 w-9 items-center justify-center rounded-lg text-texto-suave transition hover:bg-slate-100 hover:text-texto"
+            className="-mr-2 flex h-9 w-9 items-center justify-center rounded-lg text-texto-suave transition hover:bg-superficie-3 hover:text-texto"
           >
             <IconeFechar className="h-5 w-5" />
           </button>

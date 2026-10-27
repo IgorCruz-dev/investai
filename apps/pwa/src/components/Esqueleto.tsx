@@ -1,6 +1,6 @@
 /** Bloco cinza pulsando no lugar do conteúdo enquanto a primeira carga não chega */
 export default function Esqueleto({ className = '' }: { className?: string }) {
-  return <span aria-hidden className={`block animate-pulse rounded-lg bg-slate-200/80 ${className}`} />
+  return <span aria-hidden className={`block animate-pulse rounded-lg bg-superficie-3 ${className}`} />
 }
 
 /** Linhas de lista (ícone redondo + dois textos + valor), como as listas de lançamentos */

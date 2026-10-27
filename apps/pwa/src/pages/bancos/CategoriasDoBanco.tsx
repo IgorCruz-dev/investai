@@ -16,6 +16,7 @@ import {
   mapearCategoria,
 } from '../../services/openFinance'
 import type { Categoria, RegraLocal } from '../../types/financas'
+import { COR_SEM_CATEGORIA } from '../../components/IconeCategoria'
 
 const PADRAO = ''
 
@@ -139,7 +140,7 @@ export default function CategoriasDoBanco() {
         </div>
       )}
       {aviso && (
-        <p role="status" className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <p role="status" className="mt-4 rounded-xl bg-sucesso-fundo px-4 py-3 text-sm text-sucesso-texto">
           {aviso}
         </p>
       )}
@@ -170,7 +171,7 @@ export default function CategoriasDoBanco() {
                     value={mapeadas.get(nome) ?? PADRAO}
                     disabled={salvando === nome}
                     onChange={(e) => mudar(nome, e.target.value)}
-                    className="h-10 rounded-xl border border-borda bg-white px-3 text-base outline-none sm:text-sm focus:border-primaria focus:ring-4 focus:ring-primaria/15 disabled:opacity-60 sm:w-56"
+                    className="h-10 rounded-xl border border-borda bg-superficie px-3 text-base outline-none sm:text-sm focus:border-primaria focus:ring-4 focus:ring-primaria/15 disabled:opacity-60 sm:w-56"
                   >
                     <option value={PADRAO}>Outros (padrão)</option>
                     {categorias
@@ -204,14 +205,14 @@ export default function CategoriasDoBanco() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{r.local}</span>
                     <span className="flex items-center gap-1.5 text-xs text-texto-suave">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: categoria?.cor ?? '#94a3b8' }} />
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: categoria?.cor ?? COR_SEM_CATEGORIA }} />
                       {categoria?.nome ?? 'Categoria'}
                     </span>
                   </span>
                   <button
                     onClick={() => setExcluindo(r)}
                     aria-label={`Excluir regra de ${r.local}`}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg text-texto-suave transition hover:bg-red-50 hover:text-despesa"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-texto-suave transition hover:bg-erro-fundo hover:text-despesa"
                   >
                     <IconeFechar className="h-4 w-4" />
                   </button>
@@ -267,7 +268,7 @@ function ModalExcluirRegra({ regra, aoFechar, aoExcluir }: { regra: RegraLocal; 
           type="button"
           onClick={aoFechar}
           disabled={salvando}
-          className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-slate-50 hover:text-texto"
+          className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-superficie-2 hover:text-texto"
         >
           Cancelar
         </button>

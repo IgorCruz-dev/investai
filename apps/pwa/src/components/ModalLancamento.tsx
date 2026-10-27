@@ -204,7 +204,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
             type="button"
             onClick={aoFechar}
             disabled={salvando}
-            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-slate-50 hover:text-texto"
+            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-superficie-2 hover:text-texto"
           >
             Só nesta
           </button>
@@ -246,7 +246,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
               type="button"
               onClick={() => setConfirmandoExclusao(false)}
               disabled={salvando}
-              className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-slate-50 hover:text-texto"
+              className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-superficie-2 hover:text-texto"
             >
               Cancelar
             </button>
@@ -273,7 +273,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
               type="button"
               onClick={() => setConfirmandoExclusao(true)}
               disabled={salvando}
-              className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-red-50"
+              className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-erro-fundo"
             >
               Excluir lançamento
             </button>
@@ -283,7 +283,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
     >
       <form id="form-lancamento" onSubmit={aoEnviar} noValidate className="flex flex-col gap-5">
         {/* Despesa / Receita */}
-        <div role="group" aria-label="Tipo" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+        <div role="group" aria-label="Tipo" className="grid grid-cols-2 gap-1 rounded-xl bg-superficie-3 p-1">
           {(['despesa', 'receita'] as const).map((t) => (
             <button
               key={t}
@@ -291,7 +291,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
               aria-pressed={tipo === t}
               disabled={travado}
               onClick={() => mudarTipo(t)}
-              className={`h-10 rounded-lg text-sm font-semibold transition disabled:cursor-not-allowed ${tipo === t ? `bg-white shadow-sm ${t === 'despesa' ? 'text-despesa' : 'text-receita'}` : 'text-texto-suave'}`}
+              className={`h-10 rounded-lg text-sm font-semibold transition disabled:cursor-not-allowed ${tipo === t ? `bg-superficie shadow-sm ${t === 'despesa' ? 'text-despesa' : 'text-receita'}` : 'text-texto-suave'}`}
             >
               {t === 'despesa' ? 'Despesa' : 'Receita'}
             </button>
@@ -301,20 +301,20 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
         <CampoValor centavos={centavos} aoMudar={setCentavos} tipo={tipo} erro={erros.valor} desabilitado={ehImportada} />
 
         {ehImportada && (
-          <p className="rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-texto-suave">
+          <p className="rounded-xl bg-superficie-2 px-3.5 py-3 text-sm text-texto-suave">
             Importado do banco. Valor, data e forma vêm do banco; aqui você muda local, categoria, descrição e observação.
           </p>
         )}
 
         {ehParcela && (
-          <p className="rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-texto-suave">
+          <p className="rounded-xl bg-superficie-2 px-3.5 py-3 text-sm text-texto-suave">
             Parcela {transacao?.parcela_atual} de {transacao?.total_parcelas}. Aqui você muda só esta parcela; forma,
             cartão e data valem para todas. Para mudar isso, exclua e lance de novo.
           </p>
         )}
 
         {ehPagamento && (
-          <p className="rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-texto-suave">
+          <p className="rounded-xl bg-superficie-2 px-3.5 py-3 text-sm text-texto-suave">
             Pagamento de fatura de cartão. Ele desconta do saldo, mas não entra nas despesas do mês (as compras já
             contaram quando foram feitas).
           </p>
@@ -361,7 +361,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
                   id="parcelas"
                   value={parcelas}
                   onChange={(e) => setParcelas(Number(e.target.value))}
-                  className="h-12 rounded-xl border border-borda bg-white px-3.5 text-base outline-none focus:border-primaria focus:ring-4 focus:ring-primaria/15"
+                  className="h-12 rounded-xl border border-borda bg-superficie px-3.5 text-base outline-none focus:border-primaria focus:ring-4 focus:ring-primaria/15"
                 >
                   {opcoesParcelas.map((n) => (
                     <option key={n} value={n}>

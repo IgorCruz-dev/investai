@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router'
 import { formatarDia, formatarMoeda } from '../lib/formatar'
 import { ehPagamentoDeFatura, ehTransferencia } from '../lib/resumos'
-import IconeCategoria from './IconeCategoria'
+import IconeCategoria, { COR_SEM_CATEGORIA } from './IconeCategoria'
 import type { Cartao, Categoria, FormaPagamento, Transacao } from '../types/financas'
 
 type Props = {
@@ -21,6 +22,7 @@ const nomesDasFormas: Record<FormaPagamento, string> = {
 
 /** Lançamentos agrupados por dia ("Hoje", "Ontem", "Qui., 22 de out."), na ordem recebida */
 export default function ListaLancamentos({ transacoes, categorias, cartoes, aoEscolher }: Props) {
+  const navegar = useNavigate()
   const porDia = useMemo(() => {
     const grupos = new Map<string, Transacao[]>()
     for (const t of transacoes) grupos.set(t.data, [...(grupos.get(t.data) ?? []), t])
@@ -34,7 +36,7 @@ export default function ListaLancamentos({ transacoes, categorias, cartoes, aoEs
     <div>
       {porDia.map(([dia, doDia]) => (
         <div key={dia}>
-          <p className="bg-slate-50 px-5 py-2 text-xs font-semibold tracking-wide text-texto-suave uppercase">
+          <p className="bg-superficie-2 px-5 py-2 text-xs font-semibold tracking-wide text-texto-suave uppercase">
             {formatarDia(dia)}
           </p>
           <ul className="divide-y divide-borda">
@@ -49,16 +51,17 @@ export default function ListaLancamentos({ transacoes, categorias, cartoes, aoEs
                 t.forma === 'credito' && cartao ? `Crédito · ${cartao.nome}` : nomesDasFormas[t.forma],
                 t.total_parcelas ? `${t.parcela_atual}/${t.total_parcelas}` : null,
                 t.origem === 'pluggy' ? 'Banco' : null,
+                t.movimentacao_id ? 'Investimento' : null,
               ].filter(Boolean)
 
               return (
                 <li key={t.id}>
                   <button
-                    onClick={() => aoEscolher(t)}
-                    className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-slate-50"
+                    onClick={() => t.movimentacao_id ? navegar('/investimentos') : aoEscolher(t)}
+                    className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-superficie-2"
                   >
                     {pagamento ? (
-                      <IconeCategoria icone="cartao" cor="#475569" />
+                      <IconeCategoria icone="cartao" cor={COR_SEM_CATEGORIA} />
                     ) : (
                       <IconeCategoria icone={categoria?.icone} cor={categoria?.cor} />
                     )}

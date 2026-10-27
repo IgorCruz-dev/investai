@@ -102,7 +102,7 @@ export default function ModalAssinatura({ assinatura, cartoes, aoFechar, aoMudar
             type="button"
             onClick={() => setConfirmandoExclusao(false)}
             disabled={salvando}
-            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-slate-50 hover:text-texto"
+            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-superficie-2 hover:text-texto"
           >
             Cancelar
           </button>
@@ -127,7 +127,7 @@ export default function ModalAssinatura({ assinatura, cartoes, aoFechar, aoMudar
                 type="button"
                 disabled={salvando}
                 onClick={() => executar(() => definirAtiva(assinatura.id, !assinatura.ativa))}
-                className="h-10 rounded-xl border border-borda text-sm font-semibold transition hover:bg-slate-50"
+                className="h-10 rounded-xl border border-borda text-sm font-semibold transition hover:bg-superficie-2"
               >
                 {assinatura.ativa ? 'Pausar' : 'Retomar'}
               </button>
@@ -135,7 +135,7 @@ export default function ModalAssinatura({ assinatura, cartoes, aoFechar, aoMudar
                 type="button"
                 disabled={salvando}
                 onClick={() => setConfirmandoExclusao(true)}
-                className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-red-50"
+                className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-erro-fundo"
               >
                 Excluir
               </button>

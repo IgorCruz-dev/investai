@@ -1,6 +1,12 @@
 import { AuthError } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
+export async function cadastroDisponivel() {
+  const { data, error } = await supabase.rpc('cadastro_disponivel')
+  if (error) throw error
+  return data
+}
+
 export async function entrar(email: string, senha: string) {
   const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
   if (error) throw new Error(traduzirErro(error))

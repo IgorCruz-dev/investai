@@ -1,10 +1,7 @@
 """Monta o snapshot que a interface web consome.
 
-Era um script (`scripts/export_snapshot.py`) com uma carteira de demonstração
-fixa no código. Virou módulo importável lendo a carteira **real** porque agora
-dois consumidores precisam dele: o CLI, que grava `data.js` para abrir o
-dashboard sem servidor, e o cron da VM, que publica no Postgres para a Vercel
-ler.
+O cron da VM lê a carteira real, calcula os dados de mercado e publica um JSON
+no Postgres para o PWA ler.
 
 Por que a web não calcula nada disso: indicadores e notícias exigem pandas,
 yfinance e requisições a APIs externas. Fazer isso numa função serverless a cada

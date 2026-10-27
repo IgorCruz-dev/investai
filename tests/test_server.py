@@ -24,12 +24,6 @@ def ambiente(tmp_path, monkeypatch):
     monkeypatch.setenv("INVESTAI_CRON_TOKEN", "token-cron")
     monkeypatch.setenv("INVESTAI_MONTHLY_BUDGET_USD", "5")
 
-    # Registro recarregado: um `INVESTAI_TENANTS` deixado por outro teste faria
-    # este servidor nascer multiusuário sem ninguém pedir.
-    from investai import tenants
-    monkeypatch.delenv("INVESTAI_TENANTS", raising=False)
-    tenants.recarregar()
-
     import importlib
 
     from investai.whatsapp import config as config_mod
@@ -63,6 +57,7 @@ def ambiente(tmp_path, monkeypatch):
     from investai.analysis import asset_analysis as analise_mod
     from investai.analysis import briefing as briefing_mod
     from investai.analysis import llm_analyst as llm_mod
+    from investai.analysis import triagem_noticia as triagem_mod
 
     def _nao_chamar(*a, **k):
         pytest.fail("este teste não deveria chamar a API da Anthropic")
@@ -74,6 +69,13 @@ def ambiente(tmp_path, monkeypatch):
         (briefing_mod, "montar"),
         (llm_mod, "generate_briefing"),
         (app_mod, "responder"),
+        # A mina da recomendação é `consultar_modelo`, e não `recommend` nem
+        # `triar`: a recomendação é de graça e é usada pelo onboarding, e `triar`
+        # devolve "sem triagem" sozinha quando não há chave ou não há notícia.
+        # `consultar_modelo` é o único ponto que gasta crédito, então um
+        # `triagem=True` que chegue lá num teste quebra a suíte, e o caminho
+        # determinístico continua livre.
+        (triagem_mod, "consultar_modelo"),
     ):
         monkeypatch.setattr(modulo, funcao, _nao_chamar)
 

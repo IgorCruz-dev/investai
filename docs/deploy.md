@@ -1,449 +1,92 @@
-# Colocar o InvestAI no ar
+# Publicação do InvestAI
 
-Do zero até o assistente respondendo no seu WhatsApp. **Sem cadastro na Meta** —
-a conexão é via Baileys, no mesmo número que o StudyTrack já usa.
+O PWA fica na Vercel, com Supabase Auth e Postgres. A VM executa o bot, a ponte
+Baileys, os jobs e os snapshots. Nenhuma chave de serviço do Supabase ou URI de
+Postgres entra no build do PWA.
 
-Custo de infraestrutura: **R$ 0/mês** (Oracle Always Free). Só os créditos da
-API Anthropic: ~US$ 0,006 por mensagem.
+## Supabase
 
-## Como funciona
+1. Crie um projeto novo. Em Project Settings → Database → Connection string,
+   copie a URI de **Session pooler**. Substitua `[YOUR-PASSWORD]` pela senha do
+   banco. Ponha a URI em `DATABASE_URL` no `.env` da raiz.
+2. Confira e aplique `supabase/migrations` em ordem:
 
-```
-   Navegador (qualquer lugar)          Seu WhatsApp
-          │ HTTPS                            │
-          ▼                                  ▼
-    Vercel (free)                   chip dedicado
-   estático + /api/*                       │ (dispositivo vinculado)
-          │                                 ▼
-          │                    ponte Baileys (Node, 127.0.0.1:8900)
-          │                                 │ HTTP local
-          │                    servidor InvestAI (Python, 127.0.0.1:8000)
-          │                                 │
-          └────────► Neon Postgres ◄────────┘
-                   (só conexões de saída)
-```
+   ```bash
+   .venv/bin/python scripts/aplicar_supabase.py --conferir
+   .venv/bin/python scripts/aplicar_supabase.py
+   ```
 
-**Nada é exposto à internet.** Não há webhook, domínio, HTTPS nem porta aberta
-na VM: a ponte é um dispositivo vinculado (só conexões de saída), os dois
-serviços conversam por `127.0.0.1`, e a interface web alcança seus dados pelo
-banco gerenciado — nunca pela VM. Vercel e VM jamais se falam.
+   O script recusa host fora do Supabase e um schema financeiro já criado sem
+   histórico de migração. Registra o hash de cada arquivo aplicado; mudanças
+   posteriores devem ir em uma migração nova.
+3. Cadastre a primeira conta pelo PWA. Ela é a dona das tabelas de investimento
+   pela política RLS. Configure o Open Finance seguindo
+   [as instruções do PWA](../apps/pwa/README.md), se for usá-lo.
 
-Três peças, cada uma fazendo o que sabe:
+## PWA
 
-| | Onde | Por quê |
-|---|---|---|
-| Interface, login, CRUD | Vercel (free) | HTTPS e URL estável de graça, sem domínio |
-| Carteira, movimentações, perfil | Neon Postgres (free) | Os dois clientes precisam ver o mesmo dado |
-| yfinance, indicadores, Claude, WhatsApp | VM Oracle (free) | Python pesado e a sessão do Baileys |
+Em `apps/pwa/.env.local` ou nas variáveis da Vercel, defina
+`VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. São credenciais públicas;
+o RLS protege os dados. Execute `npm run build` em `apps/pwa` antes de publicar.
+O diretório de saída é `dist/`.
 
-### Conviver com o StudyTrack no mesmo número
+## VM
 
-O WhatsApp permite até 4 dispositivos vinculados, então a ponte do InvestAI
-entra como um segundo aparelho, sem mexer no worker do StudyTrack. As duas
-sessões recebem todas as mensagens, mas não há resposta dupla:
+No `.env` da VM, configure `DATABASE_URL` para o **mesmo** Supabase,
+`ANTHROPIC_API_KEY`, `BRIDGE_SECRET`, `WHATSAPP_ALLOWED_NUMBERS` e
+`INVESTAI_CRON_TOKEN`. A ponte usa o mesmo `BRIDGE_SECRET` em `apps/bridge/.env`.
+O bot atende apenas números da lista, com DDI e DDD, separados por vírgula.
 
-- o worker do StudyTrack só responde a quem tem **sessão ativa de prospecção**
-  no Supabase (`hasActiveSession`) — seu número pessoal não tem;
-- a ponte do InvestAI só responde aos números em `ALLOWED_NUMBERS`.
+Os serviços existentes em `deploy/` iniciam o Python e a ponte. O crontab
+`deploy/crontab.example` publica snapshots e processa jobs. Para atualizar uma
+VM configurada, use `deploy/update-vm.sh` após revisar o destino `VM`.
 
-> Baileys é uma biblioteca não oficial e contraria os termos do WhatsApp — o
-> mesmo risco que o StudyTrack já corre nesse chip. Como é um chip dedicado, a
-> exposição é a que você já aceitou.
+A fila de jobs roda **a cada minuto**, e não a cada cinco: ela virou o caminho
+do onboarding. Quem responde as 18 perguntas fica olhando a tela esperando a
+carteira, e cinco minutos de espera ali é abandono.
 
----
+### O job de recomendação
 
-## 1. 👤 Máquina na Oracle (Always Free)
-
-1. Crie a conta em <https://cloud.oracle.com> (pede cartão para verificação, não cobra).
-2. **Compute → Instances → Create**:
-   - Imagem **Ubuntu 22.04** (ou 24.04)
-   - Shape **VM.Standard.A1.Flex (Ampere/ARM)**, 2 OCPU e 12 GB — dentro do Always Free
-   - Salve a chave SSH
-3. Não precisa liberar porta nenhuma na Security List. Nada aqui recebe conexão de fora.
-
-> Se o cadastro for recusado ou faltar capacidade ARM na região, me avise: a
-> ponte roda em qualquer Linux — inclusive no seu notebook, com a ressalva de
-> que o assistente só responde com ele ligado.
-
----
-
-## 2. Enviar o código e instalar
+O PWA grava as respostas e enfileira `recomendacao`;
+`scripts/publish_recomendacao.py` deriva o perfil, roda o filtro quantitativo e
+publica o plano. Para rodar à mão:
 
 ```bash
-# no seu notebook
-rsync -av --exclude .venv --exclude cache --exclude node_modules --exclude auth_session \
-      ~/dev/investai/ ubuntu@SEU_IP:~/investai/
-
-# na VM
-ssh ubuntu@SEU_IP
-cd ~/investai
-cp .env.example .env                 && nano .env          # passo 3
-cp apps/bridge/.env.example apps/bridge/.env   && nano apps/bridge/.env   # passo 3
-bash deploy/install.sh
+.venv/bin/python scripts/publish_recomendacao.py              # com triagem de notícia
+.venv/bin/python scripts/publish_recomendacao.py --sem-triagem  # custo zero
 ```
 
-O script instala Python, Node 20, as dependências dos dois lados, cria os
-serviços no systemd e sobe o servidor Python.
+A **triagem de notícia** é o único caminho pago fora de briefing, análise de
+ativo e `/pergunta`: o modelo pode apenas *tirar* um ativo aprovado por notícia
+grave, com o motivo gravado, e nunca mexe em nota, peso ou cota
+([spec 003](../specs/003-recomendacao/spec.md)). Sem `ANTHROPIC_API_KEY`, sem
+notícia na janela ou com a API fora, o plano sai igual e marcado *sem triagem*.
+Use `--sem-triagem` para rodar o fluxo inteiro sem gastar crédito.
 
----
+### Se as perguntas do questionário mudarem
 
-## 3. Variáveis de ambiente
-
-**`~/investai/.env`** (servidor Python):
-```bash
-ANTHROPIC_API_KEY=...                  # você já tem
-BRIDGE_SECRET=uma-frase-longa-qualquer # mesma dos dois lados
-WHATSAPP_ALLOWED_NUMBERS=55SEUNUMERO   # SEU número pessoal, só dígitos com DDI
-INVESTAI_CRON_TOKEN=outra-frase        # protege o endpoint do briefing
-INVESTAI_MONTHLY_BUDGET_USD=5          # teto de gasto com a API
-
-# Banco (Neon) — endpoint DIRETO, não o com "-pooler":
-DATABASE_URL=postgresql://...@ep-xxx.REGIAO.aws.neon.tech/neondb?sslmode=require
-INVESTAI_WEB_URL=https://seu-projeto.vercel.app   # aparece no /web e no /status
-```
-
-**`~/investai/apps/bridge/.env`** (ponte Node):
-```bash
-BRIDGE_SECRET=uma-frase-longa-qualquer # idêntica à de cima
-ALLOWED_NUMBERS=55SEUNUMERO            # idêntico ao de cima
-INVESTAI_URL=http://127.0.0.1:8000/bridge/message
-```
-
-`ALLOWED_NUMBERS` é o **seu número pessoal** — aquele de onde você vai mandar
-mensagem para o chip. Sem ele, qualquer contato que escrever para o chip
-conversa com o assistente gastando seus créditos.
-
----
-
-## 4. Parear o WhatsApp (uma vez)
+O PWA desenha as 18 perguntas a partir de `apps/pwa/src/data/perguntas.json`.
+Depois de mexer em `src/investai/onboarding/questionnaire.py`, reexporte:
 
 ```bash
-cd ~/investai/bridge && node index.js
+.venv/bin/python scripts/exportar_perguntas.py
 ```
 
-Um QR code aparece no terminal. No celular: **WhatsApp (ou WhatsApp Business) do
-chip → Configurações → Aparelhos conectados → Conectar um aparelho** → escaneie.
+`tests/test_onboarding_export.py` quebra se esquecer.
 
-Quando o log mostrar `Conectado ao WhatsApp`, encerre com `Ctrl+C` e suba como serviço:
+## Conferência
 
 ```bash
-sudo systemctl enable --now investai-bridge
-curl -s localhost:8000/health          # "ponte": {"conectado": true}
+.venv/bin/python scripts/aplicar_supabase.py --conferir
+.venv/bin/python scripts/verificar_costura.py
+.venv/bin/python scripts/verificar_rls.py
+.venv/bin/ruff check src scripts tests
+.venv/bin/pytest -q -m 'not network'
+cd apps/pwa && npm run build
 ```
 
-A sessão fica salva em `apps/bridge/auth_session/` — não precisa parear de novo a
-cada reinício. Para trocar de chip: apague a pasta e escaneie outro QR.
-
----
-
-## 4.5 Banco (Neon) e interface web (Vercel)
-
-Esta parte é nova: é o que faz a interface existir fora do notebook.
-
-### Neon
-
-1. Crie a conta em <https://neon.tech> e um projeto chamado `investai`.
-   Escolha a região mais perto da VM — a latência entra em **toda** consulta
-   do assistente.
-2. Em **Connect**, copie a connection string. Você precisa de **duas** formas
-   da mesma URL, e a diferença é só o `-pooler` no host:
-   - sem `-pooler` → `DATABASE_URL` (psycopg, na VM e no notebook)
-   - com `-pooler` → `DATABASE_URL_POOLED` (funções serverless da Vercel)
-3. Aplique o esquema e semeie o catálogo de 38 ativos:
-
-```bash
-.venv/bin/python scripts/migrate_to_postgres.py
-.venv/bin/python scripts/migrate_to_postgres.py --conferir   # mostra o estado
-```
-
-O script é idempotente: rodar duas vezes não duplica nada.
-
-### Vercel
-
-```bash
-cd apps/web
-npm install
-vercel login
-vercel --prod
-```
-
-Depois defina as variáveis do projeto (em **Settings → Environment Variables**,
-ou pelo CLI):
-
-| Variável | Valor |
-|---|---|
-| `DATABASE_URL_POOLED` | a URL **com** `-pooler` |
-| `WEB_PASSWORD_HASH` | o hash da sua senha (gerado abaixo) |
-| `WEB_SESSION_SECRET` | 32 bytes aleatórios em hex |
-
-Gerando os dois segredos:
-
-```bash
-node scripts/gerar-hash-senha.mjs 'SUA-SENHA-AQUI'     # WEB_PASSWORD_HASH
-openssl rand -hex 32                                   # WEB_SESSION_SECRET
-```
-
-A senha em si não é guardada em lugar nenhum — nem no repositório, nem no
-banco, nem no `.env`. Só o hash PBKDF2 vai para a Vercel.
-
-Por fim, ponha a URL publicada em `INVESTAI_WEB_URL` no `.env` da VM, para o
-comando `/web` do assistente devolver o endereço.
-
----
-
-## 4.6 Várias pessoas na mesma instância
-
-Opcional. Sem isto, a instância é sua e nada muda.
-
-Um bot e um painel servindo um grupo pequeno, onde **cada pessoa tem o próprio
-banco e a própria chave da Anthropic**. O bot diferencia pelo telefone; o
-painel, pelo login. O porquê desse desenho está em
-[design.md](design.md#várias-pessoas-um-banco-para-cada).
-
-**Ninguém manda credencial para ninguém.** Cada pessoa roda um wizard do
-próprio clone, que grava a linha dela num **banco de registro** central. Isso
-existe porque a VM não escuta nada na internet — não há como "subir" credencial
-para ela — mas um banco é alcançável de qualquer lugar, e a VM e a Vercel leem
-dele fazendo só conexão de saída.
-
-### Quem hospeda faz uma vez
-
-**1. Criar o banco de registro.** É um projeto **novo** no Neon
-([neon.tech](https://neon.tech), free tier basta) — separado dos bancos de
-carteira, porque ele guarda credenciais, não posições. São 4 bancos no total:
-
-| Banco | De quem | Guarda |
-|---|---|---|
-| carteira | você | as suas posições e movimentações |
-| carteira | cada pessoa | as dela — **ela** cria na conta Neon dela |
-| **registro** | você | só quem é quem: telefone, credenciais, hash da senha |
-
-Ao criar o projeto, o Neon mostra a connection string. Copie — é o `--url` do
-passo 2.
-
-**2. Rodar o preparador.** Ele aplica o schema, cria a role de inscrição com
-uma senha forte e imprime as três strings prontas:
-
-```bash
-.venv/bin/python scripts/preparar_registro.py --url 'postgresql://…que-você-copiou…'
-```
-
-A saída traz, para copiar:
-
-- `INVESTAI_REGISTRY_URL` para o **seu** `.env` e o da VM (acesso de dono);
-- `INVESTAI_REGISTRY_URL_POOLED` para a **Vercel** (é a com `-pooler`);
-- a string de **inscrição** para entregar a cada pessoa.
-
-A de inscrição usa a role `investai_inscricao`, que tem `insert` e `update` e
-**nenhum `select`**: quem a recebe grava a própria linha e não lê a chave de API
-nem o banco de ninguém. A senha dela aparece **uma vez** — se perder, rode de
-novo com `--nova-senha` (isso invalida as já entregues).
-
-**3. Publicar.** Na VM, o `.env` já tem `INVESTAI_REGISTRY_URL`; reinicie. Na
-Vercel:
-
-```bash
-cd apps/web
-vercel env add INVESTAI_REGISTRY_URL_POOLED production   # cole a string do passo 2
-vercel --prod
-```
-
-**4. Entregar a string de inscrição** a cada pessoa, em canal privado.
-
-### Cada pessoa faz no próprio clone
-
-```bash
-git clone https://github.com/IgorCruz-dev/investai.git && cd investai
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dashboard,dev]"
-
-# a connection string de inscrição que quem hospeda passou:
-echo 'INVESTAI_REGISTRY_URL=postgresql://investai_inscricao:…' >> .env
-
-python -m investai.setup
-```
-
-O wizard pergunta chave da Anthropic, as duas URLs do Neon dela, o telefone e
-uma senha para o painel. Depois: grava o `.env` local (com permissão 600),
-aplica as migrações no banco dela, semeia o catálogo de ativos e grava a linha
-dela no registro. A senha nunca é guardada — só o hash PBKDF2.
-
-O wizard **avisa em voz alta** antes de inscrever: as credenciais passam a ficar
-na infraestrutura de quem hospeda, que tecnicamente consegue lê-las. Quem não
-quiser isso responde `n` e usa o sistema só na própria máquina — com
-`--so-local` nem a pergunta aparece.
-
-Em até 60 segundos (o cache do registro) o bot passa a atender aquele telefone,
-e o painel aceita aquele login. Sem restart de nada.
-
-### Conferir
-
-```bash
-# pelo WhatsApp, de cada telefone: cada um tem de ver a SUA carteira
-/carteira
-
-# no servidor, o log diz de quem era cada mensagem
-sudo journalctl -u investai -f | grep usuário=
-#  Respondido 551699… | usuário=kaua | intenção=carteira (custo zero)
-```
-
-Um número fora do registro é recusado — em modo multiusuário o registro **é** a
-lista branca, porque um número sem banco não teria o que consultar.
-
-### Schema: um banco por pessoa, uma migração para todos
-
-Toda mudança de schema é um arquivo novo em `deploy/sql/`, no formato
-`NNN_descricao.sql`. Nunca edite uma migração já aplicada — ela já rodou nos
-bancos dos outros, e o runner avisa quando o arquivo muda.
-
-```bash
-.venv/bin/python scripts/migrar.py --conferir    # o que falta no banco desta máquina
-.venv/bin/python scripts/migrar.py               # aplica aqui
-.venv/bin/python scripts/migrar.py --todos       # aplica em todos do registro
-.venv/bin/python scripts/migrar.py --usuario kaua
-.venv/bin/python scripts/migrar.py --baseline    # banco que JÁ tem o schema: só registra
-```
-
-O servidor confere no start e **avisa** quando algum banco está atrás, em vez de
-deixar a descoberta acontecer como "coluna não existe" no meio de uma query:
-
-```
-Banco de kaua está atrás: falta(m) 002_metas.sql. Rode
-`python scripts/migrar.py --usuario kaua` — até lá, as consultas que dependem
-dessas tabelas vão falhar.
-```
-
-`--baseline` existe para adotar o controle de versão num banco que já tinha o
-schema de antes: registra as migrações como aplicadas **sem executar** o DDL.
-
-### O que muda na operação
-
-- os crons **iteram as pessoas**: `publish_snapshot.py` e `process_jobs.py`
-  rodam uma vez por banco, e um banco fora não derruba os outros. Para rodar só
-  um: `--usuario kaua`;
-- o briefing semanal é **um por carteira**;
-- o yfinance é chamado uma vez por pessoa, saindo do **mesmo IP**. Com um grupo
-  pequeno está tranquilo; se começar a tomar bloqueio, aumente
-  `INVESTAI_YF_INTERVAL` ou espace os horários do cron.
-
-### Para sair do modo compartilhado
-
-Apague `INVESTAI_REGISTRY_URL` (e `INVESTAI_TENANTS`, se usou) do `.env` e da
-Vercel. O sistema volta ao `.env` — `DATABASE_URL`, `ANTHROPIC_API_KEY`,
-`WHATSAPP_ALLOWED_NUMBERS` — sem mais nenhuma mudança.
-
----
-
-## 5. Testar
-
-Mande "oi" do seu celular para o número do chip. Deve responder em segundos.
-
-```
-/ajuda                        → menu numerado (custo zero)
-como está minha carteira?     → posições, valor e P&L (custo zero)
-comprei 100 PETR4 a 35,50     → pede confirmação; "sim" grava (custo zero)
-/extrato                      → o histórico, com #id de cada linha
-quanto está a VALE3           → cotação (custo zero)
-/onboarding                   → as 18 perguntas de perfil (custo zero)
-/status                       → ponte, banco e quanto gastou no mês
-analisa PETR4                 → leitura do papel com IA (~US$ 0,02)
-me manda o briefing           → confirma antes; ~1 min (~US$ 0,10)
-```
-
-Depois, abra a URL da Vercel no celular: a compra que você registrou pelo
-WhatsApp tem de estar lá, e vice-versa.
-
----
-
-## 6. Briefing semanal
-
-```bash
-sudo timedatectl set-timezone America/Sao_Paulo
-crontab -e      # cole deploy/crontab.example e troque SEU_CRON_TOKEN
-```
-
-Domingo às 20h ele gera o briefing e manda no seu WhatsApp. Sem Cloud API não
-existe janela de 24 horas nem template a aprovar: a mensagem sai direto.
-
----
-
-## 7. Operação
-
-```bash
-sudo systemctl status investai investai-bridge
-sudo journalctl -u investai -u investai-bridge -f     # logs ao vivo
-curl -s localhost:8000/health | jq                    # gasto do mês, estado da ponte
-sudo systemctl restart investai                       # após mudar o .env
-```
-
-**Atualizar o código:**
-```bash
-rsync -av --exclude .venv --exclude cache --exclude .env \
-      --exclude node_modules --exclude auth_session \
-      ~/dev/investai/ ubuntu@SEU_IP:~/investai/
-ssh ubuntu@SEU_IP 'cd ~/investai && .venv/bin/pip install -q -r requirements.txt \
-      && sudo systemctl restart investai investai-bridge'
-```
-
-**Backup do que importa:**
-```bash
-# A carteira e o perfil vivem no Neon, que tem backup próprio. Daqui saem o
-# espelho legível, o histórico de conversa e — o insubstituível — a sessão do
-# WhatsApp: perdê-la significa parear o QR de novo.
-ssh ubuntu@SEU_IP 'cd ~/investai && tar czf - config/*.json cache/investai.db \
-    .env apps/bridge/.env apps/bridge/auth_session' > backup-$(date +%F).tar.gz
-
-# Dump do banco (pg_dump via a connection string do Neon)
-pg_dump "$DATABASE_URL" -f backup-banco-$(date +%F).sql
-```
-
----
-
-## Problemas comuns
-
-| Sintoma | Causa provável | O que fazer |
-|---|---|---|
-| `"conectado": false` no health | Ponte caiu ou sessão expirou | `journalctl -u investai-bridge -n 50`; se disser "Sessão encerrada", apague `auth_session/` e pareie de novo |
-| Não responde nada | Seu número fora da lista branca | Confira `ALLOWED_NUMBERS` nos **dois** `.env` — só dígitos, com DDI |
-| "Estou sem conexão com o servidor" | Serviço Python parado | `sudo systemctl restart investai` |
-| "Atingi o limite de gasto" | Teto mensal estourado | Aumente `INVESTAI_MONTHLY_BUDGET_USD` e reinicie |
-| Resposta dupla | Worker do StudyTrack respondendo também | Verifique se seu número tem sessão de prospecção ativa no Supabase |
-
-## Segurança
-
-- **Lista branca em dois lugares** — ponte e servidor filtram o mesmo conjunto de números.
-- **Segredo compartilhado** — a ponte só aceita envios com `X-Bridge-Secret`, e o servidor só aceita mensagens com o mesmo cabeçalho.
-- **Idempotência** — cada `message_id` é processado uma única vez.
-- **Teto de gasto mensal** — ao atingir o limite, o assistente avisa e para de chamar a API.
-- **Nada escuta na internet** — os dois serviços só aceitam conexão de `127.0.0.1`.
-
----
-
-## Estado atual do deploy (14/10/2026)
-
-| | |
-|---|---|
-| **VM** | `SEU_IP_DA_VM` — Oracle `sa-saopaulo-1`, `VM.Standard.E2.1.Micro` |
-| **Recursos** | Ubuntu 24.04, 2 vCPU, 954 MB RAM + 3 GB swap, 45 GB disco |
-| **Serviços** | `investai` (Python :8000) e `investai-bridge` (Node :8900), ambos no systemd |
-| **Cron** | Briefing domingo 20h · cache de mercado 9h nos dias úteis |
-| **Custo** | R$ 0/mês (Always Free) + créditos Anthropic por mensagem |
-
-**Por que x86 e não ARM:** São Paulo está sem capacidade de `VM.Standard.A1.Flex`,
-e conta gratuita só pode assinar **uma região** — a Oracle recusa habilitar outra
-(`TenantCapacityExceeded`). O `E2.1.Micro` também é Always Free e estava livre.
-
-Consequência: 1 GB de RAM em vez de 12. Conversa e análise de ativo rodam bem;
-operações que varrem o universo inteiro (recomendação de carteira) ficam lentas
-e dependem do swap.
-
-**Migrar para ARM quando houver capacidade:**
-```bash
-# cria a instância A1.Flex (2 OCPU / 12 GB) e repete o deploy
-rsync -az --exclude .venv --exclude cache --exclude node_modules \
-      --exclude auth_session ~/dev/investai/ ubuntu@NOVO_IP:~/investai/
-scp .env ubuntu@NOVO_IP:~/investai/.env
-scp apps/bridge/.env ubuntu@NOVO_IP:~/investai/apps/bridge/.env
-ssh ubuntu@NOVO_IP 'cd ~/investai && bash deploy/install.sh'
-# parear o QR de novo na máquina nova, depois desligar a antiga
-```
+`verificar_costura.py` e `verificar_rls.py` criam dados de teste dentro de uma
+transação e fazem rollback: o projeto não fica com compras fictícias.
+`verificar_costura.py` roda como `postgres`; `verificar_rls.py` também exercita
+o caminho de escrita da aba como `authenticated`, que é o do PWA e tem outros
+grants.

@@ -17,10 +17,23 @@ type Props = {
 
 // Fatura escolhida em destaque (verde do app); as outras recuam em cinza.
 // O cinza tem contraste baixo, por isso a tabela abaixo traz os mesmos valores.
-const COR_DESTAQUE = '#059669'
-const COR_OUTRAS = '#cbd5e1'
-const COR_GRADE = '#e2e8f0'
-const COR_TEXTO_EIXO = '#64748b'
+/*
+ * Cores das marcas, validadas (não escolhidas a olho) com o validador de paleta
+ * para o modo escuro: faixa de luminosidade, piso de croma, separação para
+ * daltonismo e contraste contra a superfície.
+ *
+ * As marcas são um passo mais fundas que o ouro da interface (#d4af37): marca de
+ * gráfico tem exigência de luminosidade que acento de interface não tem.
+ *
+ * Grade e eixo são recessivos de propósito, e o texto do eixo usa o token de
+ * texto — rótulo é texto, não série.
+ */
+const COR_FOCO = '#a8871f'
+const COR_GRADE = 'rgba(255, 255, 255, 0.07)'
+const COR_TEXTO_EIXO = '#8a8a9a'
+const COR_DESTAQUE = COR_FOCO
+// Neutro de propósito: as outras faturas são contexto, não uma segunda série.
+const COR_OUTRAS = 'rgba(255, 255, 255, 0.18)'
 
 const mesCurto = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
 const rotulo = (mes: Date) => {
@@ -78,12 +91,12 @@ export default function GraficoFaturas({ barras, aoEscolher }: Props) {
               tickFormatter={(v: number) => formatarMoedaCompacta(v)}
             />
             <Tooltip
-              cursor={{ fill: '#f1f5f9' }}
+              cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
               content={({ active, label }) => {
                 const d = active ? dados.find((x) => x.rotulo === label) : undefined
                 if (!d) return null
                 return (
-                  <div className="rounded-xl border border-borda bg-white px-3 py-2 text-sm shadow-lg">
+                  <div className="rounded-xl border border-borda bg-superficie px-3 py-2 text-sm shadow-lg">
                     <p className="font-semibold">{formatarMoeda(d.valor)}</p>
                     <p className="text-xs text-texto-suave">Fatura de {formatarMesAno(d.mes).toLowerCase()}</p>
                   </div>

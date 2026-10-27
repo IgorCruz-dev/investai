@@ -31,11 +31,15 @@ export default function CartaoVisual({ nome, bandeira, cor, className = '' }: Pr
   )
 }
 
-/** Verde até 50% do limite, amarelo até 80%, vermelho acima */
+/** Tranquilo até 50% do limite, atenção até 80%, crítico acima.
+ *
+ * As três cores são os tokens semânticos do tema (--cor-receita, a do aviso e
+ * --cor-despesa), e não verde/amarelo/vermelho avulsos: o mesmo vermelho que
+ * marca despesa no extrato marca limite estourado aqui. */
 export function corDoUso(percentual: number) {
-  if (percentual <= 50) return '#16a34a'
-  if (percentual <= 80) return '#eab308'
-  return '#dc2626'
+  if (percentual <= 50) return '#00c896'
+  if (percentual <= 80) return '#f5c842'
+  return '#ff4757'
 }
 
 /** Limite usado, disponível e barra de uso */
@@ -49,7 +53,7 @@ export function UsoDoLimite({ limite, usado }: { limite: number; usado: number }
         <span className="font-semibold">{formatarMoeda(usado)}</span>
       </div>
       <div
-        className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"
+        className="mt-2 h-2 overflow-hidden rounded-full bg-superficie-3"
         role="meter"
         aria-label="Uso do limite"
         aria-valuemin={0}

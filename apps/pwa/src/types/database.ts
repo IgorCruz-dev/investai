@@ -1,4 +1,5 @@
-// Gerado a partir do banco (Supabase generate_typescript_types). Não edite à mão: gere de novo após cada migration.
+// Base gerada pelo Supabase. As tabelas da migração de investimentos foram
+// acrescentadas antes da aplicação no projeto novo; gere novamente após migrar.
 
 export type Json =
   | string
@@ -16,6 +17,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      ativos: {
+        Row: { ticker: string; nome: string | null; classe: string; setor: string | null; validado: boolean; invalido: boolean; conferido: string | null }
+        Insert: { ticker: string; nome?: string | null; classe?: string; setor?: string | null; validado?: boolean; invalido?: boolean; conferido?: string | null }
+        Update: { ticker?: string; nome?: string | null; classe?: string; setor?: string | null; validado?: boolean; invalido?: boolean; conferido?: string | null }
+        Relationships: []
+      }
+      movimentacoes: {
+        Row: { id: number; tipo: string; ticker: string; shares: number; preco: number; taxas: number; data: string; origem: string; nota: string | null; criado: string }
+        Insert: { id?: number; tipo: string; ticker: string; shares: number; preco: number; taxas?: number; data?: string; origem: string; nota?: string | null; criado?: string }
+        Update: { id?: number; tipo?: string; ticker?: string; shares?: number; preco?: number; taxas?: number; data?: string; origem?: string; nota?: string | null; criado?: string }
+        Relationships: [{ foreignKeyName: "movimentacoes_ticker_fkey"; columns: ["ticker"]; isOneToOne: false; referencedRelation: "ativos"; referencedColumns: ["ticker"] }]
+      }
+      posicoes: {
+        Row: { ticker: string; shares: number; avg_price: number | null; custo_total: number; pnl_realizado: number; atualizado: string }
+        Insert: { ticker: string; shares: number; avg_price?: number | null; custo_total?: number; pnl_realizado?: number; atualizado?: string }
+        Update: { ticker?: string; shares?: number; avg_price?: number | null; custo_total?: number; pnl_realizado?: number; atualizado?: string }
+        Relationships: [{ foreignKeyName: "posicoes_ticker_fkey"; columns: ["ticker"]; isOneToOne: true; referencedRelation: "ativos"; referencedColumns: ["ticker"] }]
+      }
+      perfil_investidor: {
+        Row: { id: number; respostas: Json; derivado: Json; atualizado: string }
+        Insert: { id?: number; respostas: Json; derivado: Json; atualizado?: string }
+        Update: { id?: number; respostas?: Json; derivado?: Json; atualizado?: string }
+        Relationships: []
+      }
+      snapshots: {
+        Row: { id: number; gerado_em: string; payload: Json }
+        Insert: { id?: number; gerado_em?: string; payload: Json }
+        Update: { id?: number; gerado_em?: string; payload?: Json }
+        Relationships: []
+      }
+      jobs: {
+        Row: { id: number; tipo: string; estado: string; pedido: Json; resultado: Json | null; criado: string; fechado: string | null }
+        Insert: { id?: number; tipo: string; estado?: string; pedido?: Json; resultado?: Json | null; criado?: string; fechado?: string | null }
+        Update: { id?: number; tipo?: string; estado?: string; pedido?: Json; resultado?: Json | null; criado?: string; fechado?: string | null }
+        Relationships: []
+      }
+      planos: {
+        Row: { id: number; gerado_em: string; payload: Json; aceito_em: string | null }
+        Insert: { id?: number; gerado_em?: string; payload: Json; aceito_em?: string | null }
+        Update: { id?: number; gerado_em?: string; payload?: Json; aceito_em?: string | null }
+        Relationships: []
+      }
       assinaturas: {
         Row: {
           ativa: boolean
@@ -409,6 +452,7 @@ export type Database = {
           id: string
           id_externo: string | null
           local: string | null
+          movimentacao_id: number | null
           observacao: string | null
           origem: string
           pagamento_cartao_id: string | null
@@ -436,6 +480,7 @@ export type Database = {
           id?: string
           id_externo?: string | null
           local?: string | null
+          movimentacao_id?: number | null
           observacao?: string | null
           origem?: string
           pagamento_cartao_id?: string | null
@@ -463,6 +508,7 @@ export type Database = {
           id?: string
           id_externo?: string | null
           local?: string | null
+          movimentacao_id?: number | null
           observacao?: string | null
           origem?: string
           pagamento_cartao_id?: string | null
@@ -535,6 +581,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cadastro_disponivel: { Args: never; Returns: boolean }
       criar_categorias_padrao: {
         Args: { p_user_id: string }
         Returns: undefined

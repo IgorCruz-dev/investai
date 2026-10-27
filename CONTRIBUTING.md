@@ -5,26 +5,19 @@ que você precisa saber para abrir um PR que entra sem discussão de estilo.
 
 ## Antes de tudo: entenda o que o projeto é
 
-O InvestAI é **uma carteira por pessoa, um banco por pessoa**. Dá para
-compartilhar uma instância com um grupo pequeno — o bot diferencia pelo
-telefone, o painel pelo login — mas cada pessoa continua tendo o seu Postgres e
-a sua chave da Anthropic. O isolamento é a **conexão**, não um `where usuario =`:
-o schema é de uma carteira por banco (`posicoes` com `ticker` como chave
-primária, `perfil` com `check (id = 1)`), e é assim que fica.
+O InvestAI é uma instalação pessoal: um projeto Supabase, uma carteira e um
+assistente. O PWA usa Supabase Auth; a VM usa a URI Postgres do mesmo projeto.
+O primeiro cadastro é o dono das tabelas de investimento pelo RLS. O bot só
+responde aos números autorizados no `.env`.
 
 O que está fora de escopo, e PRs nessa direção vão ser recusados — não por
 serem ruins, mas por mudarem o que o sistema é:
 
-- **cadastro aberto**: criar conta pela tela, cobrança, convite por e-mail.
-  Quem entra, entra porque alguém pôs as credenciais dessa pessoa no registro;
-- **carteira de várias pessoas no mesmo banco**, via coluna `usuario` e
-  `where`. Um `where` esquecido em uma das ~20 funções do `repo.py` vaza
-  carteira entre pessoas; a separação por banco não tem essa classe de bug;
-- **chave de API compartilhada**: cada pessoa traz a sua. Sem isso o uso de uma
-  sai do crédito de quem hospeda, e o gasto de uma bloqueia a IA das outras.
+- **multiusuário**: adicionar tenants, várias carteiras ou cobrança muda o
+  produto e exige nova spec;
+- **promessa de retorno**: dados e recomendações são informativos, não garantia.
 
-O porquê de cada uma dessas decisões está em
-[docs/design.md](docs/design.md#várias-pessoas-um-banco-para-cada).
+O porquê está nas [specs](specs/README.md) e em [docs/design.md](docs/design.md).
 
 Também não é conselho de investimento, e nenhuma contribuição pode fingir que
 é. Ver [a seção de aviso no README](README.md#aviso).
@@ -32,15 +25,10 @@ Também não é conselho de investimento, e nenhuma contribuição pode fingir q
 ## Ambiente em 4 comandos
 
 ```bash
-git clone https://github.com/IgorCruz-dev/investai.git
-cd investai
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dashboard,dev]"      # pacote + Streamlit + pytest + ruff
-python -m investai.setup --so-local    # pergunta o que falta e prepara o banco
+pip install -e ".[dashboard,dev]"
+cd apps/pwa && npm install
 ```
-
-`--so-local` configura só a sua máquina, sem inscrever você na instância
-compartilhada de ninguém.
 
 Sem `DATABASE_URL` o sistema lê `config/portfolio.json` e roda inteiro offline —
 é o modo que os testes usam. Você **não** precisa de Postgres nem de WhatsApp
@@ -49,14 +37,14 @@ pareado para contribuir na maior parte do código.
 ## Rodando
 
 ```bash
-streamlit run main.py                  # dashboard local em localhost:8501
+cd apps/pwa && npm run dev             # PWA
 ./scripts/run-local.sh                 # servidor do WhatsApp + ponte Baileys
 ```
 
 ## Testes
 
 ```bash
-pytest -m "not network"   # 414 testes offline — é o que o CI roda em todo PR
+pytest -m "not network"   # suíte offline — é o que o CI roda em todo PR
 pytest                    # suíte completa, bate nas APIs reais (~12 min)
 pytest -m paid            # inclui o teste que gasta créditos (desligado por padrão)
 ```
@@ -100,9 +88,8 @@ mudança de arquitetura: várias dessas decisões têm medição por trás.
   devolve um valor padrão com log claro. Indicador que não pôde ser calculado
   vira `None` e aparece como **N/D** — nunca como número inventado.
 - **O modelo não decide nada que o Python possa decidir.** O roteador resolve a
-  intenção antes de qualquer chamada de API; o screener decide quais ativos
-  podem entrar; o LLM só distribui pesos e explica. Nenhuma ferramenta de
-  escrita é exposta ao modelo.
+  intenção; o screener e o recomendador calculam os ativos e pesos. Só briefing,
+  análise de ativo e perguntas abertas podem usar LLM.
 - **Toda chamada de API custa dinheiro de alguém.** Se a sua mudança adiciona
   uma chamada por mensagem recebida, diga no PR quanto isso custa por mês.
 - **Comentário explica o *porquê*, não o *o quê*.** Se o código precisa de
@@ -112,18 +99,16 @@ mudança de arquitetura: várias dessas decisões têm medição por trás.
 
 ## Mudando o schema do banco
 
-Cada pessoa tem o próprio Postgres, então uma tabela nova só existe no banco de
-quem aplicou. Duas regras:
+O schema de produção fica em `supabase/migrations`. Duas regras:
 
-1. **Arquivo novo**, sempre: `deploy/sql/NNN_descricao.sql`, com o próximo
-   número livre. Nunca edite uma migração já aplicada — ela já rodou no banco
-   dos outros e não volta atrás; o runner avisa quando o hash muda.
+1. **Arquivo novo**, sempre: `supabase/migrations/TIMESTAMP_descricao.sql`.
+   Nunca edite uma migração já aplicada; o runner registra o hash.
 2. **Diga no PR** que há migração. Quem atualizar precisa rodar
-   `python scripts/migrar.py`, e o servidor avisa no start quem está atrás.
+   `python scripts/aplicar_supabase.py`.
 
 ```bash
-python scripts/migrar.py --conferir   # o que falta no seu banco
-python scripts/migrar.py              # aplica
+python scripts/aplicar_supabase.py --conferir
+python scripts/aplicar_supabase.py
 ```
 
 ## Commits e PRs
@@ -144,7 +129,7 @@ Este repositório é público, e o sistema lida com carteira de investimento de
 pessoas reais. Antes de todo commit:
 
 - Nunca versione `.env`, `apps/bridge/.env`, `apps/bridge/auth_session/`,
-  `config/portfolio.json`, `config/profile.json` ou `apps/web/data.js` — o
+  `config/portfolio.json` ou `config/profile.json` — o
   `.gitignore` já cobre todos, não force.
 - Nada de IP de servidor, número de telefone, connection string ou posição real
   de carteira em código, teste, exemplo ou documentação. Use placeholders

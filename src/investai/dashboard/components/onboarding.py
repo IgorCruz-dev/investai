@@ -253,14 +253,21 @@ def _render_recommendation(recommendation: Any, profile: InvestorProfile,
     if not recommendation.ok:
         return
 
-    fonte = ("filtro quantitativo + análise do Claude" if recommendation.source == "claude"
-             else "filtro quantitativo (sem LLM)")
+    # Não existe mais "fonte": o número é sempre cálculo. O que varia é a
+    # triagem de notícia ter rodado ou não, e isso é dito abaixo.
     st.subheader("Carteira sugerida")
     st.caption(
-        f"Fonte: {fonte}. Os ativos saíram de um universo de {len(UNIVERSE)} papéis líquidos da "
-        "B3, filtrados por liquidez, múltiplos, endividamento, volatilidade e tendência — com "
-        "dados reais do yfinance."
+        f"Os ativos saíram de um universo de {len(UNIVERSE)} papéis líquidos da B3, filtrados "
+        "por liquidez, múltiplos, endividamento, volatilidade e tendência — com dados reais do "
+        "yfinance. Seleção, nota, peso e cota são aritmética."
     )
+    if recommendation.vetos:
+        st.caption(
+            "Tirados por notícia grave: "
+            + ", ".join(f"{v.ticker} ({v.motivo})" for v in recommendation.vetos)
+        )
+    elif not recommendation.triagem_ok:
+        st.caption(f"Sem triagem de notícia nesta rodada ({recommendation.triagem_motivo}).")
 
     rows = []
     for position in recommendation.positions:
@@ -323,8 +330,7 @@ def _render_recommendation(recommendation: Any, profile: InvestorProfile,
             st.error("Não foi possível gravar os arquivos em `config/`. Verifique as permissões.")
 
 
-def _render_result(load_market_data: Callable[[list[str]], dict], currency: str = "BRL",
-                   use_llm: bool = True) -> None:
+def _render_result(load_market_data: Callable[[list[str]], dict], currency: str = "BRL") -> None:
     from investai.analysis.recommender import recommend
 
     answers = st.session_state.get(STATE_ANSWERS, {})
@@ -352,11 +358,9 @@ def _render_result(load_market_data: Callable[[list[str]], dict], currency: str 
     st.divider()
     recommendation = st.session_state.get(STATE_RECOMMENDATION)
     if recommendation is None:
-        spinner = ("Buscando dados de mercado e montando a carteira "
-                   + ("com o Claude…" if use_llm else "pelo filtro quantitativo…"))
-        with st.spinner(spinner):
+        with st.spinner("Buscando dados de mercado e montando a carteira pelo filtro quantitativo…"):
             market_data = load_market_data([a.ticker for a in UNIVERSE])
-            recommendation = recommend(profile, market_data, use_llm=use_llm, currency=currency)
+            recommendation = recommend(profile, market_data, currency=currency)
         st.session_state[STATE_RECOMMENDATION] = recommendation
 
     _render_recommendation(recommendation, profile, currency)
@@ -380,8 +384,7 @@ def is_active() -> bool:
     return st.session_state.get(STATE_PATH) is not None
 
 
-def render(load_market_data: Callable[[list[str]], dict], currency: str = "BRL",
-           use_llm: bool = True) -> None:
+def render(load_market_data: Callable[[list[str]], dict], currency: str = "BRL") -> None:
     """Desenha a etapa atual do onboarding."""
     path = st.session_state.get(STATE_PATH)
     if path is None:
@@ -391,6 +394,6 @@ def render(load_market_data: Callable[[list[str]], dict], currency: str = "BRL",
         _render_existing_portfolio(currency)
         return
     if st.session_state.get(STATE_STEP, 0) >= len(STEPS):
-        _render_result(load_market_data, currency, use_llm)
+        _render_result(load_market_data, currency)
         return
     _render_questionnaire()

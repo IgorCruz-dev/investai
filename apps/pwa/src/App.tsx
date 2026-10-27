@@ -12,6 +12,9 @@ import Caixinha from './pages/caixinha/Caixinha'
 import Lancamentos from './pages/lancamentos/Lancamentos'
 import Bancos from './pages/bancos/Bancos'
 import CategoriasDoBanco from './pages/bancos/CategoriasDoBanco'
+import Investimentos from './pages/investimentos/Investimentos'
+import Onboarding from './pages/onboarding/Onboarding'
+import CarteiraSugerida from './pages/onboarding/CarteiraSugerida'
 
 export default function App() {
   return (
@@ -28,6 +31,9 @@ export default function App() {
           <Route path="/assinaturas" element={<Assinaturas />} />
           <Route path="/comparativo" element={<Comparativo />} />
           <Route path="/caixinha" element={<Caixinha />} />
+          <Route path="/investimentos" element={<Investimentos />} />
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/carteira-sugerida" element={<CarteiraSugerida />} />
           <Route path="/lancamentos" element={<Lancamentos />} />
           <Route path="/bancos" element={<Bancos />} />
           <Route path="/bancos/categorias" element={<CategoriasDoBanco />} />

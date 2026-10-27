@@ -66,11 +66,11 @@ export default function Assinaturas() {
     const dias = diasPorId.get(a.id)
     const destaque = !pausada && dias !== undefined
     return (
-      <li key={a.id} className={destaque ? 'bg-amber-50/70' : ''}>
+      <li key={a.id} className={destaque ? 'bg-aviso-fundo' : ''}>
         <div className="flex items-center gap-3 px-5 py-3.5">
           <button onClick={() => setEditando(a)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
             <span
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${pausada ? 'bg-slate-100 text-texto-suave' : 'bg-violet-50 text-violet-600'}`}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${pausada ? 'bg-superficie-3 text-texto-suave' : 'bg-realce-fundo text-realce-texto'}`}
             >
               <IconeRepetir className="h-[18px] w-[18px]" />
             </span>
@@ -88,7 +88,7 @@ export default function Assinaturas() {
                 )}
               </span>
               {destaque && (
-                <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                <span className="mt-1 inline-block rounded-full bg-aviso-fundo px-2 py-0.5 text-xs font-semibold text-aviso-texto">
                   {textoDiasAte(dias)}
                 </span>
               )}
@@ -98,7 +98,7 @@ export default function Assinaturas() {
           {pausada && (
             <button
               onClick={() => retomar(a)}
-              className="shrink-0 rounded-lg border border-borda px-3 py-1.5 text-xs font-semibold transition hover:bg-slate-50"
+              className="shrink-0 rounded-lg border border-borda px-3 py-1.5 text-xs font-semibold transition hover:bg-superficie-2"
             >
               Retomar
             </button>
@@ -114,7 +114,7 @@ export default function Assinaturas() {
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Assinaturas</h1>
         <button
           onClick={() => setEditando(null)}
-          className="flex h-10 items-center gap-1.5 rounded-xl border border-borda bg-white px-3.5 text-sm font-semibold transition hover:bg-slate-50"
+          className="flex h-10 items-center gap-1.5 rounded-xl border border-borda bg-superficie px-3.5 text-sm font-semibold transition hover:bg-superficie-2"
         >
           <IconeMais className="h-4 w-4" />
           Nova assinatura
@@ -128,14 +128,14 @@ export default function Assinaturas() {
       )}
 
       {/* Total mensal */}
-      <div className="mt-6 rounded-2xl bg-linear-to-br from-violet-600 to-violet-800 p-5 text-white shadow-lg shadow-violet-900/15">
-        <p className="text-sm text-violet-100">Total mensal com assinaturas</p>
+      <div className="mt-6 destaque destaque-violeta p-5 text-white">
+        <p className="text-sm text-white/70">Total mensal com assinaturas</p>
         {carregando ? (
           <Esqueleto className="mt-3 h-8 w-36 bg-white/25" />
         ) : (
           <p className="mt-2 text-3xl font-bold tracking-tight">{formatarMoeda(totalMensal)}</p>
         )}
-        <p className={`mt-1 text-sm text-violet-100 ${carregando ? 'invisible' : ''}`}>
+        <p className={`mt-1 text-sm text-white/70 ${carregando ? 'invisible' : ''}`}>
           {ativas.length} {ativas.length === 1 ? 'assinatura ativa' : 'assinaturas ativas'}
           {proximas.length > 0 && (
             <>
@@ -151,8 +151,8 @@ export default function Assinaturas() {
           <EsqueletoLista linhas={3} />
         </Card>
       ) : assinaturas.length === 0 ? (
-        <div className="mt-6 flex flex-col items-center rounded-2xl border border-borda bg-white px-5 py-14 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-texto-suave">
+        <div className="mt-6 flex flex-col items-center rounded-2xl border border-borda bg-superficie px-5 py-14 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-superficie-3 text-texto-suave">
             <IconeRepetir className="h-6 w-6" />
           </span>
           <p className="mt-4 font-medium">Nenhuma assinatura cadastrada</p>
@@ -164,7 +164,7 @@ export default function Assinaturas() {
         <>
           {proximas.length > 0 && (
             <p className="mt-6 text-sm text-texto-suave">
-              <span className="font-semibold text-amber-800">Próximas cobranças: </span>
+              <span className="font-semibold text-aviso-texto">Próximas cobranças: </span>
               {proximas
                 .sort((a, b) => a.dias - b.dias)
                 .map((p) => `${p.assinatura.nome} (${formatarDiaMes(p.data)})`)

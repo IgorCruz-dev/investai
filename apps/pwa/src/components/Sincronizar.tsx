@@ -13,7 +13,7 @@ type Props = {
 
 const corDoStatus: Record<SyncLog['status'], string> = {
   sucesso: 'text-texto-suave',
-  parcial: 'text-amber-700',
+  parcial: 'text-aviso-texto',
   erro: 'text-despesa',
 }
 
@@ -56,8 +56,8 @@ export default function Sincronizar({ compacto }: Props) {
   if (compacto && !temConexao) return null
 
   return (
-    <div className={`flex items-center gap-3 rounded-2xl border border-borda bg-white ${compacto ? 'px-4 py-3' : 'p-5'}`}>
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-primaria">
+    <div className={`flex items-center gap-3 rounded-2xl border border-borda bg-superficie ${compacto ? 'px-4 py-3' : 'p-5'}`}>
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sucesso-fundo text-primaria">
         <IconeBanco className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1" aria-live="polite">
@@ -82,7 +82,7 @@ export default function Sincronizar({ compacto }: Props) {
       <button
         onClick={aoClicar}
         disabled={sincronizando || temConexao === false}
-        className="flex h-10 shrink-0 items-center gap-2 rounded-xl bg-primaria px-3.5 text-sm font-semibold text-white transition hover:bg-primaria-escura disabled:opacity-60"
+        className="flex h-10 shrink-0 items-center gap-2 rounded-xl bg-primaria px-3.5 text-sm font-semibold text-sobre-primaria transition hover:bg-primaria-escura disabled:opacity-60"
       >
         <IconeSincronizar className={`h-4 w-4 ${sincronizando ? 'animate-spin' : ''}`} />
         <span className={compacto ? 'sr-only sm:not-sr-only' : ''}>Sincronizar</span>

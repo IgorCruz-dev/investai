@@ -8,7 +8,7 @@ export default function RotaProtegida() {
   if (carregando) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
-        <span className="h-8 w-8 animate-spin rounded-full border-3 border-emerald-100 border-t-primaria" />
+        <span className="h-8 w-8 animate-spin rounded-full border-3 border-superficie-3 border-t-primaria" />
       </div>
     )
   }

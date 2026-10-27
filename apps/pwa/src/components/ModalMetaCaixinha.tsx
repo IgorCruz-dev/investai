@@ -48,7 +48,7 @@ export default function ModalMetaCaixinha({ usuarioId, metaAtual, aoFechar, aoSa
             type="button"
             onClick={() => setConfirmandoRemocao(false)}
             disabled={salvando}
-            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-slate-50 hover:text-texto"
+            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-superficie-2 hover:text-texto"
           >
             Cancelar
           </button>
@@ -72,7 +72,7 @@ export default function ModalMetaCaixinha({ usuarioId, metaAtual, aoFechar, aoSa
               type="button"
               onClick={() => setConfirmandoRemocao(true)}
               disabled={salvando}
-              className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-red-50"
+              className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-erro-fundo"
             >
               Remover meta
             </button>

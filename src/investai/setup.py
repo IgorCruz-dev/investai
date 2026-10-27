@@ -1,30 +1,17 @@
-"""Primeiro acesso: configura esta máquina e, se houver registro, se inscreve.
+"""Primeiro acesso da instalação pessoal.
 
     python -m investai.setup
 
-Pensado para quem acabou de clonar o repositório. Pergunta o que falta, escreve
-no `.env` local, aplica as migrações no banco da pessoa e — quando a instância
-compartilhada está configurada — grava a linha dela no registro central, para o
-bot e o painel passarem a atendê-la.
-
-Nada sai daqui para uma pessoa: a senha nunca é guardada (só o hash PBKDF2), e
-as credenciais vão direto para o banco de registro pela connection string de
-inscrição, que só escreve e não lê a linha de ninguém.
-
-Rodar de novo é seguro: o que já está respondido vem como padrão entre
-colchetes, Enter mantém, e a inscrição é um upsert da própria linha.
+Pergunta o que falta e escreve no `.env` local. A aplicação das migrações
+Supabase é uma etapa explícita separada, após configurar a URL do projeto novo.
 """
 
 from __future__ import annotations
 
-import argparse
-import getpass
 import os
 import re
 import sys
 from pathlib import Path
-
-from investai import migrations, tenants
 
 ROOT = Path(__file__).resolve().parents[2]
 ENV_PATH = ROOT / ".env"
@@ -121,7 +108,7 @@ def _resumir(valor: str) -> str:
 
 def _valida_postgres(valor: str) -> str | None:
     if not valor.startswith(("postgres://", "postgresql://")):
-        return "deve começar com postgresql:// (copie do painel do Neon)"
+        return "deve começar com postgresql:// (copie a URI do Supabase)"
     return None
 
 
@@ -132,29 +119,10 @@ def _valida_telefone(valor: str) -> str | None:
     return None
 
 
-def _valida_id(valor: str) -> str | None:
-    if not tenants.ID_VALIDO.match(valor):
-        return "de 1 a 32 caracteres entre a-z, 0-9, _ e - (começando por letra ou número)"
-    return None
-
-
 def _valida_chave(valor: str) -> str | None:
     if not valor.startswith("sk-ant-"):
         return "a chave da Anthropic começa com sk-ant- (console.anthropic.com/settings/keys)"
     return None
-
-
-def pedir_senha() -> str:
-    """Senha do painel web. Nunca é gravada — só o hash PBKDF2."""
-    while True:
-        senha = getpass.getpass("Senha para o painel web (não aparece na tela): ")
-        if len(senha) < 12:
-            erro("use pelo menos 12 caracteres — o painel fica exposto na internet")
-            continue
-        if senha != getpass.getpass("Repita a senha: "):
-            erro("as duas não bateram")
-            continue
-        return senha
 
 
 # --- etapas -----------------------------------------------------------------
@@ -167,14 +135,9 @@ def configurar_local(env: dict[str, str]) -> dict[str, str]:
         dica="crie em https://console.anthropic.com/settings/keys (precisa de crédito na conta)",
     )
     direta = perguntar(
-        "URL do seu Neon (endpoint DIRETO)", env.get("DATABASE_URL", ""),
+        "URI Postgres do projeto Supabase", env.get("DATABASE_URL", ""),
         validar=_valida_postgres,
-        dica="crie um projeto em https://neon.tech (free tier basta) e copie a connection string",
-    )
-    pooled = perguntar(
-        "URL do seu Neon (endpoint com -pooler)", env.get("DATABASE_URL_POOLED", ""),
-        validar=_valida_postgres,
-        dica="a mesma de cima, com '-pooler' no host — é a que o painel web usa",
+        dica="Project Settings → Database → Connection string → URI",
     )
     telefone = perguntar(
         "Seu telefone do WhatsApp", env.get("WHATSAPP_ALLOWED_NUMBERS", ""),
@@ -186,29 +149,10 @@ def configurar_local(env: dict[str, str]) -> dict[str, str]:
     gravar_env({
         "ANTHROPIC_API_KEY": chave,
         "DATABASE_URL": direta,
-        "DATABASE_URL_POOLED": pooled,
         "WHATSAPP_ALLOWED_NUMBERS": telefone,
     })
     ok(f"{ENV_PATH.name} atualizado (permissão 600)")
-    return {"chave": chave, "direta": direta, "pooled": pooled, "telefone": telefone}
-
-
-def aplicar_schema(url: str) -> bool:
-    print("\n--- 2. Seu banco ----------------------------------------------")
-    try:
-        faltando = migrations.pendentes(url)
-        if not faltando:
-            ok("banco já está com o schema em dia")
-            return True
-        print(f"  aplicando {len(faltando)} migração(ões): "
-              f"{', '.join(m.nome for m in faltando)}")
-        migrations.aplicar(url)
-        ok("schema aplicado")
-        return True
-    except Exception as exc:  # noqa: BLE001 — a mensagem é para a pessoa, não para o log
-        erro(f"não consegui preparar o banco: {exc}")
-        aviso("confira a URL e se o projeto do Neon está ativo, e rode de novo")
-        return False
+    return {"chave": chave, "direta": direta, "telefone": telefone}
 
 
 def semear_catalogo() -> None:
@@ -228,93 +172,24 @@ def semear_catalogo() -> None:
         aviso(f"catálogo não semeado ({exc}) — o cron da VM preenche depois")
 
 
-def inscrever(dados: dict[str, str]) -> bool:
-    print("\n--- 3. Instância compartilhada --------------------------------")
-
-    url_registro = tenants.registry_url()
-    if not url_registro:
-        aviso("INVESTAI_REGISTRY_URL não está no .env — pulando a inscrição.")
-        print("  Você já pode usar o sistema nesta máquina (streamlit run main.py).")
-        print("  Para entrar no bot e no painel compartilhados, peça a quem hospeda")
-        print("  a connection string de inscrição e ponha em INVESTAI_REGISTRY_URL.")
-        return True
-
-    print("  Isto grava as suas credenciais no registro da instância compartilhada,")
-    print("  para o bot e o painel atenderem você. IMPORTANTE, e sem meias palavras:")
-    print("  a sua chave da Anthropic e a URL do seu banco passam a ficar na")
-    print("  infraestrutura de quem hospeda, que tecnicamente consegue lê-las.")
-    print("  Se não quiser isso, responda 'n' e use o sistema só nesta máquina.\n")
-
-    if input("  Inscrever? [s/N]: ").strip().lower() not in ("s", "sim", "y"):
-        aviso("inscrição cancelada — o uso local continua funcionando")
-        return True
-
-    ident = perguntar("Seu usuário (login do painel, minúsculas)",
-                      os.getenv("INVESTAI_TENANT_ID", ""), validar=_valida_id)
-    nome = perguntar("Seu nome (como aparece no painel)", ident.capitalize())
-    senha = pedir_senha()
-
-    try:
-        import psycopg
-
-        with psycopg.connect(url_registro, connect_timeout=20) as conn:
-            conn.execute(
-                "insert into tenants (id, nome, telefone, database_url, "
-                "database_url_pooled, anthropic_key, web_password_hash) "
-                "values (%s, %s, %s, %s, %s, %s, %s) "
-                "on conflict (id) do update set nome = excluded.nome, "
-                "telefone = excluded.telefone, database_url = excluded.database_url, "
-                "database_url_pooled = excluded.database_url_pooled, "
-                "anthropic_key = excluded.anthropic_key, "
-                "web_password_hash = excluded.web_password_hash, ativo = true",
-                (ident, nome, dados["telefone"], dados["direta"], dados["pooled"],
-                 dados["chave"], tenants.hash_de_senha(senha)),
-            )
-            conn.commit()
-    except Exception as exc:  # noqa: BLE001
-        erro(f"não consegui inscrever: {exc}")
-        aviso("a credencial de inscrição pode ter expirado — fale com quem hospeda")
-        return False
-
-    gravar_env({"INVESTAI_TENANT_ID": ident})
-    ok(f"inscrito como '{ident}'")
-    print(f"  O bot passa a te atender em até {int(tenants.REGISTRO_TTL)}s, no mesmo número.")
-    print(f"  No painel web, entre com o usuário '{ident}' e essa senha.")
-    return True
-
-
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--so-local", action="store_true",
-                        help="configura a máquina e o banco, sem inscrever na instância compartilhada")
-    args = parser.parse_args()
-
     print("InvestAI — configuração inicial")
     print("Enter mantém o valor entre colchetes. Ctrl+C sai sem gravar nada.")
 
     try:
-        dados = configurar_local(ler_env())
+        configurar_local(ler_env())
 
         # O .env acabou de mudar; recarrega para as etapas seguintes o verem.
         from dotenv import load_dotenv
         load_dotenv(ENV_PATH, override=True)
-        tenants.recarregar()
-
-        if not aplicar_schema(dados["direta"]):
-            return 1
-        semear_catalogo()
-
-        if not args.so_local and not inscrever(dados):
-            return 1
     except KeyboardInterrupt:
         print()
         aviso("cancelado")
         return 130
 
     print("\n--- Pronto ----------------------------------------------------")
-    print("  streamlit run main.py        o dashboard local")
-    print("  pytest -m \"not network\"      a suíte offline")
-    print("  docs/deploy.md               a instância compartilhada, passo a passo")
+    print("  Aplique supabase/migrations no projeto novo antes de iniciar a VM.")
+    print("  PWA: cd apps/pwa && npm run dev")
     return 0
 
 

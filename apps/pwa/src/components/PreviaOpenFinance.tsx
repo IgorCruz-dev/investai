@@ -17,13 +17,13 @@ function IconeAproximacao({ className }: { className?: string }) {
 
 function CartaoCredito() {
   return (
-    <div className="relative h-44 w-72 overflow-hidden rounded-2xl bg-linear-to-br from-slate-700 via-slate-900 to-black p-5 text-white shadow-2xl shadow-emerald-950/50 ring-1 ring-white/10">
+    <div className="relative h-44 w-72 overflow-hidden rounded-2xl bg-linear-to-br from-slate-700 via-slate-900 to-black p-5 text-white shadow-2xl shadow-black/60 ring-1 ring-white/10">
       {/* brilho diagonal */}
       <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/10 to-transparent" />
-      <div className="absolute -top-16 -right-10 h-40 w-40 rounded-full bg-emerald-400/20 blur-2xl" />
+      <div className="absolute -top-16 -right-10 h-40 w-40 rounded-full bg-primaria/20 blur-2xl" />
 
       <div className="relative flex items-center justify-between">
-        <span className="text-sm font-semibold tracking-wide">Meu Bolso</span>
+        <span className="text-sm font-semibold tracking-wide">InvestAI</span>
         <IconeAproximacao className="h-5 w-5 text-white/70" />
       </div>
 
@@ -48,7 +48,7 @@ export function PreviaOpenFinanceCompacta({ className = '' }: { className?: stri
   return (
     <div className={`flex items-center gap-4 rounded-2xl bg-white/10 p-4 ring-1 ring-white/20 backdrop-blur ${className}`}>
       {/* mini cartão */}
-      <div className="relative h-16 w-24 shrink-0 -rotate-6 overflow-hidden rounded-lg bg-linear-to-br from-slate-700 via-slate-900 to-black p-2.5 shadow-xl shadow-emerald-950/50 ring-1 ring-white/10">
+      <div className="relative h-16 w-24 shrink-0 -rotate-6 overflow-hidden rounded-lg bg-linear-to-br from-slate-700 via-slate-900 to-black p-2.5 shadow-xl shadow-black/60 ring-1 ring-white/10">
         <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/10 to-transparent" />
         <div className="relative h-3.5 w-5 rounded-[3px] bg-amber-300/90" />
         <p className="relative mt-3 font-mono text-[10px] tracking-widest">•• 4821</p>
@@ -60,7 +60,7 @@ export function PreviaOpenFinanceCompacta({ className = '' }: { className?: stri
             {contas.map((c) => (
               <span
                 key={c.banco}
-                className={`flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold text-white ring-2 ring-emerald-700 ${c.cor}`}
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold text-white ring-2 ring-primaria ${c.cor}`}
               >
                 {c.sigla}
               </span>
@@ -68,8 +68,8 @@ export function PreviaOpenFinanceCompacta({ className = '' }: { className?: stri
           </div>
           <p className="text-sm font-semibold">{contas.length} bancos conectados</p>
         </div>
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-emerald-100">
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-primaria">
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-white/70">
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-superficie text-primaria">
             <IconeCheck className="h-2.5 w-2.5" />
           </span>
           Cartão final 4821 adicionado
@@ -89,10 +89,10 @@ export default function PreviaOpenFinance() {
       </div>
 
       {/* Contas conectadas */}
-      <div className="absolute bottom-0 left-0 z-10 w-80 rounded-2xl bg-white p-5 text-texto shadow-2xl shadow-emerald-950/40">
+      <div className="absolute bottom-0 left-0 z-10 w-80 rounded-2xl bg-superficie p-5 text-texto shadow-2xl shadow-black/60">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold">Contas conectadas</p>
-          <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-primaria">
+          <span className="flex items-center gap-1.5 rounded-full bg-sucesso-fundo px-2.5 py-0.5 text-xs font-semibold text-primaria">
             <span className="relative flex h-1.5 w-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primaria opacity-60" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primaria" />
@@ -129,8 +129,8 @@ export default function PreviaOpenFinance() {
       </div>
 
       {/* Aviso flutuante */}
-      <div className="absolute top-6 left-0 z-20 flex items-center gap-3 rounded-xl bg-white py-2.5 pr-4 pl-2.5 text-texto shadow-xl shadow-emerald-950/30">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-primaria">
+      <div className="absolute top-6 left-0 z-20 flex items-center gap-3 rounded-xl bg-superficie py-2.5 pr-4 pl-2.5 text-texto shadow-xl shadow-black/50">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sucesso-fundo text-primaria">
           <IconeCheck className="h-4 w-4" />
         </span>
         <div>

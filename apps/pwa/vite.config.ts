@@ -11,12 +11,12 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: 'Meu Bolso',
-        short_name: 'Meu Bolso',
-        description: 'Controle financeiro pessoal',
+        name: 'InvestAI',
+        short_name: 'InvestAI',
+        description: 'Finanças e investimentos em um só lugar',
         lang: 'pt-BR',
-        theme_color: '#059669',
-        background_color: '#ffffff',
+        theme_color: '#0a0a0f',
+        background_color: '#0a0a0f',
         display: 'standalone',
         start_url: '/',
         // PNGs gerados de public/icon.svg com `npm run icones`

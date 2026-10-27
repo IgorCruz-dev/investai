@@ -11,7 +11,7 @@ type Props = {
   aoCriar: (categoria: Categoria) => void
 }
 
-const paleta = ['#f97316', '#eab308', '#22c55e', '#14b8a6', '#0ea5e9', '#6366f1', '#a855f7', '#ec4899', '#ef4444', '#64748b']
+const paleta = ['#f97316', '#eab308', '#22c55e', '#14b8a6', '#0ea5e9', '#6366f1', '#a855f7', '#ec4899', '#ef4444', '#d4af37']
 
 export default function SeletorCategoria({ categorias, valor, aoMudar, aoCriar }: Props) {
   const [criando, setCriando] = useState(false)
@@ -57,7 +57,7 @@ export default function SeletorCategoria({ categorias, valor, aoMudar, aoCriar }
               type="button"
               aria-pressed={escolhida}
               onClick={() => aoMudar(escolhida ? null : c.id)}
-              className={`flex h-9 items-center gap-2 rounded-full border px-3 text-sm transition ${escolhida ? 'border-primaria bg-emerald-50 font-medium text-primaria' : 'border-borda bg-white text-texto hover:border-slate-300'}`}
+              className={`flex h-9 items-center gap-2 rounded-full border px-3 text-sm transition ${escolhida ? 'border-primaria bg-sucesso-fundo font-medium text-primaria' : 'border-borda bg-superficie text-texto hover:border-borda-forte'}`}
             >
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.cor }} />
               {c.nome}
@@ -68,7 +68,7 @@ export default function SeletorCategoria({ categorias, valor, aoMudar, aoCriar }
           <button
             type="button"
             onClick={() => setCriando(true)}
-            className="flex h-9 items-center gap-1.5 rounded-full border border-dashed border-slate-300 px-3 text-sm font-medium text-texto-suave transition hover:border-primaria hover:text-primaria"
+            className="flex h-9 items-center gap-1.5 rounded-full border border-dashed border-borda-forte px-3 text-sm font-medium text-texto-suave transition hover:border-primaria hover:text-primaria"
           >
             <IconeMais className="h-4 w-4" />
             Nova
@@ -77,7 +77,7 @@ export default function SeletorCategoria({ categorias, valor, aoMudar, aoCriar }
       </div>
 
       {criando && (
-        <div className="mt-1 flex flex-col gap-3 rounded-xl border border-borda bg-slate-50 p-3">
+        <div className="mt-1 flex flex-col gap-3 rounded-xl border border-borda bg-superficie-2 p-3">
           <input
             autoFocus
             value={nome}
@@ -86,7 +86,7 @@ export default function SeletorCategoria({ categorias, valor, aoMudar, aoCriar }
             placeholder="Nome da categoria"
             aria-label="Nome da nova categoria"
             maxLength={30}
-            className="h-11 rounded-lg border border-borda bg-white px-3 text-base outline-none focus:border-primaria focus:ring-4 focus:ring-primaria/15"
+            className="h-11 rounded-lg border border-borda bg-superficie px-3 text-base outline-none focus:border-primaria focus:ring-4 focus:ring-primaria/15"
           />
           <div role="group" aria-label="Cor" className="flex flex-wrap gap-2">
             {paleta.map((c) => (
@@ -107,7 +107,7 @@ export default function SeletorCategoria({ categorias, valor, aoMudar, aoCriar }
               type="button"
               onClick={criar}
               disabled={salvando}
-              className="h-10 flex-1 rounded-lg bg-primaria text-sm font-semibold text-white transition hover:bg-primaria-escura disabled:opacity-70"
+              className="h-10 flex-1 rounded-lg bg-primaria text-sm font-semibold text-sobre-primaria transition hover:bg-primaria-escura disabled:opacity-70"
             >
               {salvando ? 'Criando...' : 'Criar categoria'}
             </button>
@@ -117,7 +117,7 @@ export default function SeletorCategoria({ categorias, valor, aoMudar, aoCriar }
                 setCriando(false)
                 setErro('')
               }}
-              className="h-10 rounded-lg px-4 text-sm font-medium text-texto-suave transition hover:bg-white hover:text-texto"
+              className="h-10 rounded-lg px-4 text-sm font-medium text-texto-suave transition hover:bg-superficie hover:text-texto"
             >
               Cancelar
             </button>

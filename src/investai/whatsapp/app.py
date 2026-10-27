@@ -12,17 +12,17 @@ não faz sentido segurar a conexão da ponte nesse tempo. A resposta volta pelo
 
 from __future__ import annotations
 
-import contextlib
 import logging
+import os
 from typing import Any
 
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from investai import tenants
 from investai.agent.assistant import responder, resposta_rapida, saudacao
 from investai.whatsapp import actions, bridge_client, router, store
 from investai.whatsapp.config import (
+    ALLOWED_NUMBERS,
     BRIDGE_SECRET,
     CRON_TOKEN,
     MONTHLY_BUDGET_USD,
@@ -56,40 +56,25 @@ def _startup() -> None:
     if faltando:
         logger.warning("Configuração incompleta — faltam: %s", ", ".join(faltando))
     else:
-        autorizados = tenants.telefones_autorizados()
-        if tenants.multiusuario():
-            logger.info("Servidor pronto | %d usuário(s): %s", len(autorizados),
-                        ", ".join(t.id for t in tenants.todos()))
-        else:
-            logger.info("Servidor pronto | %d número(s) autorizado(s)", len(autorizados))
+        logger.info("Servidor pronto | %d número(s) autorizado(s)", len(ALLOWED_NUMBERS))
         _conferir_migracoes()
 
 
 def _conferir_migracoes() -> None:
-    """Avisa, no start, quando algum banco está atrás nas migrações.
-
-    Com um banco por pessoa, uma tabela adicionada por alguém chega aos outros
-    só quando cada banco migra. Sem este aviso a descoberta acontece no meio de
-    uma query, como "coluna não existe", num caminho que a pessoa nem tocou.
-    Avisa e segue: derrubar o servidor deixaria todos sem bot por causa de um.
-    """
+    """Avisa no start quando o Supabase está atrás nas migrações do PWA."""
     from investai import migrations
 
-    for dono in tenants.todos():
-        if not dono.database_url:
-            continue
-        try:
-            faltando = migrations.pendentes(dono.database_url)
-        except Exception as exc:  # noqa: BLE001 — diagnóstico não derruba o start
-            logger.warning("Não consegui conferir as migrações de %s: %s", dono.id, exc)
-            continue
-        if faltando:
-            logger.warning(
-                "Banco de %s está atrás: falta(m) %s. Rode "
-                "`python scripts/migrar.py --usuario %s` — até lá, as consultas "
-                "que dependem dessas tabelas vão falhar.",
-                dono.id, ", ".join(m.nome for m in faltando), dono.id,
-            )
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return
+    try:
+        faltando = migrations.pendentes(url, migrations.ROOT / "supabase" / "migrations")
+    except Exception as exc:  # noqa: BLE001 — diagnóstico não derruba o start
+        logger.warning("Não consegui conferir as migrações: %s", exc)
+        return
+    if faltando:
+        logger.warning("Banco atrás: falta(m) %s. Rode `python scripts/aplicar_supabase.py`.",
+                       ", ".join(m.nome for m in faltando))
 
 
 @app.get("/health")
@@ -117,10 +102,7 @@ def receber(
     numero = "".join(c for c in mensagem.numero if c.isdigit())
 
     # A ponte já filtra, mas repetimos: duas trancas na porta que gasta dinheiro.
-    # Em modo multiusuário o registro é a lista branca — um número fora dele não
-    # tem banco para consultar, então autorizá-lo não significaria nada.
-    autorizados = tenants.telefones_autorizados()
-    if autorizados and numero not in autorizados:
+    if numero not in ALLOWED_NUMBERS:
         logger.warning("Mensagem de número não autorizado: %s", numero[:6] + "…")
         return {"status": "ignorado"}
 
@@ -137,60 +119,38 @@ def receber(
 
 
 def _processar(numero: str, texto: str, jid: str = "") -> None:
-    """Resolve a intenção, executa e responde pela ponte. Nunca levanta exceção.
-
-    O usuário é resolvido **aqui**, e não em `receber()`: `BackgroundTasks`
-    executa esta função noutro contexto, e um `ContextVar` setado lá fora não
-    atravessaria para cá.
-    """
+    """Resolve a intenção, executa e responde pela ponte. Nunca levanta exceção."""
     enviar = lambda msg: bridge_client.enviar_texto(numero, msg, jid)  # noqa: E731
 
-    dono = tenants.por_telefone(numero)
-    if dono is None and tenants.multiusuario():
-        # A lista branca é o registro, então não deveria chegar aqui — mas um
-        # registro editado entre `receber()` e esta linha cairia neste caso, e
-        # mandar a query para um banco arbitrário é o único desfecho inaceitável.
-        logger.error("Sem usuário para %s — mensagem descartada", numero[:6] + "…")
-        enviar("Seu número não está cadastrado neste assistente.")
+    if numero not in ALLOWED_NUMBERS:
+        logger.warning("Número não autorizado na fila: %s", numero[:6] + "…")
         return
 
-    escopo = tenants.usar(dono) if dono is not None else contextlib.nullcontext()
-
     try:
-        with escopo:
-            if not ROTEADOR:
-                _processar_pelo_agente(numero, texto, enviar)
+        if not ROTEADOR:
+            _processar_pelo_agente(numero, texto, enviar)
+            return
+
+        sessao = store.ler_sessao(numero)
+        intencao = router.resolver(texto, sessao)
+
+        # O teto de gasto só vale para as rotas que chamam a API.
+        if intencao.usa_llm:
+            gasto = store.gasto_do_mes()
+            if gasto >= MONTHLY_BUDGET_USD:
+                enviar(
+                    f"Atingi o limite de gasto deste mês (US$ {gasto:.2f} de "
+                    f"US$ {MONTHLY_BUDGET_USD:.2f}). As consultas sem IA "
+                    "(carteira, cotação, extrato) continuam funcionando."
+                )
                 return
+            if intencao.aviso:
+                enviar(intencao.aviso)
 
-            sessao = store.ler_sessao(numero)
-            intencao = router.resolver(texto, sessao)
-
-            # O teto de gasto só vale para as três rotas que chamam a API.
-            # Bloquear a consulta de carteira porque o briefing estourou o
-            # orçamento seria punir justamente o caminho que não custa nada.
-            if intencao.usa_llm:
-                # Teto por pessoa: cada um gasta no próprio cartão, com o
-                # teto do próprio registro. O gasto de um não bloqueia a IA do
-                # outro — era o que aconteceria com um teto compartilhado.
-                teto = dono.budget_usd if dono is not None else MONTHLY_BUDGET_USD
-                gasto = store.gasto_do_mes(numero if dono is not None else None)
-                if gasto >= teto:
-                    enviar(
-                        f"Atingi o limite de gasto deste mês (US$ {gasto:.2f} de "
-                        f"US$ {teto:.2f}). As consultas sem IA (carteira, cotação, "
-                        "extrato) continuam funcionando."
-                    )
-                    return
-                if intencao.aviso:
-                    # A rota de IA leva de 20 s a 1 min: dizer que está
-                    # trabalhando evita a dúvida de "chegou minha mensagem?".
-                    enviar(intencao.aviso)
-
-            resposta = actions.executar(intencao, numero)
-            enviar(resposta)
-            logger.info("Respondido %s | usuário=%s | intenção=%s%s",
-                        numero[:6] + "…", dono.id if dono else "padrão",
-                        intencao.nome, " (IA)" if intencao.usa_llm else " (custo zero)")
+        resposta = actions.executar(intencao, numero)
+        enviar(resposta)
+        logger.info("Respondido %s | intenção=%s%s", numero[:6] + "…",
+                    intencao.nome, " (IA)" if intencao.usa_llm else " (custo zero)")
     except Exception:  # noqa: BLE001 — fronteira final
         logger.exception("Falha ao processar mensagem de %s", numero[:6] + "…")
         enviar("Tive um problema inesperado aqui. Pode tentar de novo?")
@@ -251,7 +211,7 @@ def cron_briefing(background: BackgroundTasks, token: str = Query("")) -> dict[s
     """Dispara o briefing semanal. Protegido por token: o endpoint gasta créditos."""
     if not CRON_TOKEN or token != CRON_TOKEN:
         raise HTTPException(status_code=403, detail="token inválido")
-    destinatarios = tenants.telefones_autorizados()
+    destinatarios = ALLOWED_NUMBERS
     if not destinatarios:
         raise HTTPException(status_code=400, detail="nenhum número autorizado configurado")
 
@@ -260,12 +220,7 @@ def cron_briefing(background: BackgroundTasks, token: str = Query("")) -> dict[s
 
 
 def _enviar_briefing_semanal() -> None:
-    """Gera e manda o briefing de cada pessoa. Sem Cloud API não há janela de 24h.
-
-    Um briefing **por carteira**: antes era um texto só, enviado a todo número
-    da lista branca, o que com mais de uma pessoa significaria mandar a carteira
-    de alguém para todo mundo.
-    """
+    """Gera o briefing da carteira pessoal e o envia aos números autorizados."""
     from investai.agent.tools import gerar_briefing
 
     cabecalho = "📊 *Seu briefing semanal do InvestAI*\n\n"
@@ -277,29 +232,9 @@ def _enviar_briefing_semanal() -> None:
             logger.exception("Falha ao gerar o briefing de %s", rotulo)
             return f"Não consegui gerar o briefing desta semana ({exc.__class__.__name__})."
 
-    if not tenants.multiusuario():
-        # Instância pessoal: uma carteira só, enviada a cada número autorizado
-        # (dá para ter o celular e o tablet na lista). Os números saem do
-        # ambiente, não do tenant sintético — ele é só um lugar para pendurar o
-        # pool, e o telefone dele é uma cópia do `.env` feita no carregamento.
-        texto = gerar("instância pessoal")
-        for numero in sorted(tenants.telefones_autorizados()):
-            if bridge_client.enviar_texto(numero, cabecalho + texto):
-                logger.info("Briefing semanal enviado para %s", numero[:6] + "…")
-            else:
-                logger.error("Falha ao enviar o briefing para %s", numero[:6] + "…")
-        return
-
-    # Um briefing por carteira: antes era um texto só, enviado a todo número da
-    # lista — o que com mais de uma pessoa significaria mandar a carteira de
-    # alguém para o grupo inteiro.
-    for dono in tenants.todos():
-        with tenants.usar(dono):
-            texto = gerar(dono.id)
-            if not dono.telefone:
-                logger.warning("Usuário %s sem telefone — briefing não enviado", dono.id)
-                continue
-            if bridge_client.enviar_texto(dono.telefone, cabecalho + texto):
-                logger.info("Briefing enviado para %s (%s)", dono.id, dono.telefone[:6] + "…")
-            else:
-                logger.error("Falha ao enviar o briefing para %s", dono.id)
+    texto = gerar("instância pessoal")
+    for numero in sorted(ALLOWED_NUMBERS):
+        if bridge_client.enviar_texto(numero, cabecalho + texto):
+            logger.info("Briefing semanal enviado para %s", numero[:6] + "…")
+        else:
+            logger.error("Falha ao enviar o briefing para %s", numero[:6] + "…")

@@ -238,7 +238,7 @@ def recomendar_carteira() -> str:
 
         profile = build_profile(perfil_salvo["answers"])
         bundle = market_data.get_portfolio_data([a.ticker for a in UNIVERSE])
-        rec = recommend(profile, bundle, use_llm=False)  # o agente já explica; evita LLM aninhado
+        rec = recommend(profile, bundle)  # sem triagem: o agente já explica, e não aninha chamada paga
 
         if not rec.ok:
             return f"Não consegui montar a recomendação: {rec.error}"

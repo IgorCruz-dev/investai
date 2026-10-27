@@ -1,4 +1,4 @@
-"""Acesso ao Postgres (Neon): carteira, movimentações, perfil, snapshots e fila.
+"""Acesso ao Postgres do Supabase: carteira, perfil, snapshots e fila.
 
 Por que um banco gerenciado e não o arquivo JSON que havia antes: a interface
 web roda na Vercel e o assistente roda na VM da Oracle, e os dois precisam ver a
@@ -7,7 +7,7 @@ porta na internet — exatamente a propriedade que este deploy não quer perder.
 Com o estado fora das duas, cada lado faz só conexão de **saída**.
 
 Regra do módulo: `movimentacoes` é a verdade e `posicoes` é derivada dela pelo
-trigger em `deploy/sql/001_inicial.sql`. Nada aqui escreve em `posicoes`.
+trigger em `supabase/migrations`. Nada aqui escreve em `posicoes`.
 
 Sem `DATABASE_URL` configurada, todas as funções levantam `SemBanco` — quem
 chama decide se cai para o JSON (é o que `investai.config.load_portfolio` faz) ou se
@@ -28,9 +28,13 @@ from investai.config import Portfolio, Position
 
 logger = logging.getLogger(__name__)
 
-#: Quantos snapshots guardar. São o histórico do dashboard, não um data lake —
-#: e o plano gratuito do Neon tem 0,5 GB.
+#: Quantos snapshots guardar. São o histórico do dashboard, não um data lake.
 SNAPSHOTS_RETIDOS = 30
+
+#: Quantos planos guardar. Poucos de propósito: o plano velho serve para comparar
+#: com o de hoje, não para virar arquivo morto de carteiras que nunca foram
+#: compradas.
+PLANOS_RETIDOS = 10
 
 
 class SemBanco(RuntimeError):
@@ -47,30 +51,8 @@ class ErroDeEscrita(RuntimeError):
 
 
 def url() -> str | None:
-    """A `DATABASE_URL` do usuário ativo.
-
-    Em modo multiusuário cada pessoa tem o seu banco, e o usuário ativo vem do
-    `ContextVar` de `investai.tenants` — por isso esta função não pode cachear
-    nada. Import local para não criar ciclo com `config`.
-    """
-    from investai import tenants
-
-    if tenants.multiusuario():
-        t = tenants.ativo()
-        # Fora de escopo é `None`, nunca o banco do `.env`: cair nele mandaria a
-        # operação para a carteira de quem hospeda.
-        return (t.database_url or None) if t is not None else None
-    # Sem registro, o caminho é o de sempre — inclusive quando um escopo está
-    # aberto com o tenant sintético, que nasce do próprio `.env`.
+    """A conexão Postgres desta instalação pessoal."""
     return os.getenv("DATABASE_URL") or None
-
-
-def _chave_do_pool() -> str:
-    """Identidade do pool: um por banco, nunca um compartilhado."""
-    from investai import tenants
-
-    t = tenants.ativo()
-    return t.id if t is not None else tenants.ID_PADRAO
 
 
 def configurado() -> bool:
@@ -78,11 +60,8 @@ def configurado() -> bool:
 
 
 # --- Conexão ----------------------------------------------------------------
-# Um pool por usuário, não um global: ver `investai.tenants`. Trocar a URL de um
-# pool compartilhado entre mensagens é uma condição de corrida — os handlers do
-# FastAPI são síncronos e rodam num threadpool, então duas mensagens no mesmo
-# segundo mandariam a query de uma pessoa para o banco da outra.
-_pools: dict[str, Any] = {}
+# Uma conexão compartilhada com pool de tamanho limitado para a instância.
+_pool: Any | None = None
 _pool_lock = threading.Lock()
 
 
@@ -95,9 +74,7 @@ def _criar_pool() -> Any:
     except ImportError as exc:  # pragma: no cover - ambiente sem a dependência
         raise SemBanco(f"psycopg não instalado ({exc})") from exc
 
-    # min_size=0: o plano gratuito do Neon suspende a computação quando ociosa, e
-    # segurar conexão aberta só serve para tomar erro de conexão morta depois.
-    # A primeira query acorda o banco em cerca de 1 s.
+    # min_size=0 evita conexões abertas durante a ociosidade da VM.
     return ConnectionPool(
         endereco, min_size=0, max_size=4, timeout=20, max_idle=60,
         kwargs={"connect_timeout": 15, "application_name": "investai"},
@@ -106,25 +83,25 @@ def _criar_pool() -> Any:
 
 
 def pool() -> Any:
-    chave = _chave_do_pool()
-    existente = _pools.get(chave)
-    if existente is not None:
-        return existente
+    global _pool
+    if _pool is not None:
+        return _pool
     with _pool_lock:
-        if chave not in _pools:
-            _pools[chave] = _criar_pool()
-        return _pools[chave]
+        if _pool is None:
+            _pool = _criar_pool()
+        return _pool
 
 
 def reset_pool() -> None:
-    """Fecha todos os pools. Usado pelos testes ao trocar de banco."""
+    """Fecha o pool. Usado pelos testes ao trocar de banco."""
+    global _pool
     with _pool_lock:
-        for chave, aberto in list(_pools.items()):
+        if _pool is not None:
             try:
-                aberto.close()
+                _pool.close()
             except Exception:  # noqa: BLE001
-                logger.debug("falha ao fechar o pool de %s", chave, exc_info=True)
-        _pools.clear()
+                logger.debug("falha ao fechar o pool", exc_info=True)
+        _pool = None
 
 
 def _traduzir(exc: Exception) -> Exception:
@@ -401,7 +378,7 @@ def perfil() -> dict[str, Any]:
     As respostas ficam na chave `answers` e o derivado é espalhado no mesmo
     nível — é o que `tools.status_do_perfil` e `recomendar_carteira` esperam.
     """
-    linha = _executar("select respostas, derivado, atualizado from perfil where id = 1",
+    linha = _executar("select respostas, derivado, atualizado from perfil_investidor where id = 1",
                       buscar="um")
     if not linha:
         return {}
@@ -413,7 +390,7 @@ def perfil() -> dict[str, Any]:
 def salvar_perfil(respostas: dict[str, Any], derivado: dict[str, Any]) -> None:
     _executar(
         """
-        insert into perfil (id, respostas, derivado, atualizado)
+        insert into perfil_investidor (id, respostas, derivado, atualizado)
         values (1, %s, %s, now())
         on conflict (id) do update
            set respostas = excluded.respostas,
@@ -423,6 +400,41 @@ def salvar_perfil(respostas: dict[str, Any], derivado: dict[str, Any]) -> None:
         (json.dumps(respostas, ensure_ascii=False, default=str),
          json.dumps(derivado, ensure_ascii=False, default=str)),
     )
+
+
+# --- Planos (carteira sugerida) ---------------------------------------------
+#
+# Plano é lista de conferência, nunca posição: aceitar um plano não cria
+# movimentação (spec 002, item 4). Quem grava é a VM; o PWA só lê.
+def publicar_plano(payload: dict[str, Any]) -> int:
+    """Grava a carteira sugerida e poda as antigas, na mesma ida ao banco."""
+    with cursor(escrita=True) as cur:
+        cur.execute(
+            "insert into planos (payload) values (%s) returning id",
+            (json.dumps(payload, ensure_ascii=False, default=str),),
+        )
+        id_novo = int(cur.fetchone()["id"])
+        cur.execute(
+            "delete from planos where id not in "
+            "(select id from planos order by gerado_em desc limit %s)",
+            (PLANOS_RETIDOS,),
+        )
+    return id_novo
+
+
+def ultimo_plano() -> dict[str, Any] | None:
+    linha = _executar(
+        "select id, gerado_em, aceito_em, payload from planos "
+        "order by gerado_em desc limit 1",
+        buscar="um",
+    )
+    if not linha:
+        return None
+    payload = linha["payload"] or {}
+    payload["planoId"] = linha["id"]
+    payload["geradoEm"] = linha["gerado_em"].isoformat()
+    payload["aceitoEm"] = linha["aceito_em"].isoformat() if linha["aceito_em"] else None
+    return payload
 
 
 # --- Snapshots --------------------------------------------------------------
@@ -492,19 +504,4 @@ def fechar_job(id_job: int, ok: bool, resultado: dict[str, Any] | None = None) -
 def jobs_pendentes() -> int:
     linha = _executar("select count(*) as n from jobs where estado = 'pendente'",
                       buscar="um")
-    return int((linha or {}).get("n") or 0)
-
-
-# --- Login da web -----------------------------------------------------------
-def registrar_tentativa_login(ip: str | None, sucesso: bool) -> None:
-    _executar("insert into tentativas_login (ip, sucesso) values (%s, %s)",
-              (ip, sucesso))
-
-
-def falhas_recentes(ip: str | None, minutos: int = 15) -> int:
-    linha = _executar(
-        "select count(*) as n from tentativas_login where not sucesso and ip = %s "
-        "and criado > now() - make_interval(mins => %s)",
-        (ip, minutos), buscar="um",
-    )
     return int((linha or {}).get("n") or 0)

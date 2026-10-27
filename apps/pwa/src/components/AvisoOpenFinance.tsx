@@ -55,7 +55,7 @@ export default function AvisoOpenFinance() {
   return (
     <div
       role="status"
-      className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-sm ${visivel.grave ? 'border-red-200 bg-red-50 text-red-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}
+      className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-sm ${visivel.grave ? 'border-erro-borda bg-erro-fundo text-erro-texto' : 'border-aviso-borda bg-aviso-fundo text-aviso-texto'}`}
     >
       <IconeAlerta className="mt-0.5 h-4 w-4 shrink-0" />
       <span className="flex-1">

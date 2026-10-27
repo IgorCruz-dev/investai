@@ -123,12 +123,32 @@ def banco(monkeypatch):
             cur.execute(f'set search_path to "{schema}"')
             # `begin/commit` do arquivo brigam com autocommit; o schema já isola.
             cur.execute(migracao.replace("begin;", "").replace("commit;", ""))
+            # A VM agora usa o nome do schema Supabase; o fixture legado mantém
+            # a tabela antiga isolada para testar o ledger sem auth.users.
+            cur.execute("create view perfil_investidor as select * from perfil")
+
+    # O Session pooler do Supabase ignora `options=-csearch_path=...` na URI.
+    # Configuramos a sessão do pool explicitamente antes de qualquer consulta;
+    # sem isso estes testes escreveriam no `public` do projeto real.
+    from psycopg_pool import ConnectionPool
 
     from investai.data import repo
 
-    separador = "&" if "?" in url else "?"
-    monkeypatch.setenv("DATABASE_URL", f"{url}{separador}options=-csearch_path%3D{schema}")
+    def pool_isolado():
+        def preparar(conn):
+            conn.execute(f'set search_path to "{schema}"')
+            conn.commit()
+
+        return ConnectionPool(url, min_size=0, max_size=2,
+                              kwargs={"connect_timeout": 15, "prepare_threshold": None},
+                              configure=preparar, open=True)
+
+    monkeypatch.setattr(repo, "_criar_pool", pool_isolado)
+    monkeypatch.setenv("INVESTAI_TEST_SCHEMA", schema)
     repo.reset_pool()
+
+    with repo.pool().connection() as teste:
+        assert teste.execute("select current_schema()").fetchone()[0] == schema
 
     yield repo
 

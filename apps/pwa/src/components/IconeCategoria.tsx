@@ -15,7 +15,11 @@ const desenhos: Record<string, string> = {
   cartao: 'M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM2 10h20M6 15h4',
 }
 
-const CINZA = '#94a3b8'
+/** Cinza de "sem categoria". É o --cor-texto-suave do tema: uma etiqueta sem
+ *  categoria é informação ausente, e tem que ler como texto apagado, não
+ *  como uma categoria cinza de verdade. */
+export const COR_SEM_CATEGORIA = '#8a8a9a'
+const CINZA = COR_SEM_CATEGORIA
 
 type Props = {
   /** Valor de categorias.icone; sem categoria mostra a etiqueta em cinza */

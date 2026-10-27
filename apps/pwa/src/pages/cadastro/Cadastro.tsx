@@ -1,14 +1,14 @@
-import { useState, type SubmitEvent } from 'react'
+import { useEffect, useState, type SubmitEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import Alerta from '../../components/Alerta'
 import Botao from '../../components/Botao'
 import Campo from '../../components/Campo'
 import { IconeCadeado, IconeEmail, IconeUsuario } from '../../components/icones'
 import AuthLayout from '../../layouts/AuthLayout'
-import { cadastrar } from '../../services/auth'
+import { cadastrar, cadastroDisponivel } from '../../services/auth'
 
 const SENHA_MINIMA = 6
-const EMAIL_GMAIL = /^[^\s@]+@gmail\.com$/i
+const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i
 
 type Erros = Partial<Record<'nome' | 'email' | 'senha' | 'confirmacao', string>>
 
@@ -22,13 +22,18 @@ export default function Cadastro() {
   const [enviando, setEnviando] = useState(false)
   const [tentouEnviar, setTentouEnviar] = useState(false)
   const [aguardandoConfirmacao, setAguardandoConfirmacao] = useState(false)
+  const [cadastroAberto, setCadastroAberto] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    cadastroDisponivel().then(setCadastroAberto).catch(() => setErro('Não foi possível conferir se o cadastro está disponível.'))
+  }, [])
 
   function validar(): Erros {
     const erros: Erros = {}
     if (!nome.trim()) erros.nome = 'Informe seu nome.'
 
     if (!email.trim()) erros.email = 'Informe seu e-mail.'
-    else if (!EMAIL_GMAIL.test(email.trim())) erros.email = 'Use um e-mail que termine com @gmail.com.'
+    else if (!EMAIL_VALIDO.test(email.trim())) erros.email = 'Informe um e-mail válido.'
 
     if (!senha) erros.senha = 'Crie uma senha.'
     else if (senha.length < SENHA_MINIMA) erros.senha = `A senha precisa ter no mínimo ${SENHA_MINIMA} caracteres.`
@@ -72,12 +77,18 @@ export default function Cadastro() {
       >
         <Link
           to="/login"
-          className="flex h-12 w-full items-center justify-center rounded-xl bg-primaria font-semibold text-white shadow-lg shadow-primaria/25 transition hover:bg-primaria-escura"
+          className="flex h-12 w-full items-center justify-center rounded-xl bg-primaria font-semibold text-sobre-primaria shadow-lg shadow-primaria/25 transition hover:bg-primaria-escura"
         >
           Ir para o login
         </Link>
       </AuthLayout>
     )
+  }
+
+  if (cadastroAberto === false) {
+    return <AuthLayout titulo="Instância já configurada" subtitulo="Esta instalação do InvestAI já tem uma conta.">
+      <Link to="/login" className="font-semibold text-primaria hover:underline">Ir para o login</Link>
+    </AuthLayout>
   }
 
   return (

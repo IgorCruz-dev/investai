@@ -60,8 +60,8 @@ export default function Caixinha() {
       )}
 
       {/* Total guardado (+ meta) */}
-      <div className="mt-6 rounded-2xl bg-linear-to-br from-teal-600 to-teal-800 p-6 text-white shadow-lg shadow-teal-900/15">
-        <p className="text-sm text-teal-100">Total guardado</p>
+      <div className="mt-6 destaque destaque-azul p-6 text-white">
+        <p className="text-sm text-white/70">Total guardado</p>
         {carregando ? (
           <Esqueleto className="mt-3 h-10 w-44 bg-white/25" />
         ) : (
@@ -71,7 +71,7 @@ export default function Caixinha() {
         {carregando ? null : meta ? (
           <div className="mt-5">
             <div className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="text-teal-100">Meta: {formatarMoeda(meta)}</span>
+              <span className="text-white/70">Meta: {formatarMoeda(meta)}</span>
               <span className="font-semibold">{Math.floor(progresso)}%</span>
             </div>
             <div
@@ -82,9 +82,9 @@ export default function Caixinha() {
               aria-valuemax={100}
               aria-valuenow={Math.floor(progresso)}
             >
-              <div className="h-full rounded-full bg-white transition-all" style={{ width: `${progresso}%` }} />
+              <div className="h-full rounded-full bg-superficie transition-all" style={{ width: `${progresso}%` }} />
             </div>
-            <p className="mt-2 text-xs text-teal-100">
+            <p className="mt-2 text-xs text-white/70">
               {total >= meta ? 'Meta alcançada!' : `Faltam ${formatarMoeda(meta - total)}`} ·{' '}
               <button onClick={() => setEditandoMeta(true)} className="font-semibold text-white underline-offset-2 hover:underline">
                 Editar meta
@@ -118,8 +118,8 @@ export default function Caixinha() {
           </Card>
         </>
       ) : movimentos.length === 0 ? (
-        <div className="mt-6 flex flex-col items-center rounded-2xl border border-borda bg-white px-5 py-14 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-texto-suave">
+        <div className="mt-6 flex flex-col items-center rounded-2xl border border-borda bg-superficie px-5 py-14 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-superficie-3 text-texto-suave">
             <IconeCaixa className="h-6 w-6" />
           </span>
           <p className="mt-4 font-medium">Nada guardado ainda</p>
@@ -140,10 +140,10 @@ export default function Caixinha() {
                 return (
                   <li
                     key={m.id}
-                    className={`flex items-center gap-3 px-5 py-3.5 ${retirada ? 'border-l-4 border-l-despesa bg-red-50/60' : ''}`}
+                    className={`flex items-center gap-3 px-5 py-3.5 ${retirada ? 'border-l-4 border-l-despesa bg-erro-fundo' : ''}`}
                   >
                     <span
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${retirada ? 'bg-red-100 text-despesa' : 'bg-teal-50 text-teal-700'}`}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${retirada ? 'bg-erro-fundo text-despesa' : 'bg-info-fundo text-info-texto'}`}
                     >
                       {retirada ? <IconeSetaCima className="h-4 w-4" /> : <IconeSetaBaixo className="h-4 w-4" />}
                     </span>
@@ -154,7 +154,7 @@ export default function Caixinha() {
                         {m.motivo && ` · ${m.motivo}`}
                       </span>
                     </span>
-                    <span className={`shrink-0 font-semibold ${retirada ? 'text-despesa' : 'text-teal-700'}`}>
+                    <span className={`shrink-0 font-semibold ${retirada ? 'text-despesa' : 'text-info-texto'}`}>
                       {retirada ? '−' : '+'}
                       {formatarMoeda(m.valor)}
                     </span>

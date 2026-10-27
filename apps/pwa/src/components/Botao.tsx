@@ -6,14 +6,14 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 }
 
 const estilos = {
-  primaria: 'bg-primaria text-white shadow-lg shadow-primaria/25 hover:bg-primaria-escura',
-  secundaria: 'border border-borda bg-white text-texto hover:bg-slate-50',
-  perigo: 'bg-despesa text-white hover:bg-red-700',
+  primaria: 'bg-primaria text-sobre-primaria shadow-lg shadow-primaria/25 hover:bg-primaria-escura',
+  secundaria: 'border border-borda bg-superficie text-texto hover:bg-superficie-2',
+  perigo: 'bg-despesa text-white hover:bg-despesa/80',
 }
 
 const estilosCarregando = {
-  primaria: 'border-white/40 border-t-white',
-  secundaria: 'border-slate-300 border-t-texto',
+  primaria: 'border-sobre-primaria/40 border-t-sobre-primaria',
+  secundaria: 'border-borda-forte border-t-texto',
   perigo: 'border-white/40 border-t-white',
 }
 
