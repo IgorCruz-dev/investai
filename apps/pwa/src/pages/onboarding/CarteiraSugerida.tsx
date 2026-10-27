@@ -202,7 +202,9 @@ export default function CarteiraSugerida() {
 
           {/* Degradação honesta da spec 003: a carteira é a mesma, o que faltou
               foi a camada de proteção — e dizer isso é obrigação. */}
-          {!plano.triagemOk && (
+          {/* Só faz sentido com carteira na tela: sem posição, não há "ativos
+              abaixo" cujas notícias ninguém leu. */}
+          {!plano.triagemOk && plano.posicoes.length > 0 && (
             <p className="mt-4 rounded-xl border border-borda bg-superficie-2 p-3.5 text-xs text-texto-suave">
               Sem triagem de notícia nesta rodada{plano.triagemMotivo ? ` (${plano.triagemMotivo})` : ''}.
               Os ativos abaixo passaram pelos critérios numéricos, mas ninguém leu as notícias
