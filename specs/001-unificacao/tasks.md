@@ -22,6 +22,6 @@
 
 A spec 001 está concluída. O que o usuário sentiu falta na aba — responder as
 18 perguntas e receber uma carteira sugerida — é escopo das specs 002 e 003,
-que têm motor em Python e **nenhuma tela no PWA**. Veja o fim do handoff.
+que também já estão implementadas — veja o repasse.
 
-Estado detalhado e próximos passos: [handoff.md](handoff.md).
+Estado detalhado e próximos passos: [../handoff.md](../handoff.md).

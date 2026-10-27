@@ -61,9 +61,10 @@ Enquanto a VM calcula, a tela se atualiza sozinha. Nada da carteira sai de um
 modelo de linguagem: seleção, nota, peso e cota são aritmética
 ([spec 003](specs/003-recomendacao/spec.md)).
 
-Veja [o PWA](apps/pwa/README.md) e [as regras da unificação](specs/001-unificacao/spec.md)
-para o comportamento detalhado. [O plano](specs/001-unificacao/plan.md) e
-[as tarefas](specs/001-unificacao/tasks.md) mostram o andamento.
+Veja [o PWA](apps/pwa/README.md) para a interface e [as specs](specs/README.md)
+para o comportamento detalhado: nada entra no código sem estar escrito lá
+primeiro. [O repasse](specs/handoff.md) diz onde o trabalho parou e o que está
+bloqueado.
 
 ## Modelo de dados
 

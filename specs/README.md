@@ -30,11 +30,16 @@ tasks.md   as caixinhas. Marcadas conforme andam. É o que responde
 4. **Invariante atravessa specs.** Registre uma regra compartilhada na spec de
    unificação e aponte para ela nas funcionalidades afetadas.
 
+## Onde eu estava
+
+[handoff.md](handoff.md) é o repasse de sessão: estado publicado, o que está
+bloqueado, o que o uso real revelou e o que continua aberto. **Comece por ele.**
+
 ## As specs
 
 | # | Funcionalidade | Estado |
 |---|---|---|
-| [001](001-unificacao/spec.md) | Unificação: InvestAI vira controle financeiro completo ([repasse atual](001-unificacao/handoff.md)) | concluída |
+| [001](001-unificacao/spec.md) | Unificação: InvestAI vira controle financeiro completo | concluída |
 | [002](002-onboarding/spec.md) | Onboarding: perfil, carteira existente e primeira carteira | implementado (diagnóstico 3c parcial) |
 | [003](003-recomendacao/spec.md) | Recomendação de carteira por cálculo, com veto por notícia | implementada |
 | [004](004-aporte-e-despesa/spec.md) | A costura: comprar ação é uma despesa | implementada |
