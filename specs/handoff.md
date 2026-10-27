@@ -3,43 +3,40 @@
 Leia este arquivo e o [README das specs](README.md) antes de continuar. Depois
 leia a spec da funcionalidade em que for mexer.
 
-**O que está publicado:** código no GitHub (`main`, repo **público**) e PWA na
-Vercel. **A VM não foi atualizada** — é o próximo passo e está detalhado abaixo.
+**O que está publicado:** código no GitHub (`main`, repo **público**), PWA na
+Vercel e VM atualizada com o cron da fila rodando. O sistema está completo e
+funcionando ponta a ponta.
 
 ## Em uma frase
 
-As specs 001 a 004 estão implementadas e no ar; o que falta é instalar o cron na
-VM (sem ele a fila não anda), fechar duas partes do diagnóstico da spec 002, e a
-reconciliação que depende de 60 dias de histórico.
+As specs 001 a 004 estão implementadas e no ar, com a fila da VM funcionando.
+O que falta são duas partes do diagnóstico da spec 002 e a reconciliação, que
+depende de 60 dias de histórico.
 
-## O bloqueio que importa agora
+## A VM está no ar (27/10/2026)
 
-**O crontab da VM não está instalado.** Sem ele ninguém consome a tabela `jobs`,
-e todo pedido do PWA fica `pendente` para sempre — incluindo o cálculo da
-carteira, que é o caminho do onboarding. Isso já aconteceu de verdade: o usuário
-respondeu o questionário no PWA publicado, o job #8 ficou `pendente` das 13:37
-UTC até ser processado à mão da máquina local.
+Deploy feito em `ubuntu@163.176.203.60` (Oracle Always Free, host
+`investai-micro`). O que estava errado lá, e que nenhum teste pegaria:
 
-O deploy da VM não foi feito porque `deploy/update-vm.sh` tem o destino como
-placeholder (`VM=ubuntu@SEU_IP_DA_VM`) e **o agente não deve descobrir o
-endereço num arquivo de configuração e deployar por conta própria**: o script
-roda `rsync -az --delete`, e alvo errado apaga dados. Peça o endereço ao
-usuário.
+1. **O `.env` da VM apontava para o Neon.** O bot rodava 13 dias contra o banco
+   antigo enquanto o PWA usava o Supabase — bancos diferentes, e ninguém notou
+   porque a carteira está vazia nos dois. Corrigido pelo usuário (uma linha,
+   sem o valor passar por log).
+2. **O crontab não tinha as linhas da fila nem do snapshot.** Só a do briefing.
+   Não era "trocar `*/5` por `*`": não existiam. Instaladas, preservando a do
+   briefing.
+3. **As units do systemd eram as antigas.** Chamavam `server.app:app`, módulo
+   que a unificação renomeou para `investai.whatsapp.app:app` — o serviço entrou
+   em loop de falha assim que o código novo chegou. E o bridge vivia em
+   `~/investai/bridge/`, cujo `index.js` o `rsync --delete` apagou. O estado
+   (`auth_session`, `.env`, `node_modules`) foi copiado com `cp -a` para
+   `apps/bridge/`, as units do repo instaladas, e `bridge/` ficou como backup —
+   **não apague sem conferir**: é onde a sessão do WhatsApp estava.
+   `deploy/update-vm.sh` passou a instalar as units, que era a causa raiz.
 
-```bash
-VM=ubuntu@IP bash deploy/update-vm.sh     # já exclui .env e auth_session
-```
-
-Depois, **na VM**, instalar o cron (`crontab -e`) a partir de
-`deploy/crontab.example`. A linha da fila mudou de 5 minutos para 1 minuto,
-porque ela virou o caminho do onboarding e 5 minutos de espera ali é abandono:
-
-```
-* * * * * cd /home/ubuntu/investai && .venv/bin/python scripts/process_jobs.py >> cache/cron.log 2>&1
-```
-
-Enquanto isso não existir, dá para desatolar a fila à mão de qualquer máquina
-com o `.env`: `.venv/bin/python scripts/process_jobs.py`.
+Estado conferido: ambos os serviços ativos, `/health` 200, 0 restarts, o Python
+enxergando o Supabase, e um job de teste consumido pelo cron em 10 segundos.
+O servidor leva ~50s para subir na micro — o health check do script dá 60s.
 
 ## Onde o sistema está publicado
 
@@ -158,8 +155,7 @@ Depois de mexer nas 18 perguntas, reexporte o JSON que o PWA lê:
 
 ## O que continua aberto
 
-1. **Deploy da VM e o cron** — a seção do topo. Nada do onboarding funciona sem.
-2. **Diagnóstico da carteira existente, spec 002 item 3c**, duas partes:
+1. **Diagnóstico da carteira existente, spec 002 item 3c**, duas partes:
    - **qualidade** ("este ativo que você tem seria rejeitado hoje, por tal
      critério"): exige rodar `evaluate()` sobre os tickers da pessoa, que podem
      estar fora do universo curado. É job novo da VM, não cálculo de tela.
@@ -167,10 +163,10 @@ Depois de mexer nas 18 perguntas, reexporte o JSON que o PWA lê:
      mensal derivado, que a aba Investimentos ainda não lê.
 
    Desvio por classe e concentração já existem na aba.
-3. **Reconciliação** do gasto declarado contra os lançamentos (spec 002). O
+2. **Reconciliação** do gasto declarado contra os lançamentos (spec 002). O
    plano a deixou para depois de 60 dias de histórico; hoje não há o que
    reconciliar.
-4. **Inspeção visual das telas novas** (`/onboarding`, `/carteira-sugerida`) não
+3. **Inspeção visual das telas novas** (`/onboarding`, `/carteira-sugerida`) não
    foi feita por agente: a extensão Claude in Chrome não conectou nesta sessão.
    Quem inspecionou a aba Investimentos foi o usuário.
 

@@ -25,7 +25,16 @@ ssh "$VM" "cd ~/investai \
   && .venv/bin/python -c 'from investai.whatsapp.app import app; print(\"    servidor importa\")' \
   && .venv/bin/python -c 'from investai.data import repo; print(\"    banco:\", \"configurado\" if repo.configurado() else \"SEM DATABASE_URL\")'"
 
+# As units também mudam com o código: o módulo do servidor virou
+# `investai.whatsapp.app` e o bridge saiu de `bridge/` para `apps/bridge/`. Sem
+# reinstalar, o restart sobe a unit velha apontando para o que não existe mais —
+# foi assim que o serviço entrou em loop de falha em 27/10/2026.
+echo "==> Atualizando units do systemd"
+ssh "$VM" "cd ~/investai \
+  && sudo cp deploy/investai.service deploy/investai-bridge.service /etc/systemd/system/ \
+  && sudo systemctl daemon-reload"
+
 echo "==> Reiniciando serviços"
-ssh "$VM" "sudo systemctl restart investai && sleep 3 && curl -sf localhost:8000/health" | head -c 400
+ssh "$VM" "sudo systemctl restart investai investai-bridge && sleep 60 && curl -sf localhost:8000/health" | head -c 400
 echo
 echo "==> Pronto. Logs: ssh $VM 'sudo journalctl -u investai -f'"
