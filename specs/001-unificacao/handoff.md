@@ -132,6 +132,36 @@ voltaram a 0 linhas. A triagem foi exercitada com o modelo simulado, para provar
 a fiação sem gastar crédito: 13 aprovados enviados, veto aplicado, critério
 inventado descartado em código, soma ainda fechando.
 
+## O primeiro uso real, em 27/10/2026
+
+O usuário respondeu o questionário no PWA publicado e a carteira não veio. O
+banco explicou: job #8, `recomendacao`, **`pendente` desde 13:37 UTC, nunca
+pego**. Não era bug — era a ausência de consumidor da fila. **O crontab da VM
+continua não instalado**, e enquanto não estiver, todo pedido novo fica
+pendente para sempre. O job #8 foi processado à mão, da máquina local, com
+`scripts/process_jobs.py`.
+
+O caso real expôs dois defeitos que a suíte não pegava:
+
+1. **A mensagem culpava o filtro.** Com a reserva de emergência incompleta,
+   `investable_amount` é zero — o dinheiro vai para a reserva antes de ir para
+   risco, e isso está certo. Mas a recomendação seguia até o fim, saía vazia e
+   dizia "Nenhum ativo passou pelos critérios do seu perfil. Tente atualizar os
+   dados de mercado ou revise o questionário": o filtro não reprovou ninguém, o
+   mercado estava no ar, e o conselho mandava mexer numa resposta correta.
+   Hoje `recommend()` sai antes do filtro e da triagem nomeando o pré-requisito
+   e o valor que falta, e o script nem busca o yfinance.
+2. **A nota do aporte perdia a pontuação.** O `.replace(",", ".")` do separador
+   de milhar valia para a frase inteira e comia a vírgula de "por mês,".
+
+Os dois têm teste de regressão em `tests/test_recommender.py`. A tela também
+passou a mostrar a **alocação-alvo** nesse estado — a mensagem aponta para ela
+("a alocação-alvo abaixo passa a valer") e ela não estava em lugar nenhum.
+
+Lição para a próxima leva: o estado "nada a alocar" é tão comum quanto o estado
+"carteira montada", e nenhuma fixture o representava. Ao criar perfil de teste,
+cubra também `investable_amount == 0`.
+
 ## Arquivos centrais
 
 - PWA: `apps/pwa/src/pages/investimentos/Investimentos.tsx`,
