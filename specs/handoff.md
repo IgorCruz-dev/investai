@@ -174,31 +174,22 @@ Depois de mexer nas 18 perguntas, reexporte o JSON que o PWA lê:
    foi feita por agente: a extensão Claude in Chrome não conectou nesta sessão.
    Quem inspecionou a aba Investimentos foi o usuário.
 
-## O que vem depois: WhatsApp para o sócio
+## Sobre o arquivo solto em docs/
 
-Existe um documento **não versionado** em `docs/repasse-socio-claude-code.txt`
-(escrito fora desta sessão) planejando dar ao sócio do usuário o controle
-financeiro e o briefing pelo WhatsApp, usando o mesmo número do bot.
+Existe um `docs/repasse-socio-claude-code.txt` **não versionado**, de propósito.
+O usuário esclareceu o que ele é: **um documento que ele mandou ao sócio**, não
+trabalho aprovado nem decisão tomada. Não há spec para isso e não há nada a
+implementar.
 
-Leia antes de mexer em `apps/bridge/` ou em `src/investai/whatsapp/`. Dois
-pontos que importam para não quebrar o que existe:
+**Não comece a construir aquilo.** Se um dia virar trabalho, começa como spec
+nova (005) com as alternativas descartadas escritas — ponte Baileys única versus
+duas sessões — e com a conclusão que o próprio texto já alcança: número de
+WhatsApp compartilhado implica que o titular do chip pode ler as conversas do
+outro, e só número próprio resolve isso. Isso é decisão dos dois sócios, nunca
+do agente.
 
-- **Não é multiusuário, e por isso não briga com a spec 001.** A proposta é
-  *duas instalações independentes* — cada pessoa com seu Supabase, sua VM, seu
-  `.env`, seu SQLite de conversas e seu cron — compartilhando apenas a ponte
-  Baileys e o número. O documento diz explicitamente para não apontar a
-  instância do sócio para a `DATABASE_URL` do Igor, e observa que acrescentar o
-  número dele a `WHATSAPP_ALLOWED_NUMBERS` daria acesso à carteira do Igor.
-- **O limite é de privacidade, não de código.** O documento conclui que, com
-  número compartilhado, o titular do chip sempre pode ler as conversas do outro,
-  e que uma segunda sessão Baileys é um aparelho vinculado à conta inteira.
-  Independência real exige número próprio. Isso é decisão dos dois, não do
-  agente.
-
-Pelas regras do SDD, isso deveria nascer como **spec 005** em vez de viver num
-`.txt` em `docs/` — o arquivo é matéria-prima, não spec. Pergunte ao usuário
-antes de versioná-lo: o repositório é público e o texto descreve o arranjo de
-privacidade entre duas pessoas reais.
+Fica fora do Git porque o repositório é público e o texto trata do arranjo de
+privacidade entre duas pessoas reais. Não o versione sem pedir.
 
 ## Arquivos centrais
 
