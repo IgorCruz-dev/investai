@@ -62,7 +62,14 @@ def _publicar(*, triagem: bool) -> int:
     log.info("perfil %s (score %.0f/100), %.2f para investir",
              profile.profile, profile.risk_score, profile.investable_amount)
 
-    dados = market_data.get_portfolio_data([a.ticker for a in UNIVERSE])
+    # Sem valor a alocar em risco, `recommend` devolve o pré-requisito e nem
+    # chega no filtro — então buscar 40 tickers no yfinance seria trabalho (e
+    # espera) jogado fora.
+    if profile.investable_amount <= 0:
+        log.info("nada a alocar em risco; pulando a busca de mercado e a triagem")
+        dados: dict = {}
+    else:
+        dados = market_data.get_portfolio_data([a.ticker for a in UNIVERSE])
     rec = recommend(profile, dados, triagem=triagem)
 
     payload = _serializar(profile, rec)

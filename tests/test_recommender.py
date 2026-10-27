@@ -585,3 +585,49 @@ def test_soma_fecha_no_centavo_com_notas_e_precos_irregulares():
         assert total == round(profile.investable_amount, 2), (
             f"com {disponivel} disponível a carteira somou {total}"
         )
+
+
+# --- Sem valor a alocar -----------------------------------------------------
+def test_sem_valor_a_investir_a_mensagem_aponta_o_prerequisito(fake_market_data, monkeypatch):
+    """O caso real que apareceu na primeira resposta de verdade do questionário.
+
+    Quem tem a reserva incompleta tem `investable_amount` zero: o dinheiro de
+    hoje vai para a reserva antes de ir para risco, e isso é a regra certa. O
+    que estava errado era a mensagem — a carteira saía vazia dizendo "nenhum
+    ativo passou pelos critérios do seu perfil, revise o questionário", que
+    culpa o filtro de mercado e dá mau conselho. Pela spec 002, nesse estado o
+    pré-requisito É a recomendação.
+    """
+    monkeypatch.setattr("investai.analysis.triagem_noticia.consultar_modelo",
+                        lambda *a, **k: pytest.fail("não há o que triar sem valor a alocar"))
+
+    # Reserva de 6 meses incompleta e pouco dinheiro: sobra zero para risco.
+    profile = build_profile(answers(monthly_expenses=1_300, emergency_fund="3_6m",
+                                    initial_amount=1_000, monthly_contribution=1_000))
+    assert profile.investable_amount == 0, "a fixture precisa representar o caso"
+
+    rec = recommend(profile, fake_market_data, triagem=True)
+
+    assert rec.positions == [], "não há carteira a montar"
+    assert rec.error
+    assert "não há valor para alocar em risco" in rec.error
+    assert "reserva" in rec.error
+    for proibido in ("Nenhum ativo passou", "revise o questionário", "atualizar os dados"):
+        assert proibido not in rec.error, f"a mensagem voltou a culpar o filtro: {proibido!r}"
+    # A alocação-alvo continua vindo: a mensagem aponta para ela.
+    assert rec.allocation == profile.allocation
+
+
+def test_nota_do_aporte_nao_perde_a_pontuacao():
+    """`.replace(",", ".")` para o separador de milhar comia a vírgula da frase.
+
+    A nota saía como "Com aportes de R$ 1.000 por mês. a reserva fica completa",
+    com um ponto no meio da frase.
+    """
+    profile = build_profile(answers(monthly_expenses=1_300, emergency_fund="3_6m",
+                                    initial_amount=1_000, monthly_contribution=1_000))
+    nota = next(n for n in profile.notes if "aportes" in n)
+
+    assert "por mês, a reserva" in nota
+    assert "por mês. a reserva" not in nota
+    assert "R$ 1.000 " in nota, f"separador de milhar errado: {nota}"

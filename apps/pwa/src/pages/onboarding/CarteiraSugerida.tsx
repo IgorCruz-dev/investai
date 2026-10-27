@@ -184,7 +184,9 @@ export default function CarteiraSugerida() {
             </p>
             <p className="mt-2 font-display text-4xl tabular">{formatarMoeda(total)}</p>
             <p className="mt-2 text-xs text-white/65">
-              Distribuídos em {plano.posicoes.length} posição(ões).
+              {plano.posicoes.length === 0
+                ? 'Nada a alocar em risco agora — veja o que vem antes.'
+                : `Distribuídos em ${plano.posicoes.length} posição(ões).`}
               {plano.perfil.aporteMensal > 0 && <> Aporte mensal declarado: {formatarMoeda(plano.perfil.aporteMensal)}.</>}
             </p>
           </div>
@@ -208,7 +210,36 @@ export default function CarteiraSugerida() {
             </p>
           )}
 
-          <Card titulo="Posições sugeridas" className="mt-6" semEspaco>
+          {/* A mensagem do pré-requisito diz "a alocação-alvo abaixo passa a
+              valer" — então ela precisa estar visível, inclusive (e sobretudo)
+              quando não há nenhuma posição para mostrar. */}
+          {Object.keys(plano.perfil.alocacao).length > 0 && (
+            <Card titulo="Sua alocação-alvo" className="mt-6">
+              <ul className="space-y-3">
+                {Object.entries(plano.perfil.alocacao)
+                  .filter(([, peso]) => peso > 0)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([classe, peso]) => (
+                    <li key={classe}>
+                      <div className="flex justify-between text-sm">
+                        <span>{nomeDaClasse[classe] ?? classe}</span>
+                        <span className="font-mono">{peso.toFixed(0)}%</span>
+                      </div>
+                      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-superficie-3">
+                        <div className="h-full rounded-full bg-primaria" style={{ width: `${Math.min(peso, 100)}%` }} />
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+              {plano.perfil.notas.length > 0 && (
+                <ul className="mt-4 space-y-1.5 text-xs text-texto-suave">
+                  {plano.perfil.notas.map((nota) => <li key={nota}>{nota}</li>)}
+                </ul>
+              )}
+            </Card>
+          )}
+
+          {plano.posicoes.length > 0 && <Card titulo="Posições sugeridas" className="mt-6" semEspaco>
             <ul className="divide-y divide-borda">
               {plano.posicoes.map((p) => {
                 const alerta = plano.alertas.find((v) => v.ticker === p.ticker)
@@ -242,7 +273,7 @@ export default function CarteiraSugerida() {
                 )
               })}
             </ul>
-          </Card>
+          </Card>}
 
           {plano.vetos.length > 0 && (
             <Card titulo="Tirados por notícia" className="mt-6">
@@ -295,7 +326,7 @@ export default function CarteiraSugerida() {
             </Card>
           )}
 
-          <Card className="mt-6">
+          {plano.posicoes.length > 0 && <Card className="mt-6">
             <p className="font-semibold">Aceitar não compra nada</p>
             <p className="mt-1 text-sm text-texto-suave">
               A compra acontece na corretora, e pode sair por outro preço, em parte, ou nunca.
@@ -315,7 +346,7 @@ export default function CarteiraSugerida() {
                 Ir registrar uma compra
               </Botao>
             </div>
-          </Card>
+          </Card>}
         </>
       )}
     </>

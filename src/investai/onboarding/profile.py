@@ -342,10 +342,13 @@ def build_profile(answers: dict[str, Any]) -> InvestorProfile:
         notes.append("Sem exposição internacional, por escolha sua: os ETFs ficam restritos ao Brasil.")
     if monthly_contribution > 0 and investable == 0 and emergency_gap > 0 and monthly_expenses > 0:
         meses = emergency_gap / monthly_contribution if monthly_contribution else 0
+        # O `.replace` para trocar o separador de milhar precisa valer só para o
+        # número. Aplicado à frase toda, ele comia a vírgula de "por mês," e a
+        # nota saía com um ponto no meio: "por mês. a reserva fica completa".
+        aporte = f"{monthly_contribution:,.0f}".replace(",", ".")
         notes.append(
-            f"Com aportes de R$ {monthly_contribution:,.0f} por mês, a reserva fica completa em "
+            f"Com aportes de R$ {aporte} por mês, a reserva fica completa em "
             f"cerca de {meses:.0f} meses — a partir daí a alocação abaixo passa a valer."
-            .replace(",", ".")
         )
 
     return InvestorProfile(

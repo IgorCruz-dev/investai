@@ -342,6 +342,37 @@ def recommend(profile: InvestorProfile, market_data: dict[str, dict[str, Any]],
     por notícia grave; quando não roda, a carteira sai idêntica e `triagem_ok`
     fica `False` para a tela dizer que faltou essa camada.
     """
+    # Nada a alocar em risco agora: o dinheiro de hoje vai todo para o que vem
+    # antes — completar a reserva, ou quitar dívida cara. Sai aqui, antes do
+    # filtro e antes da triagem.
+    #
+    # Isto não é detalhe de eficiência. Seguindo adiante, a carteira sai vazia e
+    # a mensagem de "nenhum ativo passou" culpa o filtro de mercado e manda
+    # revisar o questionário — mentira e mau conselho. A spec 002 diz o
+    # contrário: nesse estado, o pré-requisito **é** a recomendação mais valiosa
+    # que o sistema tem para dar.
+    if profile.investable_amount <= 0:
+        pendentes = "; ".join(
+            f"{p.title} ({money(p.amount)})" if p.amount else p.title
+            for p in profile.prerequisites
+        )
+        return Recommendation(
+            profile=profile.profile,
+            allocation=profile.allocation,
+            generated_at=datetime.now(),
+            risk_notes=_fallback_risks(profile),
+            triagem_motivo="sem valor a alocar; triagem desnecessária",
+            error=(
+                "Ainda não há valor para alocar em risco: o dinheiro de agora vai para o que "
+                "precisa vir antes"
+                + (f" — {pendentes}" if pendentes else "")
+                + ". Não é falha do filtro de ativos nem do seu questionário, é a ordem certa: "
+                "a reserva existe para estar disponível justamente quando a bolsa estiver "
+                "caindo. A alocação-alvo abaixo passa a valer quando sobrar dinheiro depois "
+                "dela."
+            ),
+        )
+
     by_class, rejected_candidates = screen_detailed(
         profile.profile, market_data, profile.allocation
     )
