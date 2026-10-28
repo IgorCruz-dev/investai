@@ -22,7 +22,7 @@ import * as webpush from 'jsr:@negrel/webpush@0.5.0'
 
 const FUSO = 'America/Sao_Paulo'
 // "sub" do VAPID: os serviços de push usam para contatar o dono do servidor
-const CONTATO = 'https://profit-one-self.vercel.app'
+const CONTATO = 'https://investai-two.vercel.app'
 const MESES_DE_RESERVA = 6
 const MARCOS_DA_RESERVA = [25, 50, 75, 100]
 // Horários (Brasília) dos crons sync-pluggy-auto e sync-pluggy-noite, como [hora, minuto]. O Meu Pluggy atualiza os
