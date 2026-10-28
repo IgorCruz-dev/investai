@@ -1,279 +1,403 @@
-import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import Alerta from '../../components/Alerta'
-import Botao from '../../components/Botao'
 import Card from '../../components/Card'
-import Esqueleto from '../../components/Esqueleto'
-import Modal from '../../components/Modal'
-import { IconeGrafico, IconeMais } from '../../components/icones'
-import { hojeISO } from '../../lib/datas'
-import { formatarDataHora, formatarDia, formatarMoeda } from '../../lib/formatar'
-import { carregarInvestimentos, excluirMovimento, pedirAtualizacao, salvarMovimento, type Ativo, type Job, type Movimentacao, type MovimentoNovo, type Posicao, type SnapshotInvestimentos } from '../../services/investimentos'
+import CardCarteira from '../../components/CardCarteira'
+import CardNoticias from '../../components/CardNoticias'
+import { CardReserva, CardSimulador, sugestaoDeAporte } from '../../components/CardProjecoes'
+import CardRadar from '../../components/CardRadar'
+import DiarioDeTeses from '../../components/CardTeses'
+import Esqueleto, { EsqueletoLista } from '../../components/Esqueleto'
+import FaixaIndicadores from '../../components/FaixaIndicadores'
+import GraficoDolar from '../../components/GraficoDolar'
+import GraficoRendimentos, { type RendimentoDoMes } from '../../components/GraficoRendimentos'
+import LogoBanco from '../../components/LogoBanco'
+import TituloSecao from '../../components/TituloSecao'
+import {
+  IconeAlvo,
+  IconeCarteira,
+  IconeDolar,
+  IconeEmpresa,
+  IconeGrafico,
+  IconeRendimento,
+  IconeSetaDireita,
+} from '../../components/icones'
+import { useAuth } from '../../hooks/useAuth'
+import { useLancamentos } from '../../hooks/useLancamentos'
+import { deISO, inicioDoMes, mesAnterior, paraMesISO, somarMeses } from '../../lib/datas'
+import { formatarDia, formatarMoeda, formatarNomeDoMes } from '../../lib/formatar'
+import type { SelicPorAno } from '../../lib/projecoes'
+import { listarCarteira, valorAtual, type Cotacao, type Investimento } from '../../services/carteira'
+import { buscarInvestimentos, type ContaQueRende } from '../../services/rendimentos'
+import CarteiraDeclarada from './CarteiraDeclarada'
+import { atualizarMercado, buscarMercado, mercadoEstaVelho, type Mercado } from '../../services/mercado'
+import { buscarPerfilFinanceiro, type PerfilFinanceiro } from '../../services/perfilFinanceiro'
+import {
+  buscarGastoIA,
+  listarNoticias,
+  listarSinais,
+  listarTeses,
+  registrarTese,
+  type GastoIA,
+  type Noticia,
+  type Sinal,
+  type Tese,
+} from '../../services/radar'
+import type { Transacao } from '../../types/financas'
 
-const vazio = (): MovimentoNovo => ({ tipo: 'compra', ticker: '', classe: 'acao', shares: 0, preco: 0, taxas: 0, data: hojeISO() })
-const tickerLegivel = (ticker: string) => ticker.replace(/\.SA$/, '')
+const ULTIMOS = 5
 
+/**
+ * Central de investimentos: indicadores de mercado, carteira pessoal (Pluggy + cadastrados à mão) e, separado, o que é
+ * da empresa (rendimento automático da conta do Mercado Pago e posições da empresa).
+ */
 export default function Investimentos() {
-  const [ativos, setAtivos] = useState<Ativo[]>([])
-  const [posicoes, setPosicoes] = useState<Posicao[]>([])
-  const [movimentos, setMovimentos] = useState<Movimentacao[]>([])
-  const [snapshot, setSnapshot] = useState<SnapshotInvestimentos | null>(null)
-  const [job, setJob] = useState<Job | null>(null)
-  const [metas, setMetas] = useState<Record<string, number>>({})
+  const { usuario } = useAuth()
+  const { versao } = useLancamentos()
+  const [rendimentos, setRendimentos] = useState<Transacao[]>([])
+  const [contas, setContas] = useState<ContaQueRende[]>([])
+  // Guardar por mês (centavos), dividido entre a reserva e o simulador; null = usa a sugestão
+  const [aporteDigitado, setAporteDigitado] = useState<number | null>(null)
+  const [categoriaId, setCategoriaId] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
-  const [versao, setVersao] = useState(0)
-  const [formulario, setFormulario] = useState<MovimentoNovo | null>(null)
-  const [editando, setEditando] = useState<number | undefined>()
-  const [salvando, setSalvando] = useState(false)
-  const [erroFormulario, setErroFormulario] = useState('')
+  const [mercado, setMercado] = useState<Mercado | null>(null)
+  const [carregandoMercado, setCarregandoMercado] = useState(true)
+  const [carteira, setCarteira] = useState<Investimento[]>([])
+  const [cotacoes, setCotacoes] = useState<Map<string, Cotacao>>(new Map())
+  const [carregandoCarteira, setCarregandoCarteira] = useState(true)
+  const [perfil, setPerfil] = useState<PerfilFinanceiro | null>(null)
+  const [sinais, setSinais] = useState<Sinal[]>([])
+  const [noticias, setNoticias] = useState<Noticia[]>([])
+  const [teses, setTeses] = useState<Tese[]>([])
+  const [gastoIA, setGastoIA] = useState<GastoIA | null>(null)
+  const [carregandoRadar, setCarregandoRadar] = useState(true)
 
   useEffect(() => {
+    if (!usuario) return
     let ativo = true
-    setCarregando(true)
-    carregarInvestimentos()
-      .then((dados) => {
+    buscarInvestimentos()
+      .then((r) => {
         if (!ativo) return
-        setAtivos(dados.ativos)
-        setPosicoes(dados.posicoes)
-        setMovimentos(dados.movimentos)
-        setSnapshot(dados.snapshot)
-        setJob(dados.job)
-        setMetas(dados.metas)
+        setRendimentos(r.rendimentos)
+        setContas(r.contas)
+        setCategoriaId(r.categoriaId)
         setErro('')
       })
-      .catch(() => ativo && setErro('Não foi possível carregar os investimentos. Confira se as migrações foram aplicadas.'))
+      .catch(() => ativo && setErro('Não foi possível carregar seus investimentos.'))
       .finally(() => ativo && setCarregando(false))
-    return () => { ativo = false }
-  }, [versao])
+    return () => {
+      ativo = false
+    }
+  }, [usuario, versao])
 
   useEffect(() => {
-    if (job?.estado !== 'pendente' && job?.estado !== 'rodando') return
-    const intervalo = window.setInterval(() => setVersao((n) => n + 1), 10_000)
-    return () => window.clearInterval(intervalo)
-  }, [job?.estado])
+    if (!usuario) return
+    let ativo = true
+    listarCarteira()
+      .then((r) => {
+        if (!ativo) return
+        setCarteira(r.investimentos)
+        setCotacoes(r.cotacoes)
+      })
+      .catch(() => ativo && setErro('Não foi possível carregar sua carteira.'))
+      .finally(() => ativo && setCarregandoCarteira(false))
+    return () => {
+      ativo = false
+    }
+  }, [usuario, versao])
 
-  const catalogo = useMemo(() => new Map(ativos.map((a) => [a.ticker, a])), [ativos])
-  const posicoesAtivas = posicoes.filter((p) => Number(p.shares) > 0)
-  const custo = posicoesAtivas.reduce((soma, p) => soma + Number(p.custo_total), 0)
-  const realizado = posicoes.reduce((soma, p) => soma + Number(p.pnl_realizado), 0)
-  const valoresAtuais = posicoesAtivas.map((p) => {
-    const calculado = snapshot?.posicoes.get(p.ticker)
-    return calculado?.shares === Number(p.shares) ? calculado.value : null
-  })
-  const valorAtual = valoresAtuais.every((v) => v !== null) && posicoesAtivas.length > 0
-    ? valoresAtuais.reduce<number>((soma, v) => soma + (v ?? 0), 0) : null
-  const classes = [
-    { chave: 'acao', nome: 'Ações' },
-    { chave: 'etf', nome: 'ETFs' },
-    { chave: 'fii', nome: 'FIIs' },
-  ]
-  const totalBolsa = custo
-  const alvoBolsa = classes.reduce((soma, c) => soma + (metas[c.chave] ?? 0), 0)
+  useEffect(() => {
+    if (!usuario) return
+    let ativo = true
+    buscarPerfilFinanceiro()
+      .then((p) => ativo && setPerfil(p))
+      .catch(() => ativo && setPerfil({ meses: 0, gastoMedio: 0, sobraMedia: 0 }))
+    return () => {
+      ativo = false
+    }
+  }, [usuario, versao])
 
-  // Concentração (spec 002, item 3c): quem já tem carteira quer saber o que está
-  // errado na que tem, e "um ativo é 60% de tudo" é o risco que não aparece em
-  // nenhum outro número desta tela. Por custo, como o resto da comparação.
-  const maiorPosicao = posicoesAtivas.reduce<{ ticker: string; valor: number } | null>(
-    (maior, p) => {
-      const valor = Number(p.custo_total)
-      return !maior || valor > maior.valor ? { ticker: p.ticker, valor } : maior
-    }, null)
-  const porSetor = new Map<string, number>()
-  for (const p of posicoesAtivas) {
-    const setor = catalogo.get(p.ticker)?.setor || 'Sem setor'
-    porSetor.set(setor, (porSetor.get(setor) ?? 0) + Number(p.custo_total))
-  }
-  const maiorSetor = [...porSetor.entries()].sort((a, b) => b[1] - a[1])[0] ?? null
+  // Radar: sinais e notícias são iguais para todo mundo (gravados pelo servidor); o diário é do usuário
+  useEffect(() => {
+    if (!usuario) return
+    let ativo = true
+    Promise.all([listarSinais(), listarNoticias(), listarTeses(), buscarGastoIA()])
+      .then(([s, n, t, g]) => {
+        if (!ativo) return
+        setSinais(s)
+        setNoticias(n)
+        setTeses(t)
+        setGastoIA(g)
+      })
+      .catch(() => ativo && setErro('Não foi possível carregar o radar.'))
+      .finally(() => ativo && setCarregandoRadar(false))
+    return () => {
+      ativo = false
+    }
+  }, [usuario])
 
-  async function atualizar() {
+  async function decidirSinal(sinal: Sinal, decisao: 'entrei' | 'passei', valor: number | null) {
     try {
-      await pedirAtualizacao()
-      setVersao((n) => n + 1)
+      await registrarTese(sinal, decisao, valor)
+      setTeses(await listarTeses())
     } catch {
-      setErro('Não foi possível pedir atualização à VM.')
+      setErro('Não foi possível registrar no diário.')
     }
   }
 
-  function abrir(m?: Movimentacao) {
-    setEditando(m?.id)
-    setFormulario(m ? {
-      tipo: m.tipo as 'compra' | 'venda', ticker: tickerLegivel(m.ticker),
-      classe: (catalogo.get(m.ticker)?.classe as MovimentoNovo['classe']) || 'acao',
-      shares: Number(m.shares), preco: Number(m.preco), taxas: Number(m.taxas), data: m.data,
-    } : vazio())
-    setErroFormulario('')
-  }
-
-  async function enviar(evento: SubmitEvent<HTMLFormElement>) {
-    evento.preventDefault()
-    if (!formulario) return
-    setSalvando(true)
-    setErroFormulario('')
-    try {
-      await salvarMovimento(formulario, editando)
-      setFormulario(null)
-      setVersao((n) => n + 1)
-    } catch (e) {
-      setErroFormulario((e as Error).message)
-    } finally {
-      setSalvando(false)
+  // Indicadores: mostra o que tem gravado; se estiver velho, pede para atualizar e mostra de novo
+  useEffect(() => {
+    if (!usuario) return
+    let ativo = true
+    buscarMercado()
+      .then(async (m) => {
+        if (!ativo) return
+        setMercado(m)
+        setCarregandoMercado(false)
+        if (!mercadoEstaVelho(m)) return
+        await atualizarMercado()
+        const novo = await buscarMercado()
+        if (ativo) setMercado(novo)
+      })
+      .catch(() => ativo && setCarregandoMercado(false))
+    return () => {
+      ativo = false
     }
-  }
+  }, [usuario])
 
-  async function excluir(m: Movimentacao) {
-    if (!window.confirm(`Excluir ${m.tipo} de ${tickerLegivel(m.ticker)}? O lançamento financeiro correspondente também será excluído.`)) return
-    try {
-      await excluirMovimento(m.id)
-      setVersao((n) => n + 1)
-    } catch {
-      setErro('Não foi possível excluir a movimentação.')
+  // Do primeiro mês com rendimento até o mês atual (no máximo 12)
+  const porMes = useMemo<RendimentoDoMes[]>(() => {
+    const atual = inicioDoMes()
+    const soma = new Map<string, number>()
+    for (const t of rendimentos) {
+      const chave = t.data.slice(0, 7)
+      soma.set(chave, (soma.get(chave) ?? 0) + Math.round(t.valor * 100))
     }
+    const primeiro = rendimentos.length ? inicioDoMes(deISO(rendimentos[rendimentos.length - 1].data)) : atual
+    const pontos: RendimentoDoMes[] = []
+    for (let mes = primeiro; mes <= atual; mes = somarMeses(mes, 1)) {
+      pontos.push({ mes, total: (soma.get(paraMesISO(mes)) ?? 0) / 100 })
+    }
+    return pontos.slice(-12)
+  }, [rendimentos])
+
+  const saldo = contas.reduce((s, c) => s + Math.round((c.saldo ?? 0) * 100), 0) / 100
+  const bancos = [...new Set(contas.map((c) => c.banco ?? c.nome))]
+  const ondeRende = bancos.join(' e ')
+  const daEmpresa = contas.length > 0 && contas.every((c) => c.empresarial)
+  const esteMes = porMes[porMes.length - 1]?.total ?? 0
+  const passado = porMes.find((p) => paraMesISO(p.mes) === paraMesISO(mesAnterior(inicioDoMes())))?.total
+  const pessoais = carteira.filter((i) => !i.empresarial && i.origem === 'pluggy')
+  const daEmpresaNaCarteira = carteira.filter((i) => i.empresarial && i.origem === 'pluggy')
+  const patrimonio = pessoais.reduce((s, i) => s + Math.round(valorAtual(i) * 100), 0) / 100
+  // Selic esperada por ano (Focus); sem Focus, a meta de hoje para sempre
+  const selic = useMemo<SelicPorAno>(() => {
+    const porAno: SelicPorAno = {}
+    for (const e of mercado?.expectativas ?? []) if (e.indicador === 'Selic') porAno[e.ano] = e.mediana
+    const hoje = mercado?.indicadores.selic_meta?.atual.valor
+    if (Object.keys(porAno).length === 0 && hoje) porAno[new Date().getFullYear()] = hoje
+    return porAno
+  }, [mercado])
+  const projecoes = {
+    perfil,
+    patrimonio,
+    selic,
+    aporte: aporteDigitado ?? Math.round(sugestaoDeAporte(perfil) * 100),
+    aoMudarAporte: setAporteDigitado,
+    carregando: carregandoCarteira || carregandoMercado || Object.keys(selic).length === 0,
   }
+  const linkDoMes = (mes: string) => `/lancamentos?mes=${mes}${categoriaId ? `&categoria=${categoriaId}` : ''}`
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Investimentos</h1>
-          <p className="mt-1 text-sm text-texto-suave">Sua carteira e as compras que a formaram.</p>
+      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Investimentos</h1>
+
+      {erro && (
+        <div className="mt-4">
+          <Alerta>{erro}</Alerta>
         </div>
-        <div className="flex items-center gap-2">
-          <Link to="/carteira-sugerida" className="rounded-xl border border-borda px-4 py-2.5 text-sm font-semibold hover:border-borda-forte">
-            Carteira sugerida
-          </Link>
-          <button onClick={() => abrir()} className="flex items-center gap-2 rounded-xl bg-primaria px-4 py-2.5 text-sm font-semibold text-sobre-primaria hover:bg-primaria-escura">
-            <IconeMais className="h-4 w-4" /> Registrar
-          </button>
+      )}
+
+      <FaixaIndicadores mercado={mercado} carregando={carregandoMercado} />
+
+      <p className="mt-1 text-sm text-texto-suave">Dados do banco e carteira declarada, com origens separadas.</p>
+
+      <TituloSecao
+        primeira
+        icone={<IconeCarteira className="h-5 w-5" />}
+        titulo="Sua carteira"
+        descricao="Investimentos reportados pela Pluggy e lançamentos financeiros, sem posições da bolsa declarada"
+      />
+      <div className="mt-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+        {/* Esquerda: o que você tem e a reserva; direita: o simulador. O dólar vem embaixo, na largura toda. */}
+        <div className="space-y-6">
+          <CardCarteira
+            titulo="Patrimônio pessoal"
+            icone={<IconeCarteira className="h-4 w-4" />}
+            investimentos={pessoais}
+            cotacoes={cotacoes}
+            carregando={carregandoCarteira}
+            aoAbrir={() => {}}
+            vazio="Nenhum investimento reportado pelo banco ainda."
+          />
+          <CardReserva {...projecoes} />
+        </div>
+        <div className="mt-6 lg:mt-0">
+          <CardSimulador {...projecoes} />
         </div>
       </div>
+      {mercado && mercado.dolar.length > 0 && (
+        <Card titulo="Dólar em 12 meses" icone={<IconeDolar className="h-4 w-4" />} className="mt-6">
+          <GraficoDolar pontos={mercado.dolar} />
+        </Card>
+      )}
 
-      {erro && <div className="mt-5"><Alerta>{erro}</Alerta></div>}
-
-      <div className="destaque destaque-ouro mt-6 p-6 text-white">
-        <p className="text-sm text-white/70">Capital aplicado</p>
-        {carregando ? <Esqueleto className="mt-3 h-10 w-44" /> : <p className="mt-2 font-display text-4xl tabular">{formatarMoeda(custo)}</p>}
-        <p className="mt-2 text-xs text-white/65">{valorAtual === null ? 'Ainda sem valor de mercado atualizado.' : `Valor de mercado no último cálculo: ${formatarMoeda(valorAtual)}.`} Resultado realizado: {formatarMoeda(realizado)}.</p>
+      <TituloSecao
+        icone={<IconeAlvo className="h-5 w-5" />}
+        titulo="Oportunidades"
+        descricao="Sinais do dia, notícias e o diário do que você decidiu"
+        acao={<DiarioDeTeses teses={teses} carregando={carregandoRadar} />}
+      />
+      <div className="mt-4">
+        <CardRadar
+          sinais={sinais}
+          teses={teses}
+          gasto={gastoIA}
+          perfil={perfil}
+          patrimonio={patrimonio}
+          carregando={carregandoRadar || carregandoCarteira}
+          aoDecidir={decidirSinal}
+        />
+      </div>
+      <div className="mt-6">
+        <CardNoticias noticias={noticias} carregando={carregandoRadar} />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-texto-suave">
-        <span>{snapshot ? `Último cálculo: ${formatarDataHora(snapshot.geradoEm)}` : 'Nenhum cálculo de mercado publicado ainda.'}{job?.estado === 'pendente' || job?.estado === 'rodando' ? ' · Atualização em andamento' : job?.estado === 'erro' ? ' · Última atualização falhou; tente novamente' : ''}</span>
-        <button onClick={atualizar} disabled={job?.estado === 'pendente' || job?.estado === 'rodando'} className="font-semibold text-primaria hover:underline disabled:opacity-50">Atualizar dados</button>
-      </div>
+      <TituloSecao
+        icone={<IconeEmpresa className="h-5 w-5" />}
+        titulo="Da empresa"
+        descricao="Dinheiro do CNPJ, separado do seu patrimônio"
+      />
 
-      <Card titulo="Posições" className="mt-6" semEspaco>
-        {carregando ? <div className="p-5"><Esqueleto className="h-32" /></div> : posicoesAtivas.length === 0 ? (
-          <div className="px-5 py-12 text-center">
-            <IconeGrafico className="mx-auto h-8 w-8 text-primaria" />
-            <p className="mt-3 font-medium">Nenhuma posição registrada</p>
-            {/* O estado vazio antes só sabia dizer "registre uma compra", que é
-                inútil para quem ainda não tem o que registrar — e esse é o caso
-                mais importante do produto (spec 002). Agora ele oferece os dois
-                caminhos reais. */}
-            <p className="mx-auto mt-1 max-w-sm text-sm text-texto-suave">
-              Se você já tem ações, importe o que tem. Se ainda não comprou nada, responda as
-              18 perguntas do perfil e eu calculo uma carteira para você.
-            </p>
-            <div className="mt-5 flex flex-col items-center justify-center gap-2 sm:flex-row">
-              <Link to="/onboarding" className="rounded-xl bg-primaria px-4 py-2.5 text-sm font-semibold text-sobre-primaria hover:bg-primaria-escura">
-                Responder o perfil
-              </Link>
-              <Link to="/carteira-sugerida" className="rounded-xl border border-borda px-4 py-2.5 text-sm font-semibold hover:border-borda-forte">
-                Ver carteira sugerida
-              </Link>
-            </div>
-            <p className="mt-4 text-xs text-texto-suave">
-              Ou registre uma compra que você já executou na corretora.
-            </p>
+      {/* xl: saldo numa coluna, gráfico e últimos rendimentos nas outras duas */}
+      <div className="xl:grid xl:grid-cols-3 xl:items-start xl:gap-6">
+        <div className="animate-surgir relative mt-4 overflow-hidden rounded-[28px] bg-[#141519] bg-[radial-gradient(120%_90%_at_100%_0%,rgb(212_175_55/0.22),transparent_55%)] p-6 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.08),0_24px_60px_-28px_rgb(0_0_0/0.6)] ring-1 ring-white/5">
+          {/* Dinheiro da empresa fica separado do patrimônio pessoal */}
+          <div className="flex items-center justify-between gap-2 text-sm font-medium">
+            <span className="flex min-w-0 items-center gap-2.5">
+              {bancos.length > 0 && (
+                <span className="flex shrink-0 -space-x-2">
+                  {bancos.map((b) => (
+                    <LogoBanco key={b} banco={b} className="h-8 w-8" />
+                  ))}
+                </span>
+              )}
+              <span className="opacity-75">{ondeRende ? `Saldo no ${ondeRende}` : 'Saldo rendendo'}</span>
+            </span>
+            {daEmpresa && (
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold">
+                <IconeEmpresa className="h-3.5 w-3.5" />
+                Da empresa
+              </span>
+            )}
           </div>
-        ) : <ul className="divide-y divide-borda">{posicoesAtivas.map((p) => {
-          const calculado = snapshot?.posicoes.get(p.ticker)
-          const atualizado = calculado?.shares === Number(p.shares)
-          return <li key={p.ticker} className="flex items-center justify-between gap-3 px-5 py-4">
-            <div>
-              <p className="font-semibold">{tickerLegivel(p.ticker)}</p>
-              <p className="text-xs text-texto-suave">{catalogo.get(p.ticker)?.nome || catalogo.get(p.ticker)?.classe || 'Ativo'} · {Number(p.shares).toLocaleString('pt-BR')} cotas{catalogo.get(p.ticker)?.invalido ? ' · ticker não encontrado' : catalogo.get(p.ticker)?.validado ? '' : ' · aguardando validação'}</p>
-            </div>
-            <div className="text-right">
-              <p className="font-mono text-sm">{formatarMoeda(Number(p.custo_total))}</p>
-              <p className="text-xs text-texto-suave">PM {p.avg_price === null ? '—' : formatarMoeda(Number(p.avg_price))}</p>
-              {atualizado && calculado?.value !== null && <p className="text-xs text-primaria">Atual {formatarMoeda(calculado.value ?? 0)}</p>}
-            </div>
-          </li>
-        })}</ul>}
-      </Card>
+          {carregando ? (
+            <Esqueleto className="mt-3 h-12 w-48 bg-white/10" />
+          ) : (
+            <p className="cifra mt-2 text-5xl font-semibold">{formatarMoeda(saldo)}</p>
+          )}
+          {!carregando && (
+            <p className="mt-3 text-sm">
+              Rendeu <span className="font-semibold text-primaria">+{formatarMoeda(esteMes)}</span> em {formatarNomeDoMes(inicioDoMes())}
+              {passado !== undefined && (
+                <span className="opacity-75">
+                  {' '}
+                  · {formatarMoeda(passado)} em {formatarNomeDoMes(mesAnterior(inicioDoMes()))}
+                </span>
+              )}
+            </p>
+          )}
+          <p className="mt-1 text-xs opacity-75">Rendimento automático da conta, informado pelo banco a cada dia útil.</p>
+        </div>
 
-      {Object.keys(metas).length > 0 && totalBolsa > 0 && alvoBolsa > 0 && <Card titulo="Divisão da carteira em bolsa" className="mt-6">
-        <p className="mb-4 text-xs text-texto-suave">Compara apenas ações, ETFs e FIIs cadastrados pelo custo. Renda fixa e saldo da conta ficam fora desta comparação.</p>
-        <ul className="space-y-3">{classes.map((c) => {
-          const atual = posicoesAtivas.filter((p) => catalogo.get(p.ticker)?.classe === c.chave).reduce((soma, p) => soma + Number(p.custo_total), 0) / totalBolsa * 100
-          const alvo = (metas[c.chave] ?? 0) / alvoBolsa * 100
-          return <li key={c.chave}>
-            <div className="flex justify-between text-sm"><span>{c.nome}</span><span className="font-mono">{atual.toFixed(1)}% <span className="text-texto-suave">/ alvo {alvo.toFixed(1)}%</span></span></div>
-            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-superficie-3"><div className="h-full rounded-full bg-primaria" style={{ width: `${Math.min(atual, 100)}%` }} /></div>
-          </li>
-        })}</ul>
-        {(maiorPosicao || maiorSetor) && (
-          <div className="mt-5 border-t border-borda pt-4 text-xs text-texto-suave">
-            <p className="font-semibold text-texto">Concentração</p>
-            {maiorPosicao && (
-              <p className="mt-1">
-                Maior posição: {tickerLegivel(maiorPosicao.ticker)} com{' '}
-                {(maiorPosicao.valor / totalBolsa * 100).toFixed(1)}% do que está em bolsa.
+        <div className="xl:col-span-2">
+          {!carregando && rendimentos.length === 0 ? (
+            <div className="mt-6 flex flex-col items-center rounded-[28px] solido px-5 py-14 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-texto/[0.07] text-texto-suave">
+                <IconeRendimento className="h-6 w-6" />
+              </span>
+              <p className="mt-4 font-medium">Nenhum rendimento ainda</p>
+              <p className="mt-1 max-w-xs text-sm text-texto-suave">
+                Os rendimentos aparecem aqui quando entram na categoria Rendimentos.
               </p>
-            )}
-            {maiorSetor && (
-              <p className="mt-0.5">Maior setor: {maiorSetor[0]} com {(maiorSetor[1] / totalBolsa * 100).toFixed(1)}%.</p>
-            )}
-          </div>
-        )}
-      </Card>}
-
-      <Card titulo="Movimentações" className="mt-6" semEspaco>
-        {carregando ? <div className="p-5"><Esqueleto className="h-32" /></div> : movimentos.length === 0 ? (
-          <p className="px-5 py-10 text-center text-sm text-texto-suave">Nenhuma movimentação ainda.</p>
-        ) : <ul className="divide-y divide-borda">{movimentos.map((m) => (
-          <li key={m.id} className="flex items-center justify-between gap-3 px-5 py-3.5">
-            <div className="min-w-0">
-              <p className="font-medium">{m.tipo === 'compra' ? 'Compra' : m.tipo === 'venda' ? 'Venda' : 'Ajuste'} de {tickerLegivel(m.ticker)}</p>
-              <p className="text-xs text-texto-suave">{formatarDia(m.data)} · {Number(m.shares).toLocaleString('pt-BR')} × {formatarMoeda(Number(m.preco))}{Number(m.taxas) > 0 ? ` · taxas ${formatarMoeda(Number(m.taxas))}` : ''}</p>
             </div>
-            {m.origem === 'web' && <div className="flex shrink-0 gap-3 text-xs">
-              <button onClick={() => abrir(m)} className="text-primaria hover:underline">Editar</button>
-              <button onClick={() => excluir(m)} className="text-erro-texto hover:underline">Excluir</button>
-            </div>}
-          </li>
-        ))}</ul>}
-      </Card>
+          ) : (
+            <div className="lg:mt-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+              <Card titulo="Rendimento por mês" icone={<IconeGrafico className="h-4 w-4" />} className="mt-6 lg:mt-0">
+                {carregando ? <Esqueleto className="h-52" /> : <GraficoRendimentos pontos={porMes} />}
+              </Card>
 
-      <Modal aberto={formulario !== null} aoFechar={() => !salvando && setFormulario(null)} titulo={editando === undefined ? 'Registrar movimentação' : 'Editar movimentação'}>
-        {formulario && <form onSubmit={enviar} className="space-y-4 pb-2">
-          <p className="text-sm text-texto-suave">Registre a operação depois de fazê-la na corretora. A compra cria uma despesa no mês; a venda cria uma receita.</p>
-          <label className="block text-sm">Operação
-            <select value={formulario.tipo} onChange={(e) => setFormulario({ ...formulario, tipo: e.target.value as 'compra' | 'venda' })} className="mt-1 block w-full rounded-xl border border-borda bg-fundo px-3 py-3">
-              <option value="compra">Compra</option><option value="venda">Venda</option>
-            </select>
-          </label>
-          <label className="block text-sm">Ticker
-            <input required value={formulario.ticker} onChange={(e) => setFormulario({ ...formulario, ticker: e.target.value.toUpperCase() })} placeholder="VALE3" className="mt-1 block w-full rounded-xl border border-borda bg-fundo px-3 py-3 uppercase" />
-          </label>
-          <label className="block text-sm">Classe
-            <select value={formulario.classe} onChange={(e) => setFormulario({ ...formulario, classe: e.target.value as MovimentoNovo['classe'] })} className="mt-1 block w-full rounded-xl border border-borda bg-fundo px-3 py-3">
-              <option value="acao">Ação</option><option value="etf">ETF</option><option value="fii">FII</option>
-            </select>
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block text-sm">Quantidade<input required type="number" min="0.00000001" step="any" value={formulario.shares || ''} onChange={(e) => setFormulario({ ...formulario, shares: Number(e.target.value) })} className="mt-1 block w-full rounded-xl border border-borda bg-fundo px-3 py-3" /></label>
-            <label className="block text-sm">Preço unitário<input required type="number" min="0.01" step="any" value={formulario.preco || ''} onChange={(e) => setFormulario({ ...formulario, preco: Number(e.target.value) })} className="mt-1 block w-full rounded-xl border border-borda bg-fundo px-3 py-3" /></label>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block text-sm">Taxas<input type="number" min="0" step="any" value={formulario.taxas} onChange={(e) => setFormulario({ ...formulario, taxas: Number(e.target.value) })} className="mt-1 block w-full rounded-xl border border-borda bg-fundo px-3 py-3" /></label>
-            <label className="block text-sm">Data<input required type="date" value={formulario.data} onChange={(e) => setFormulario({ ...formulario, data: e.target.value })} className="mt-1 block w-full rounded-xl border border-borda bg-fundo px-3 py-3" /></label>
-          </div>
-          {erroFormulario && <Alerta>{erroFormulario}</Alerta>}
-          <Botao type="submit" carregando={salvando}>Salvar movimentação</Botao>
-        </form>}
-      </Modal>
+              <Card
+                titulo="Últimos rendimentos"
+                icone={<IconeRendimento className="h-4 w-4" />}
+                className="mt-6 lg:mt-0"
+                semEspaco
+                acao={
+                  <Link
+                    to={linkDoMes(paraMesISO(inicioDoMes()))}
+                    className="text-sm font-medium text-texto-suave transition hover:text-texto"
+                  >
+                    Ver todos
+                  </Link>
+                }
+              >
+                {carregando ? (
+                  <EsqueletoLista linhas={ULTIMOS} />
+                ) : (
+                  <ul className="divide-y divide-borda">
+                    {rendimentos.slice(0, ULTIMOS).map((t) => (
+                      <li key={t.id}>
+                        {/* Abre os lançamentos do mês dele, só com rendimentos */}
+                        <Link
+                          to={linkDoMes(t.data.slice(0, 7))}
+                          className="flex items-center gap-3 px-5 py-3.5 transition hover:bg-texto/[0.04]"
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-receita/15 text-receita">
+                            <IconeRendimento className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-medium">{t.local ?? 'Rendimento'}</span>
+                            <span className="block truncate text-xs text-texto-suave">{formatarDia(t.data)}</span>
+                          </span>
+                          <span className="numero shrink-0 font-semibold text-receita">+{formatarMoeda(t.valor)}</span>
+                          <IconeSetaDireita className="h-4 w-4 shrink-0 text-texto-suave" />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {daEmpresaNaCarteira.length > 0 && (
+        <div className="mt-6 lg:grid lg:grid-cols-2 lg:gap-6">
+          <CardCarteira
+            titulo="Investimentos da empresa"
+            investimentos={daEmpresaNaCarteira}
+            cotacoes={cotacoes}
+            carregando={false}
+            aoAbrir={() => {}}
+          />
+        </div>
+      )}
+
+      <CarteiraDeclarada />
+
+
     </>
   )
 }
