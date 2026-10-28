@@ -1,8 +1,11 @@
 import { createContext } from 'react'
 import type { FormaPagamento, Transacao } from '../types/financas'
 
-/** Valores já preenchidos ao abrir um lançamento novo (ex.: compra num cartão específico) */
-export type PadraoLancamento = { forma?: FormaPagamento; cartaoId?: string }
+/**
+ * Valores já preenchidos ao abrir um lançamento novo (ex.: compra num cartão específico).
+ * Com terceiro (mesmo vazio), já abre marcado como de outra pessoa.
+ */
+export type PadraoLancamento = { forma?: FormaPagamento; cartaoId?: string; terceiro?: string }
 
 export type ControleLancamentos = {
   /** Abre o modal de novo lançamento */

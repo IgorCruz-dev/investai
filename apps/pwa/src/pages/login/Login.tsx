@@ -1,4 +1,4 @@
-import { useEffect, useState, type SubmitEvent } from 'react'
+import { useState, type SubmitEvent } from 'react'
 import { Link, Navigate } from 'react-router'
 import Alerta from '../../components/Alerta'
 import Botao from '../../components/Botao'
@@ -6,7 +6,7 @@ import Campo from '../../components/Campo'
 import { IconeCadeado, IconeEmail } from '../../components/icones'
 import { useAuth } from '../../hooks/useAuth'
 import AuthLayout from '../../layouts/AuthLayout'
-import { cadastroDisponivel, entrar } from '../../services/auth'
+import { entrar } from '../../services/auth'
 
 export default function Login() {
   const { usuario, carregando } = useAuth()
@@ -14,11 +14,6 @@ export default function Login() {
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
-  const [cadastroAberto, setCadastroAberto] = useState(false)
-
-  useEffect(() => {
-    cadastroDisponivel().then(setCadastroAberto).catch(() => {})
-  }, [])
 
   async function aoEnviar(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -41,14 +36,14 @@ export default function Login() {
     <AuthLayout
       titulo="Bem-vindo de volta"
       subtitulo="Entre na sua conta para continuar."
-      rodape={cadastroAberto ? (
+      rodape={
         <>
           Não tem conta?{' '}
-          <Link to="/cadastro" className="font-semibold text-primaria hover:underline">
+          <Link to="/cadastro" className="font-semibold text-destaque hover:underline">
             Criar conta grátis
           </Link>
         </>
-      ) : undefined}
+      }
     >
       <form onSubmit={aoEnviar} className="flex flex-col gap-5">
         <Campo

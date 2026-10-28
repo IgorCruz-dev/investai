@@ -15,6 +15,12 @@ export async function buscarCartao(id: string) {
   return data
 }
 
+/** Compras no cartão da empresa são despesas da empresa, fora do resumo pessoal */
+export async function marcarCartaoEmpresarial(id: string, empresarial: boolean) {
+  const { error } = await supabase.from('cartoes').update({ empresarial }).eq('id', id)
+  if (error) throw new Error('Não foi possível salvar o cartão.')
+}
+
 /** Cria (sem id) ou atualiza (com id) um cartão */
 export async function salvarCartao(dados: NovoCartao, id?: string) {
   const consulta = id

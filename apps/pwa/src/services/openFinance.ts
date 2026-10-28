@@ -12,7 +12,7 @@ export class ErroOpenFinance extends Error {
   }
 }
 
-async function chamarSync<T>(acao: 'contas' | 'sincronizar') {
+async function chamarSync<T>(acao: 'contas' | 'sincronizar' | 'reimportar') {
   const { data, error } = await supabase.functions.invoke<T>('sync-pluggy', { body: { acao } })
   if (!error) return data as T
   if (error instanceof FunctionsHttpError) {
@@ -26,6 +26,9 @@ export type ResultadoSync = { status: SyncLog['status']; mensagem: string; impor
 
 /** Busca as novidades dos bancos e importa as transações das contas vinculadas */
 export const sincronizar = () => chamarSync<ResultadoSync>('sincronizar')
+
+/** Busca de novo os últimos 90 dias e corrige o que já foi importado (valor, data, fatura, parcelas) */
+export const reimportar = () => chamarSync<ResultadoSync>('reimportar')
 
 /** Atualiza status das conexões e a lista de contas/cartões que a Pluggy enxerga */
 export const atualizarContasDoBanco = () => chamarSync<{ conexoes: ConexaoPluggy[] }>('contas')
@@ -158,11 +161,14 @@ export async function listarRegrasDeLocal() {
 // Mesmo formato da função sync-pluggy: espaços repetidos viram um, tudo minúsculo
 export const normalizarLocal = (local: string) => local.replace(/\s+/g, ' ').trim().toLowerCase()
 
-/** "As próximas importadas deste local vão para esta categoria" */
-export async function salvarRegraDeLocal(local: string, categoriaId: string) {
+/** "As próximas importadas deste local vão para esta categoria" (e, com terceiro, entram como dessa pessoa) */
+export async function salvarRegraDeLocal(local: string, categoriaId: string, terceiro: string | null = null) {
   const { error } = await supabase
     .from('regras_categoria_local')
-    .upsert({ local: normalizarLocal(local), categoria_id: categoriaId }, { onConflict: 'user_id,local' })
+    .upsert(
+      { local: normalizarLocal(local), categoria_id: categoriaId, terceiro: terceiro?.trim() || null },
+      { onConflict: 'user_id,local' },
+    )
   if (error) throw new Error('Não foi possível salvar a regra.')
 }
 

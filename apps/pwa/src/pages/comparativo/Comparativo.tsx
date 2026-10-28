@@ -9,8 +9,11 @@ import { IconeGrafico, IconeSetaBaixo, IconeSetaCima } from '../../components/ic
 import { useLancamentos } from '../../hooks/useLancamentos'
 import { compararCategorias, totaisDoMes, variacao, type LinhaCategoria } from '../../lib/comparativo'
 import { diasNoMes, inicioDoMes, mesAnterior, paraMesISO } from '../../lib/datas'
+import { separarDaEmpresa } from '../../lib/empresa'
 import { formatarMesAno, formatarMoeda, formatarNomeDoMes } from '../../lib/formatar'
+import { listarCartoes } from '../../services/cartoes'
 import { listarCategorias } from '../../services/categorias'
+import { listarContas } from '../../services/contas'
 import { listarTransacoesDoMes } from '../../services/transacoes'
 import type { Categoria, Transacao } from '../../types/financas'
 
@@ -42,11 +45,12 @@ export default function Comparativo() {
   useEffect(() => {
     let ativo = true
     setCarregando(true)
-    Promise.all([listarTransacoesDoMes(mesA), listarTransacoesDoMes(mesB), listarCategorias()])
-      .then(([a, b, cats]) => {
+    Promise.all([listarTransacoesDoMes(mesA), listarTransacoesDoMes(mesB), listarCategorias(), listarContas(), listarCartoes()])
+      .then(([a, b, cats, contas, cartoes]) => {
         if (!ativo) return
-        setTransacoesA(a)
-        setTransacoesB(b)
+        // Só o pessoal: o que foi feito em conta ou cartão da empresa fica de fora da comparação
+        setTransacoesA(separarDaEmpresa(a, contas, cartoes).pessoais)
+        setTransacoesB(separarDaEmpresa(b, contas, cartoes).pessoais)
         setCategorias(cats)
         setErro('')
       })
@@ -64,7 +68,8 @@ export default function Comparativo() {
 
   const nomeA = nomeDoMes(mesA, mesB)
   const nomeB = nomeDoMes(mesB, mesA)
-  const nomeDaCategoria = (chave: string) => (chave === 'sem' ? 'Sem categoria' : (categoriaPorId.get(chave)?.nome ?? 'Categoria'))
+  const nomeDaCategoria = (chave: string) =>
+    chave === 'sem' ? 'Sem categoria' : (categoriaPorId.get(chave)?.nome ?? 'Categoria')
   const mesmoMes = paraMesISO(mesA) === paraMesISO(mesB)
 
   // Gráfico: maiores categorias (pelo maior dos dois meses) e o resto somado em "Outras"
@@ -140,33 +145,35 @@ export default function Comparativo() {
           <Esqueleto className="mt-5 h-16 rounded-2xl" />
           <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="flex flex-col gap-2 rounded-2xl border border-borda bg-superficie p-4">
+              <div key={i} className="flex flex-col gap-2 rounded-[28px] solido p-4">
                 <Esqueleto className="h-4 w-1/2" />
                 <Esqueleto className="h-6 w-3/4" />
                 <Esqueleto className="h-3 w-2/3" />
               </div>
             ))}
           </div>
-          <Card titulo="Gastos por categoria" className="mt-6">
-            <Esqueleto className="h-64" />
-          </Card>
-          <Card titulo="Por categoria" className="mt-6" semEspaco>
-            <EsqueletoLista linhas={4} />
-          </Card>
+          <div className="xl:mt-6 xl:grid xl:grid-cols-2 xl:items-start xl:gap-6">
+            <Card titulo="Gastos por categoria" className="mt-6 xl:mt-0">
+              <Esqueleto className="h-64" />
+            </Card>
+            <Card titulo="Por categoria" className="mt-6 xl:mt-0" semEspaco>
+              <EsqueletoLista linhas={4} />
+            </Card>
+          </div>
         </div>
       ) : mesmoMes ? (
-        <p className="mt-6 rounded-2xl border border-borda bg-superficie px-5 py-8 text-center text-texto-suave">
+        <p className="mt-6 rounded-[28px] solido px-5 py-8 text-center text-texto-suave">
           Escolha dois meses diferentes para comparar.
         </p>
       ) : (
         <>
           {/* Resumo em texto */}
-          <div className={`mt-5 rounded-2xl bg-sucesso-fundo px-5 py-4 ${recarregando}`} aria-live="polite">
-            <p className="font-medium text-sucesso-texto">{resumo}</p>
+          <div className={`mt-5 rounded-2xl bg-primaria/12 px-5 py-4 ${recarregando}`} aria-live="polite">
+            <p className="font-medium text-destaque">{resumo}</p>
             {mesAEmAndamento && (
-              <p className="mt-1 text-sm text-sucesso-texto/70">
-                {formatarNomeDoMes(mesA).charAt(0).toUpperCase() + formatarNomeDoMes(mesA).slice(1)} ainda está em andamento
-                (dia {hoje.getDate()} de {diasNoMes(mesA)}).
+              <p className="mt-1 text-sm text-destaque/70">
+                {formatarNomeDoMes(mesA).charAt(0).toUpperCase() + formatarNomeDoMes(mesA).slice(1)} ainda está em andamento (dia{' '}
+                {hoje.getDate()} de {diasNoMes(mesA)}).
               </p>
             )}
           </div>
@@ -175,27 +182,34 @@ export default function Comparativo() {
           <div className={`mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4 ${recarregando}`}>
             <CartaoComparacao titulo="Receitas" a={totaisA.receitas} b={totaisB.receitas} subirEhBom nomeB={nomeB} />
             <CartaoComparacao titulo="Despesas" a={totaisA.despesas} b={totaisB.despesas} subirEhBom={false} nomeB={nomeB} />
-            <CartaoComparacao titulo="Resultado do mês" a={totaisA.resultado} b={totaisB.resultado} subirEhBom nomeB={nomeB} />
-            <CartaoComparacao titulo="Assinaturas" a={totaisA.assinaturas} b={totaisB.assinaturas} subirEhBom={false} nomeB={nomeB} />
+            <CartaoComparacao titulo="Receitas − despesas" a={totaisA.resultado} b={totaisB.resultado} subirEhBom nomeB={nomeB} />
+            <CartaoComparacao
+              titulo="Assinaturas"
+              a={totaisA.assinaturas}
+              b={totaisB.assinaturas}
+              subirEhBom={false}
+              nomeB={nomeB}
+            />
           </div>
 
           {linhas.length === 0 ? (
-            <div className="mt-6 flex flex-col items-center rounded-2xl border border-borda bg-superficie px-5 py-14 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-superficie-3 text-texto-suave">
+            <div className="mt-6 flex flex-col items-center rounded-[28px] solido px-5 py-14 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-texto/[0.07] text-texto-suave">
                 <IconeGrafico className="h-6 w-6" />
               </span>
               <p className="mt-4 font-medium">Nada para comparar ainda</p>
               <p className="mt-1 max-w-xs text-sm text-texto-suave">Lance seus gastos para ver a comparação por categoria.</p>
             </div>
           ) : (
-            <>
+            // xl: gráfico ao lado da tabela
+            <div className="xl:mt-6 xl:grid xl:grid-cols-2 xl:items-start xl:gap-6">
               {/* Gráfico */}
-              <Card titulo="Gastos por categoria" className={`mt-6 ${recarregando}`}>
+              <Card titulo="Gastos por categoria" className={`mt-6 xl:mt-0 ${recarregando}`}>
                 <GraficoComparativoCategorias barras={barras} nomeA={nomeA} nomeB={nomeB} />
               </Card>
 
               {/* Tabela */}
-              <Card titulo="Por categoria" className={`mt-6 ${recarregando}`} semEspaco>
+              <Card titulo="Por categoria" className={`mt-6 xl:mt-0 ${recarregando}`} semEspaco>
                 <TabelaCategorias
                   linhas={linhas}
                   categoriaPorId={categoriaPorId}
@@ -204,7 +218,7 @@ export default function Comparativo() {
                   nomeB={nomeB}
                 />
               </Card>
-            </>
+            </div>
           )}
         </>
       )}
@@ -224,11 +238,11 @@ type CartaoComparacaoProps = {
 function CartaoComparacao({ titulo, a, b, subirEhBom, nomeB }: CartaoComparacaoProps) {
   const diferenca = Math.round((a - b) * 100) / 100
   const percentual = variacao(a, b)
-  const bom = (diferenca > 0) === subirEhBom
+  const bom = diferenca > 0 === subirEhBom
   const cor = diferenca === 0 ? 'text-texto-suave' : bom ? 'text-receita' : 'text-despesa'
 
   return (
-    <div className="rounded-2xl border border-borda bg-superficie p-4">
+    <div className="rounded-[28px] solido p-4">
       <p className="text-sm text-texto-suave">{titulo}</p>
       <p className={`mt-1 text-xl font-bold tracking-tight ${a < 0 ? 'text-despesa' : ''}`}>{formatarMoeda(a)}</p>
       <p className={`mt-2 flex items-center gap-1 text-sm font-semibold ${cor}`}>
@@ -285,8 +299,8 @@ function TabelaCategorias({ linhas, categoriaPorId, nomeDaCategoria, nomeA, nome
                 </div>
                 <div className="mt-0.5 flex items-baseline justify-between gap-3 text-xs text-texto-suave">
                   <span className="truncate">
-                    {formatarMoeda(l.a)} <span className="capitalize">{nomeA.split(' ')[0].slice(0, 3)}</span> · {formatarMoeda(l.b)}{' '}
-                    <span className="capitalize">{nomeB.split(' ')[0].slice(0, 3)}</span>
+                    {formatarMoeda(l.a)} <span className="capitalize">{nomeA.split(' ')[0].slice(0, 3)}</span> ·{' '}
+                    {formatarMoeda(l.b)} <span className="capitalize">{nomeB.split(' ')[0].slice(0, 3)}</span>
                   </span>
                   <span className={`shrink-0 font-semibold ${corDaDiferenca(l.diferenca)}`}>{textoVariacao(l)}</span>
                 </div>
@@ -297,7 +311,7 @@ function TabelaCategorias({ linhas, categoriaPorId, nomeDaCategoria, nomeA, nome
       </ul>
 
       <table className="hidden w-full text-sm tabular-nums sm:table">
-        <thead className="bg-superficie-2 text-left text-xs text-texto-suave">
+        <thead className="bg-texto/[0.03] text-left text-xs text-texto-suave">
           <tr>
             <th className="px-5 py-2.5 font-medium">Categoria</th>
             <th className="px-3 py-2.5 text-right font-medium capitalize">{nomeA}</th>
@@ -319,7 +333,9 @@ function TabelaCategorias({ linhas, categoriaPorId, nomeDaCategoria, nomeA, nome
                 </td>
                 <td className="px-3 py-3 text-right">{formatarMoeda(l.a)}</td>
                 <td className="px-3 py-3 text-right text-texto-suave">{formatarMoeda(l.b)}</td>
-                <td className={`px-3 py-3 text-right font-semibold ${corDaDiferenca(l.diferenca)}`}>{diferencaEmReais(l.diferenca)}</td>
+                <td className={`px-3 py-3 text-right font-semibold ${corDaDiferenca(l.diferenca)}`}>
+                  {diferencaEmReais(l.diferenca)}
+                </td>
                 <td className={`px-5 py-3 text-right font-semibold ${corDaDiferenca(l.diferenca)}`}>{textoVariacao(l)}</td>
               </tr>
             )

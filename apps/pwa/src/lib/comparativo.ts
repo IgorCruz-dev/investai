@@ -40,7 +40,7 @@ export function totaisDoMes(transacoes: Transacao[], categoriaPorId: Map<string,
     if (!gasto) continue
     despesas += gasto
     const categoria = t.categoria_id ? categoriaPorId.get(t.categoria_id) : undefined
-    if (t.assinatura_id !== null || categoria?.icone === 'assinaturas') assinaturas += gasto
+    if (categoria?.icone === 'assinaturas') assinaturas += gasto
   }
   return {
     receitas: receitas / 100,

@@ -48,7 +48,7 @@ export default function Cartoes() {
         {cartoes.length > 0 && (
           <button
             onClick={() => setEditando(null)}
-            className="flex h-10 items-center gap-1.5 rounded-xl border border-borda bg-superficie px-3.5 text-sm font-semibold transition hover:bg-superficie-2"
+            className="flex h-10 items-center gap-1.5 rounded-xl border border-borda vidro px-3.5 text-sm font-semibold transition hover:bg-texto/[0.05]"
           >
             <IconeMais className="h-4 w-4" />
             Novo cartão
@@ -63,9 +63,9 @@ export default function Cartoes() {
       )}
 
       {carregando ? (
-        <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-label="Carregando">
+        <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-busy="true" aria-label="Carregando">
           {[0, 1].map((i) => (
-            <li key={i} className="rounded-2xl border border-borda bg-superficie">
+            <li key={i} className="rounded-[28px] solido">
               <div className="p-3 pb-0">
                 <Esqueleto className="aspect-[1.75] rounded-2xl" />
               </div>
@@ -77,8 +77,8 @@ export default function Cartoes() {
           ))}
         </ul>
       ) : cartoes.length === 0 ? (
-        <div className="mt-6 flex flex-col items-center rounded-2xl border border-borda bg-superficie px-5 py-14 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-superficie-3 text-texto-suave">
+        <div className="mt-6 flex flex-col items-center rounded-[28px] solido px-5 py-14 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-texto/[0.07] text-texto-suave">
             <IconeCartao className="h-6 w-6" />
           </span>
           <p className="mt-4 font-medium">Nenhum cartão cadastrado</p>
@@ -96,10 +96,10 @@ export default function Cartoes() {
       ) : (
         <>
           {cartoes.length > 1 && faturas && <TodosOsCartoes cartoes={cartoes} usados={usados} faturas={faturas} />}
-          <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {cartoes.map((c) => (
-              <li key={c.id} className="relative overflow-hidden rounded-2xl border border-borda bg-superficie">
-                <Link to={`/cartoes/${c.id}`} className="block transition hover:bg-superficie-2">
+              <li key={c.id} className="relative overflow-hidden rounded-[28px] solido">
+                <Link to={`/cartoes/${c.id}`} className="block transition hover:-translate-y-0.5">
                   <div className="p-3 pb-0">
                     <CartaoVisual nome={c.nome} bandeira={c.bandeira} cor={c.cor} />
                   </div>
@@ -141,7 +141,7 @@ function TodosOsCartoes({ cartoes, usados, faturas }: TodosProps) {
   const usado = cartoes.reduce((s, c) => s + Math.round((usados.get(c.id) ?? 0) * 100), 0) / 100
 
   return (
-    <section aria-label="Todos os cartões" className="mt-6 rounded-2xl border border-borda bg-superficie p-5">
+    <section aria-label="Todos os cartões" className="mt-6 rounded-[28px] solido p-5">
       <p className="text-sm text-texto-suave">Faturas atuais somadas</p>
       <p className="mt-1 text-3xl font-bold tracking-tight">{formatarMoeda(totalFaturas)}</p>
 
@@ -154,7 +154,9 @@ function TodosOsCartoes({ cartoes, usados, faturas }: TodosProps) {
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: c.cor }} />
               <span className="min-w-0 flex-1 truncate font-medium">{c.nome}</span>
               {vencimento && <span className="shrink-0 text-xs text-texto-suave">vence {formatarDiaMes(vencimento)}</span>}
-              <span className="w-28 shrink-0 text-right font-semibold">{formatarMoeda((faturas.totais.get(c.id) ?? 0) / 100)}</span>
+              <span className="w-28 shrink-0 text-right font-semibold">
+                {formatarMoeda((faturas.totais.get(c.id) ?? 0) / 100)}
+              </span>
             </li>
           )
         })}

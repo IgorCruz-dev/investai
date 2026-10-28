@@ -32,11 +32,14 @@ export function datasDaFatura(fatura: Date, diaFechamento: number, diaVencimento
   return { fechamento, vencimento, ultimoDiaDeCompras }
 }
 
-export type StatusFatura = 'aberta' | 'fechada' | 'paga'
+export type StatusFatura = 'aberta' | 'fechada' | 'parcial' | 'paga'
 
-/** Paga se tem pagamento; senão fechada a partir do dia do fechamento; antes disso, em aberto */
-export function statusDaFatura(fechamento: Date, paga: boolean, hoje = new Date()): StatusFatura {
-  if (paga) return 'paga'
+/**
+ * Paga quando os pagamentos somam o valor da fatura; paga em parte quando somam menos;
+ * sem pagamento, fechada a partir do dia do fechamento e, antes disso, em aberto.
+ */
+export function statusDaFatura(fechamento: Date, pagoCentavos: number, totalCentavos: number, hoje = new Date()): StatusFatura {
+  if (pagoCentavos > 0) return pagoCentavos >= totalCentavos ? 'paga' : 'parcial'
   const hojeSemHora = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
   return hojeSemHora >= fechamento ? 'fechada' : 'aberta'
 }

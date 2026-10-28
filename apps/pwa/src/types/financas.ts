@@ -10,9 +10,17 @@ export type TipoMovimentoCaixinha = 'deposito' | 'retirada'
 export type Categoria = Tables<'categorias'>
 export type Conta = Tables<'contas'>
 export type Cartao = Tables<'cartoes'>
-export type NovoCartao = Pick<TablesInsert<'cartoes'>, 'nome' | 'bandeira' | 'limite' | 'dia_fechamento' | 'dia_vencimento' | 'cor'>
+export type NovoCartao = Pick<
+  TablesInsert<'cartoes'>,
+  'nome' | 'bandeira' | 'limite' | 'dia_fechamento' | 'dia_vencimento' | 'cor'
+>
 export type Assinatura = Tables<'assinaturas'>
-export type NovaAssinatura = Pick<TablesInsert<'assinaturas'>, 'nome' | 'valor' | 'dia_cobranca' | 'cartao_id' | 'ultimo_lancamento'>
+export type NovaAssinatura = Pick<
+  TablesInsert<'assinaturas'>,
+  'nome' | 'valor' | 'dia_cobranca' | 'cartao_id' | 'ultimo_lancamento' | 'total_parcelas'
+>
+export type ReceitaPrevista = Tables<'receitas_previstas'>
+export type NovaReceitaPrevista = Pick<TablesInsert<'receitas_previstas'>, 'nome' | 'valor' | 'dia'>
 
 export type Transacao = Omit<Tables<'transacoes'>, 'tipo' | 'forma' | 'origem'> & {
   tipo: TipoTransacao
@@ -24,6 +32,9 @@ export type NovaTransacao = Omit<TablesInsert<'transacoes'>, 'tipo' | 'forma' | 
   forma: FormaPagamento
   origem?: OrigemTransacao
 }
+
+/** Mês de acerto que a pessoa pagou por fora, marcado à mão na tela de Acertos */
+export type AcertoPago = Tables<'acertos_pagos'>
 
 export type MovimentoCaixinha = Omit<Tables<'caixinha_movimentos'>, 'tipo'> & { tipo: TipoMovimentoCaixinha }
 

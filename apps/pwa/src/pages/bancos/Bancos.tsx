@@ -11,8 +11,8 @@ import { useLancamentos } from '../../hooks/useLancamentos'
 import { hojeISO } from '../../lib/datas'
 import { formatarDataHora, formatarMoeda } from '../../lib/formatar'
 import { problemaDaConexao } from '../../lib/openFinance'
-import { listarCartoes } from '../../services/cartoes'
-import { listarContas } from '../../services/contas'
+import { listarCartoes, marcarCartaoEmpresarial } from '../../services/cartoes'
+import { listarContas, marcarContaEmpresarial } from '../../services/contas'
 import {
   ErroOpenFinance,
   ajustarSaldoDaConta,
@@ -100,6 +100,21 @@ export default function Bancos() {
     }
   }
 
+  async function mudarEmpresa(banco: ContaPluggy, vinculada: Conta | Cartao, empresarial: boolean) {
+    setErro('')
+    setSalvando(banco.id)
+    try {
+      if (banco.tipo === 'BANK') await marcarContaEmpresarial(vinculada.id, empresarial)
+      else await marcarCartaoEmpresarial(vinculada.id, empresarial)
+      await carregar()
+      recarregar()
+    } catch (e) {
+      setErro((e as Error).message)
+    } finally {
+      setSalvando(null)
+    }
+  }
+
   if (!carregando && semAcesso) return <ConecteSeusBancos />
 
   const doBanco = (tipo: ContaPluggy['tipo']) => contasBanco.filter((c) => c.tipo === tipo)
@@ -110,13 +125,15 @@ export default function Bancos() {
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Bancos</h1>
         <Link
           to="/bancos/categorias"
-          className="flex h-10 items-center gap-1 rounded-xl border border-borda bg-superficie px-3.5 text-sm font-semibold transition hover:bg-superficie-2"
+          className="flex h-10 items-center gap-1 rounded-xl border border-borda vidro px-3.5 text-sm font-semibold transition hover:bg-texto/[0.05]"
         >
           Categorias do banco
           <IconeChevronDireita className="h-4 w-4" />
         </Link>
       </div>
-      <p className="mt-1 text-sm text-texto-suave">Open Finance via Meu Pluggy, só leitura. Lançamentos manuais continuam valendo.</p>
+      <p className="mt-1 text-sm text-texto-suave">
+        Open Finance via Meu Pluggy, só leitura. Lançamentos manuais continuam valendo.
+      </p>
 
       {erro && (
         <div className="mt-4">
@@ -128,111 +145,117 @@ export default function Bancos() {
         <Sincronizar />
       </div>
 
-      <Card
-        titulo="Conexões"
-        className="mt-6"
-        semEspaco
-        acao={
-          <a href={MEU_PLUGGY} target="_blank" rel="noreferrer" className="text-sm font-semibold text-primaria hover:underline">
-            Abrir meu.pluggy.ai
-          </a>
-        }
-      >
-        {carregando ? (
-          <EsqueletoLista linhas={2} />
-        ) : conexoes.length === 0 ? (
-          <p className="px-5 py-8 text-center text-sm text-texto-suave">Nenhuma conexão encontrada.</p>
-        ) : (
-          <ul className="divide-y divide-borda">
-            {conexoes.map((c) => {
-              const problema = problemaDaConexao(c)
-              return (
-                <li key={c.item_id} className="flex items-start gap-3 px-5 py-3.5">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-superficie-3 text-texto-suave">
-                    <IconeBanco className="h-[18px] w-[18px]" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{c.banco}</span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          problema?.grave
-                            ? 'bg-erro-fundo text-despesa'
-                            : problema
-                              ? 'bg-aviso-fundo text-aviso-texto'
-                              : 'bg-sucesso-fundo text-sucesso-texto'
-                        }`}
-                      >
-                        {problema?.selo ?? 'Conectado'}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-xs text-texto-suave">
-                      {c.atualizado_no_banco_em && <>Dados do banco de {formatarDataHora(c.atualizado_no_banco_em)}</>}
-                      {c.consentimento_expira_em && (
-                        <>
-                          {c.atualizado_no_banco_em && ' · '}
-                          Consentimento até {dataCurta.format(new Date(c.consentimento_expira_em))}
-                        </>
+      {/* xl: conexões ao lado das contas e cartões */}
+      <div className="xl:mt-6 xl:grid xl:grid-cols-2 xl:items-start xl:gap-6">
+        <Card
+          titulo="Conexões"
+          className="mt-6 xl:mt-0"
+          semEspaco
+          acao={
+            <a href={MEU_PLUGGY} target="_blank" rel="noreferrer" className="text-sm font-semibold text-destaque hover:underline">
+              Abrir meu.pluggy.ai
+            </a>
+          }
+        >
+          {carregando ? (
+            <EsqueletoLista linhas={2} />
+          ) : conexoes.length === 0 ? (
+            <p className="px-5 py-8 text-center text-sm text-texto-suave">Nenhuma conexão encontrada.</p>
+          ) : (
+            <ul className="divide-y divide-borda">
+              {conexoes.map((c) => {
+                const problema = problemaDaConexao(c)
+                return (
+                  <li key={c.item_id} className="flex items-start gap-3 px-5 py-3.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-texto/[0.07] text-texto-suave">
+                      <IconeBanco className="h-[18px] w-[18px]" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{c.banco}</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            problema?.grave
+                              ? 'bg-despesa/12 text-despesa'
+                              : problema
+                                ? 'bg-alerta/10 text-alerta'
+                                : 'bg-primaria/12 text-destaque'
+                          }`}
+                        >
+                          {problema?.selo ?? 'Conectado'}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-texto-suave">
+                        {c.atualizado_no_banco_em && <>Dados do banco de {formatarDataHora(c.atualizado_no_banco_em)}</>}
+                        {c.consentimento_expira_em && (
+                          <>
+                            {c.atualizado_no_banco_em && ' · '}
+                            Consentimento até {dataCurta.format(new Date(c.consentimento_expira_em))}
+                          </>
+                        )}
+                      </p>
+                      {problema && (
+                        <p className={`mt-1 text-xs ${problema.grave ? 'text-despesa' : 'text-alerta'}`}>{problema.texto}</p>
                       )}
-                    </p>
-                    {problema && <p className={`mt-1 text-xs ${problema.grave ? 'text-despesa' : 'text-aviso-texto'}`}>{problema.texto}</p>}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </Card>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </Card>
 
-      <Card
-        titulo="Contas e cartões do banco"
-        className="mt-6"
-        semEspaco
-        acao={
-          <button
-            onClick={atualizarDoBanco}
-            disabled={atualizando}
-            className="flex items-center gap-1.5 text-sm font-semibold text-primaria hover:underline disabled:opacity-60"
-          >
-            <IconeSincronizar className={`h-4 w-4 ${atualizando ? 'animate-spin' : ''}`} />
-            Atualizar lista
-          </button>
-        }
-      >
-        <p className="border-b border-borda px-5 py-3 text-sm text-texto-suave">
-          Escolha a qual conta ou cartão do app cada um corresponde. Só os vinculados são importados.
-        </p>
-        {carregando ? (
-          <EsqueletoLista linhas={3} />
-        ) : contasBanco.length === 0 ? (
-          <p className="px-5 py-8 text-center text-sm text-texto-suave">
-            {atualizando ? 'Buscando no banco...' : 'Nenhuma conta encontrada nas conexões.'}
+        <Card
+          titulo="Contas e cartões do banco"
+          className="mt-6 xl:mt-0"
+          semEspaco
+          acao={
+            <button
+              onClick={atualizarDoBanco}
+              disabled={atualizando}
+              className="flex items-center gap-1.5 text-sm font-semibold text-destaque hover:underline disabled:opacity-60"
+            >
+              <IconeSincronizar className={`h-4 w-4 ${atualizando ? 'animate-spin' : ''}`} />
+              Atualizar lista
+            </button>
+          }
+        >
+          <p className="border-b border-borda px-5 py-3 text-sm text-texto-suave">
+            Escolha a qual conta ou cartão do app cada um corresponde. Só os vinculados são importados.
           </p>
-        ) : (
-          (['BANK', 'CREDIT'] as const).map((tipo) =>
-            doBanco(tipo).length === 0 ? null : (
-              <div key={tipo}>
-                <p className="bg-superficie-2 px-5 py-2 text-xs font-semibold tracking-wide text-texto-suave uppercase">
-                  {tipo === 'BANK' ? 'Contas' : 'Cartões de crédito'}
-                </p>
-                <ul className="divide-y divide-borda">
-                  {doBanco(tipo).map((b) => (
-                    <LinhaVinculo
-                      key={b.id}
-                      banco={b}
-                      contas={contas}
-                      cartoes={cartoes}
-                      salvando={salvando === b.id}
-                      aoMudar={(escolha) => mudarVinculo(b, escolha)}
-                      aoAjustarSaldo={(conta) => setAjustando({ conta, banco: b })}
-                    />
-                  ))}
-                </ul>
-              </div>
-            ),
-          )
-        )}
-      </Card>
+          {carregando ? (
+            <EsqueletoLista linhas={3} />
+          ) : contasBanco.length === 0 ? (
+            <p className="px-5 py-8 text-center text-sm text-texto-suave">
+              {atualizando ? 'Buscando no banco...' : 'Nenhuma conta encontrada nas conexões.'}
+            </p>
+          ) : (
+            (['BANK', 'CREDIT'] as const).map((tipo) =>
+              doBanco(tipo).length === 0 ? null : (
+                <div key={tipo}>
+                  <p className="bg-texto/[0.03] px-5 py-2 text-xs font-semibold tracking-wide text-texto-suave uppercase">
+                    {tipo === 'BANK' ? 'Contas' : 'Cartões de crédito'}
+                  </p>
+                  <ul className="divide-y divide-borda">
+                    {doBanco(tipo).map((b) => (
+                      <LinhaVinculo
+                        key={b.id}
+                        banco={b}
+                        contas={contas}
+                        cartoes={cartoes}
+                        salvando={salvando === b.id}
+                        aoMudar={(escolha) => mudarVinculo(b, escolha)}
+                        aoAjustarSaldo={(conta) => setAjustando({ conta, banco: b })}
+                        aoMarcarEmpresa={(vinculada, empresarial) => mudarEmpresa(b, vinculada, empresarial)}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              ),
+            )
+          )}
+        </Card>
+      </div>
 
       {ajustando && (
         <ModalAjustarSaldo
@@ -256,9 +279,10 @@ type LinhaProps = {
   salvando: boolean
   aoMudar: (escolha: string) => void
   aoAjustarSaldo: (conta: Conta) => void
+  aoMarcarEmpresa: (vinculada: Conta | Cartao, empresarial: boolean) => void
 }
 
-function LinhaVinculo({ banco, contas, cartoes, salvando, aoMudar, aoAjustarSaldo }: LinhaProps) {
+function LinhaVinculo({ banco, contas, cartoes, salvando, aoMudar, aoAjustarSaldo, aoMarcarEmpresa }: LinhaProps) {
   const ehConta = banco.tipo === 'BANK'
   const opcoes = ehConta ? contas : cartoes
   const vinculada = opcoes.find((o) => o.pluggy_account_id === banco.id)
@@ -290,7 +314,7 @@ function LinhaVinculo({ banco, contas, cartoes, salvando, aoMudar, aoAjustarSald
           value={vinculada?.id ?? NAO_IMPORTAR}
           disabled={salvando}
           onChange={(e) => aoMudar(e.target.value)}
-          className="h-10 min-w-0 flex-1 rounded-xl border border-borda bg-superficie px-3 text-base outline-none sm:text-sm focus:border-primaria focus:ring-4 focus:ring-primaria/15 disabled:opacity-60"
+          className="h-10 min-w-0 flex-1 rounded-xl border border-borda vidro px-3 text-base outline-none sm:text-sm focus:border-primaria focus:ring-4 focus:ring-primaria/15 disabled:opacity-60"
         >
           <option value={NAO_IMPORTAR}>Não importar</option>
           {opcoes.map((o) => (
@@ -299,15 +323,31 @@ function LinhaVinculo({ banco, contas, cartoes, salvando, aoMudar, aoAjustarSald
               {o.pluggy_account_id && o.pluggy_account_id !== banco.id ? ' (já vinculado)' : ''}
             </option>
           ))}
-          {!vinculada && <option value={CRIAR}>+ Criar {ehConta ? 'conta' : 'cartão'} "{banco.nome}" no app</option>}
+          {!vinculada && (
+            <option value={CRIAR}>
+              + Criar {ehConta ? 'conta' : 'cartão'} "{banco.nome}" no app
+            </option>
+          )}
         </select>
         {ehConta && vinculada && banco.saldo !== null && (
           <button
             onClick={() => aoAjustarSaldo(vinculada as Conta)}
-            className="h-10 rounded-xl border border-borda px-3 text-sm font-semibold transition hover:bg-superficie-2"
+            className="h-10 rounded-xl border border-borda px-3 text-sm font-semibold transition hover:bg-texto/[0.05]"
           >
             Ajustar saldo
           </button>
+        )}
+        {vinculada && (
+          <label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-borda px-3 text-sm font-medium transition hover:bg-texto/[0.05]">
+            <input
+              type="checkbox"
+              checked={vinculada.empresarial}
+              disabled={salvando}
+              onChange={(e) => aoMarcarEmpresa(vinculada, e.target.checked)}
+              className="h-4 w-4 accent-indigo-600"
+            />
+            Da empresa
+          </label>
         )}
       </div>
       {!ehConta && !vinculada && (banco.dia_fechamento === null || banco.dia_vencimento === null) && (
@@ -354,7 +394,7 @@ function ModalAjustarSaldo({ conta, banco, aoFechar, aoAjustar }: AjusteProps) {
           type="button"
           onClick={aoFechar}
           disabled={salvando}
-          className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-superficie-2 hover:text-texto"
+          className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-texto/[0.05] hover:text-texto"
         >
           Cancelar
         </button>
@@ -368,7 +408,7 @@ function ConecteSeusBancos() {
   const passos = [
     <>
       Conecte seus bancos em{' '}
-      <a href={MEU_PLUGGY} target="_blank" rel="noreferrer" className="font-semibold text-primaria hover:underline">
+      <a href={MEU_PLUGGY} target="_blank" rel="noreferrer" className="font-semibold text-destaque hover:underline">
         meu.pluggy.ai
       </a>{' '}
       (uso pessoal, só leitura).
@@ -384,8 +424,8 @@ function ConecteSeusBancos() {
   return (
     <>
       <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Bancos</h1>
-      <div className="mt-6 rounded-2xl border border-borda bg-superficie p-6">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-sucesso-fundo text-primaria">
+      <div className="mt-6 rounded-[28px] solido p-6">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primaria/12 text-destaque">
           <IconeBanco className="h-6 w-6" />
         </span>
         <p className="mt-4 text-lg font-semibold">Conecte seus bancos</p>
@@ -395,7 +435,7 @@ function ConecteSeusBancos() {
         <ol className="mt-5 space-y-3">
           {passos.map((passo, i) => (
             <li key={i} className="flex gap-3 text-sm">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-superficie-3 text-xs font-semibold">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-texto/[0.07] text-xs font-semibold">
                 {i + 1}
               </span>
               <span className="pt-0.5">{passo}</span>

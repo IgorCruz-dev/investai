@@ -8,7 +8,10 @@ export async function listarAssinaturas() {
 }
 
 /** Cria (sem id) ou atualiza (com id) uma assinatura */
-export async function salvarAssinatura(dados: Partial<NovaAssinatura> & Pick<NovaAssinatura, 'nome' | 'valor' | 'dia_cobranca'>, id?: string) {
+export async function salvarAssinatura(
+  dados: Partial<NovaAssinatura> & Pick<NovaAssinatura, 'nome' | 'valor' | 'dia_cobranca'>,
+  id?: string,
+) {
   const consulta = id
     ? supabase.from('assinaturas').update(dados).eq('id', id).select().single()
     : supabase.from('assinaturas').insert(dados).select().single()
@@ -18,6 +21,28 @@ export async function salvarAssinatura(dados: Partial<NovaAssinatura> & Pick<Nov
     throw new Error('Não foi possível salvar a assinatura. Tente de novo.')
   }
   return data
+}
+
+/** Quantas cobranças já estão ligadas a cada assinatura (para saber em que parcela está) */
+export async function contarCobrancas() {
+  const { data, error } = await supabase.from('transacoes').select('assinatura_id').not('assinatura_id', 'is', null)
+  if (error) throw error
+  const contagem = new Map<string, number>()
+  for (const t of data) if (t.assinatura_id) contagem.set(t.assinatura_id, (contagem.get(t.assinatura_id) ?? 0) + 1)
+  return contagem
+}
+
+/** Datas ("2026-10-13") das cobranças ligadas a cada assinatura, da mais antiga para a mais nova */
+export async function datasDasCobrancas() {
+  const { data, error } = await supabase
+    .from('transacoes')
+    .select('assinatura_id, data')
+    .not('assinatura_id', 'is', null)
+    .order('data')
+  if (error) throw error
+  const datas = new Map<string, string[]>()
+  for (const t of data) if (t.assinatura_id) datas.set(t.assinatura_id, [...(datas.get(t.assinatura_id) ?? []), t.data])
+  return datas
 }
 
 /** Pausar (false) ou retomar (true) */

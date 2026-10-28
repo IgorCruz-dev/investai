@@ -32,10 +32,27 @@ export async function retirar(valorCentavos: number, motivo: string, data: strin
   if (error) throw erroAoSalvar(error)
 }
 
-export async function buscarMeta(usuarioId: string) {
-  const { data, error } = await supabase.from('perfis').select('meta_caixinha').eq('id', usuarioId).maybeSingle()
+/** Meta e ponto de partida do total guardado (ficam no perfil) */
+export async function buscarConfigCaixinha(usuarioId: string) {
+  const { data, error } = await supabase
+    .from('perfis')
+    .select('meta_caixinha, caixinha_saldo_inicial, caixinha_contar_desde')
+    .eq('id', usuarioId)
+    .maybeSingle()
   if (error) throw error
-  return data?.meta_caixinha ?? null
+  return {
+    meta: data?.meta_caixinha ?? null,
+    partida: { saldoInicial: Number(data?.caixinha_saldo_inicial ?? 0), desde: data?.caixinha_contar_desde ?? null },
+  }
+}
+
+/** Acerta o total guardado: muda só o saldo de partida (o saldo da conta não mexe) */
+export async function definirPartida(usuarioId: string, saldoInicial: number, desde: string | null) {
+  const { error } = await supabase
+    .from('perfis')
+    .update({ caixinha_saldo_inicial: saldoInicial, caixinha_contar_desde: desde })
+    .eq('id', usuarioId)
+  if (error) throw new Error('Não foi possível acertar o total.')
 }
 
 /** Define a meta (null remove) */
