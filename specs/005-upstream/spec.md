@@ -8,7 +8,7 @@ Os lançamentos de investimento declarados continuam vinculados à movimentaçã
 
 Notícias, radar e mercado podem chamar IA apenas pelos três caminhos nomeados, com limite mensal conferido antes de cada chamada. Sem chave da Anthropic, o conteúdo dependente de IA pode faltar sem impedir o uso do restante da tela.
 
-As migrações do Money precedem as migrações locais de carteira, porque estas dependem do schema financeiro. Nenhuma migração desta atualização é aplicada automaticamente a banco remoto.
+As migrações do Money precedem as migrações locais de carteira no histórico versionado. Em produção, a carteira local já havia sido criada antes desta atualização; seus seis registros de histórico são renumerados sem executar o SQL novamente. A cor de “Outros” em cadastros existentes é corrigida por uma migração própria.
 
 ## Alternativas descartadas
 
