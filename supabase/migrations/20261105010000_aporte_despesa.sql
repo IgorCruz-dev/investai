@@ -39,6 +39,11 @@ insert into public.categorias (user_id, nome, cor, icone)
 select id, 'Investimento', '#d4af37', 'investimento' from auth.users
 on conflict (user_id, nome) do nothing;
 
+-- A função só muda cadastros futuros; contas existentes já receberam Outros
+-- quando o schema financeiro nasceu e precisam da mesma correção de contraste.
+update public.categorias set cor = '#8a8a9a'
+where nome = 'Outros' and cor = '#64748b';
+
 -- ===================== o vínculo =====================
 -- O lançamento guarda qual movimentação o criou. Serve para duas coisas:
 -- responder "por que essa despesa de R$ 2.340 apareceu no meu mês?" e permitir
