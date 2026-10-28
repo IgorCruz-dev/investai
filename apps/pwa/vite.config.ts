@@ -10,10 +10,12 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
+      // Notificações push: os eventos push e notificationclick ficam em public/push-sw.js
+      workbox: { importScripts: ['push-sw.js'] },
       manifest: {
         name: 'InvestAI',
         short_name: 'InvestAI',
-        description: 'Finanças e investimentos em um só lugar',
+        description: 'Controle financeiro pessoal',
         lang: 'pt-BR',
         theme_color: '#0a0a0f',
         background_color: '#0a0a0f',

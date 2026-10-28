@@ -8,7 +8,7 @@ type Props = {
 }
 
 const estiloBotao =
-  'flex h-9 w-9 items-center justify-center rounded-lg text-texto-suave transition hover:bg-superficie-3 hover:text-texto'
+  'flex h-9 w-9 items-center justify-center rounded-full text-texto-suave transition hover:bg-texto/[0.1] hover:text-texto'
 
 export default function SeletorMes({ mes, aoMudar }: Props) {
   function mudar(meses: number) {
@@ -16,11 +16,11 @@ export default function SeletorMes({ mes, aoMudar }: Props) {
   }
 
   return (
-    <div className="inline-flex items-center gap-1 rounded-xl border border-borda bg-superficie p-1">
+    <div className="vidro inline-flex items-center gap-1 rounded-full p-1">
       <button type="button" onClick={() => mudar(-1)} aria-label="Mês anterior" className={estiloBotao}>
         <IconeChevronEsquerda className="h-5 w-5" />
       </button>
-      <span className="min-w-36 text-center text-sm font-semibold" aria-live="polite">
+      <span className="min-w-36 text-center text-sm font-semibold first-letter:uppercase" aria-live="polite">
         {formatarMesAno(mes)}
       </span>
       <button type="button" onClick={() => mudar(1)} aria-label="Próximo mês" className={estiloBotao}>

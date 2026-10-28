@@ -21,7 +21,7 @@ export default function Campo({ label, id, icone, type, erro, ...props }: Props)
       <div className="group relative">
         {icone && (
           <span
-            className={`pointer-events-none absolute inset-y-0 left-3.5 flex items-center transition ${erro ? 'text-despesa' : 'text-texto-suave group-focus-within:text-primaria'}`}
+            className={`pointer-events-none absolute inset-y-0 left-3.5 flex items-center transition ${erro ? 'text-despesa' : 'text-texto-suave group-focus-within:text-destaque'}`}
           >
             {icone}
           </span>
@@ -31,7 +31,7 @@ export default function Campo({ label, id, icone, type, erro, ...props }: Props)
           type={ehSenha && mostrarSenha ? 'text' : type}
           aria-invalid={erro ? true : undefined}
           aria-describedby={erro ? `${id}-erro` : undefined}
-          className={`h-12 w-full rounded-xl border bg-superficie text-base text-texto outline-none transition placeholder:text-texto-suave/70 focus:ring-4 disabled:cursor-not-allowed disabled:bg-superficie-2 disabled:text-texto-suave ${erro ? 'border-despesa focus:ring-despesa/15' : 'border-borda hover:border-borda-forte focus:border-primaria focus:ring-primaria/15'} ${icone ? 'pl-11' : 'pl-4'} ${ehSenha ? 'pr-12' : 'pr-4'}`}
+          className={`h-12 w-full rounded-2xl border bg-texto/[0.04] text-base text-texto outline-none transition placeholder:text-texto-suave/60 focus:bg-texto/[0.06] focus:ring-4 disabled:cursor-not-allowed disabled:bg-texto/[0.02] disabled:text-texto-suave ${erro ? 'border-despesa focus:ring-despesa/15' : 'border-borda hover:border-texto/20 focus:border-primaria/60 focus:ring-primaria/10'} ${icone ? 'pl-11' : 'pl-4'} ${ehSenha ? 'pr-12' : 'pr-4'}`}
           {...props}
         />
         {ehSenha && (

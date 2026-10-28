@@ -19,7 +19,7 @@ type Props = {
   aoMudar: () => void
 }
 
-type Erros = Partial<Record<'nome' | 'valor' | 'dia', string>>
+type Erros = Partial<Record<'nome' | 'valor' | 'dia' | 'parcelas', string>>
 
 const SEM_CARTAO = 'sem-cartao'
 
@@ -28,6 +28,9 @@ export default function ModalAssinatura({ assinatura, cartoes, aoFechar, aoMudar
   const [centavos, setCentavos] = useState(assinatura ? Math.round(assinatura.valor * 100) : 0)
   const [dia, setDia] = useState(assinatura ? String(assinatura.dia_cobranca) : '')
   const [cartaoId, setCartaoId] = useState<string>(assinatura?.cartao_id ?? SEM_CARTAO)
+  // Vazio = sem fim (assinatura); com número = parcelado (ex.: financiamento)
+  const [parcelas, setParcelas] = useState(assinatura?.total_parcelas ? String(assinatura.total_parcelas) : '')
+  const doBanco = assinatura?.do_banco ?? false
   const [lancarAgora, setLancarAgora] = useState(true)
 
   const [tentouSalvar, setTentouSalvar] = useState(false)
@@ -46,6 +49,7 @@ export default function ModalAssinatura({ assinatura, cartoes, aoFechar, aoMudar
     if (!nome.trim()) erros.nome = 'Dê um nome (ex.: Netflix).'
     if (centavos <= 0) erros.valor = 'Informe o valor.'
     if (!diaValido) erros.dia = 'Dia entre 1 e 31.'
+    if (parcelas && !(Number(parcelas) >= 1 && Number(parcelas) <= 360)) erros.parcelas = 'Entre 1 e 360.'
     return erros
   }
   const erros = tentouSalvar ? validar() : {}
@@ -74,6 +78,7 @@ export default function ModalAssinatura({ assinatura, cartoes, aoFechar, aoMudar
         valor: centavos / 100,
         dia_cobranca: diaNumero,
         cartao_id: cartaoId === SEM_CARTAO ? null : cartaoId,
+        total_parcelas: parcelas ? Number(parcelas) : null,
       }
       if (assinatura) {
         await salvarAssinatura(dados, assinatura.id)
@@ -91,8 +96,8 @@ export default function ModalAssinatura({ assinatura, cartoes, aoFechar, aoMudar
       <Modal aberto aoFechar={aoFechar} titulo="Excluir assinatura">
         <div className="flex flex-col gap-4">
           <p className="text-texto-suave">
-            Excluir <strong className="text-texto">{assinatura.nome}</strong>? As cobranças já lançadas continuam no
-            histórico. Se só quer parar por um tempo, use Pausar.
+            Excluir <strong className="text-texto">{assinatura.nome}</strong>? As cobranças já lançadas continuam no histórico. Se
+            só quer parar por um tempo, use Pausar.
           </p>
           {erro && <Alerta>{erro}</Alerta>}
           <Botao variante="perigo" carregando={salvando} onClick={() => executar(() => excluirAssinatura(assinatura.id))}>
@@ -102,7 +107,7 @@ export default function ModalAssinatura({ assinatura, cartoes, aoFechar, aoMudar
             type="button"
             onClick={() => setConfirmandoExclusao(false)}
             disabled={salvando}
-            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-superficie-2 hover:text-texto"
+            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-texto/[0.05] hover:text-texto"
           >
             Cancelar
           </button>
@@ -122,23 +127,26 @@ export default function ModalAssinatura({ assinatura, cartoes, aoFechar, aoMudar
             {salvando ? 'Salvando...' : assinatura ? 'Salvar alterações' : 'Cadastrar assinatura'}
           </Botao>
           {assinatura && (
-            <div className="grid grid-cols-2 gap-2">
+            <div className={`grid gap-2 ${doBanco ? 'grid-cols-1' : 'grid-cols-2'}`}>
               <button
                 type="button"
                 disabled={salvando}
                 onClick={() => executar(() => definirAtiva(assinatura.id, !assinatura.ativa))}
-                className="h-10 rounded-xl border border-borda text-sm font-semibold transition hover:bg-superficie-2"
+                className="h-10 rounded-xl border border-borda text-sm font-semibold transition hover:bg-texto/[0.05]"
               >
                 {assinatura.ativa ? 'Pausar' : 'Retomar'}
               </button>
-              <button
-                type="button"
-                disabled={salvando}
-                onClick={() => setConfirmandoExclusao(true)}
-                className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-erro-fundo"
-              >
-                Excluir
-              </button>
+              {/* As do banco voltariam na próxima cobrança: para parar de acompanhar, pausa */}
+              {!doBanco && (
+                <button
+                  type="button"
+                  disabled={salvando}
+                  onClick={() => setConfirmandoExclusao(true)}
+                  className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-despesa/12"
+                >
+                  Excluir
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -199,8 +207,27 @@ export default function ModalAssinatura({ assinatura, cartoes, aoFechar, aoMudar
           aoMudar={setCartaoId}
         />
         <p className="-mt-3 text-xs text-texto-suave">
-          Todo mês, no dia da cobrança, o app lança a despesa sozinho na categoria Assinaturas
-          {cartaoId === SEM_CARTAO ? '.' : ', na fatura do cartão.'}
+          {doBanco ? (
+            'Vem do banco: cada cobrança que chega é reconhecida sozinha e atualiza o valor e o dia. Cancelou? Pause.'
+          ) : (
+            <>
+              Todo mês, no dia da cobrança, o app lança a despesa sozinho na categoria Assinaturas
+              {cartaoId === SEM_CARTAO ? '.' : ', na fatura do cartão.'}
+            </>
+          )}
+        </p>
+
+        <Campo
+          id="parcelas-assinatura"
+          label="Total de parcelas"
+          inputMode="numeric"
+          placeholder="Sem fim"
+          value={parcelas}
+          onChange={(e) => setParcelas(e.target.value.replace(/\D/g, '').slice(0, 3))}
+          erro={erros.parcelas}
+        />
+        <p className="-mt-3 text-xs text-texto-suave">
+          Deixe vazio para assinatura sem fim. Com parcelas (ex.: financiamento), ela sai das ativas quando a última for paga.
         </p>
 
         {jaPassouNoMes && cobrancaDesteMes && (

@@ -9,8 +9,11 @@ import { salvarRegraDeLocal } from '../services/openFinance'
 import {
   atualizarLancamento,
   criarLancamento,
+  desfazerDivisao,
+  dividirLancamento,
   excluirGrupoDeParcelas,
   excluirTransacao,
+  listarTerceiros,
   type DadosLancamento,
 } from '../services/transacoes'
 import type { PadraoLancamento } from '../contexts/lancamentos'
@@ -18,6 +21,7 @@ import type { Cartao, Categoria, Conta, FormaPagamento, TipoTransacao, Transacao
 import Alerta from './Alerta'
 import Botao from './Botao'
 import Campo from './Campo'
+import CampoTerceiro from './CampoTerceiro'
 import CampoValor from './CampoValor'
 import Escolha, { type Opcao } from './Escolha'
 import Modal from './Modal'
@@ -35,7 +39,7 @@ type Props = {
   aoSalvar: () => void
 }
 
-type Erros = Partial<Record<'valor' | 'cartao' | 'local' | 'data', string>>
+type Erros = Partial<Record<'valor' | 'cartao' | 'local' | 'data' | 'terceiro', string>>
 
 const todasAsFormas: Opcao<FormaPagamento>[] = [
   { valor: 'pix', label: 'Pix' },
@@ -54,11 +58,15 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
   const ehPagamento = Boolean(transacao?.pagamento_cartao_id)
   // Importada do banco: valor, data, forma e conta/cartão vêm do banco (a sincronização mantém)
   const ehImportada = transacao?.origem === 'pluggy'
-  const travado = ehParcela || ehPagamento || ehImportada
+  // Parte separada de outro lançamento: valor, data, forma e conta/cartão vêm do original
+  const ehParte = Boolean(transacao?.dividida_de)
+  const travado = ehParcela || ehPagamento || ehImportada || ehParte
+  const podeDividir = Boolean(transacao) && !ehPagamento && !transacao?.transferencia_interna && !transacao?.caixinha
 
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [contas, setContas] = useState<Conta[]>([])
   const [cartoes, setCartoes] = useState<Cartao[]>([])
+  const [terceiros, setTerceiros] = useState<string[]>([])
 
   const [tipo, setTipo] = useState<TipoTransacao>(transacao?.tipo ?? 'despesa')
   const [centavos, setCentavos] = useState(transacao ? Math.round(transacao.valor * 100) : 0)
@@ -71,23 +79,28 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
   const [observacao, setObservacao] = useState(transacao?.observacao ?? '')
   const [categoriaId, setCategoriaId] = useState<string | null>(transacao?.categoria_id ?? null)
   const [transferencia, setTransferencia] = useState(transacao?.transferencia_interna ?? false)
+  const [deTerceiro, setDeTerceiro] = useState(transacao ? Boolean(transacao.terceiro) : padrao?.terceiro !== undefined)
+  const [terceiro, setTerceiro] = useState(transacao?.terceiro ?? padrao?.terceiro ?? '')
+  const [emprestimo, setEmprestimo] = useState(transacao?.emprestimo ?? false)
   const [data, setData] = useState(transacao?.data ?? hojeISO())
 
   const [tentouSalvar, setTentouSalvar] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(iniciarExcluindo)
-  // Importada que mudou de categoria: pergunta se vale para as próximas do mesmo local
+  // Importada que mudou de categoria ou de dono: pergunta se vale para as próximas do mesmo local
   const [perguntandoRegra, setPerguntandoRegra] = useState(false)
+  const [dividindo, setDividindo] = useState(false)
 
   useEffect(() => {
     let ativo = true
-    Promise.all([listarCategorias(), listarContas(), listarCartoes()])
-      .then(([cats, cts, crts]) => {
+    Promise.all([listarCategorias(), listarContas(), listarCartoes(), listarTerceiros()])
+      .then(([cats, cts, crts, nomes]) => {
         if (!ativo) return
         setCategorias(cats)
         setContas(cts)
         setCartoes(crts)
+        setTerceiros(nomes)
         // Num lançamento novo, com uma só conta/cartão, já deixa escolhido
         if (!transacao) {
           if (cts.length === 1) setContaId(cts[0].id)
@@ -112,8 +125,12 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
       if (!local.trim()) erros.local = 'Informe onde foi a compra.'
     }
     if (!data) erros.data = 'Informe a data.'
+    if (deTerceiro && !terceiro.trim()) erros.terceiro = 'Informe de quem é.'
     return erros
   }
+
+  // Transferência entre minhas contas e lançamento de outra pessoa não andam juntos
+  const nomeTerceiro = deTerceiro && !transferencia ? terceiro.trim() || null : null
   const erros = tentouSalvar ? validar() : {}
 
   function mudarTipo(novo: TipoTransacao) {
@@ -136,6 +153,8 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
       observacao,
       categoriaId,
       transferencia,
+      terceiro: nomeTerceiro,
+      emprestimo: Boolean(nomeTerceiro) && emprestimo,
       data,
       contaId,
       cartao,
@@ -146,7 +165,8 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
       if (transacao) await atualizarLancamento(transacao, dados)
       else await criarLancamento(dados)
       aoSalvar()
-      if (ehImportada && transacao?.local && categoriaId && categoriaId !== transacao.categoria_id) {
+      const mudouRegra = categoriaId !== transacao?.categoria_id || nomeTerceiro !== transacao?.terceiro
+      if (ehImportada && transacao?.local && categoriaId && mudouRegra) {
         setSalvando(false)
         setPerguntandoRegra(true)
         return
@@ -178,12 +198,40 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
     setErro('')
     setSalvando(true)
     try {
-      await salvarRegraDeLocal(transacao.local, categoriaId)
+      await salvarRegraDeLocal(transacao.local, categoriaId, nomeTerceiro)
       aoFechar()
     } catch (err) {
       setErro((err as Error).message)
       setSalvando(false)
     }
+  }
+
+  async function juntarDeVolta() {
+    if (!transacao) return
+    setErro('')
+    setSalvando(true)
+    try {
+      await desfazerDivisao(transacao)
+      aoSalvar()
+      aoFechar()
+    } catch (err) {
+      setErro((err as Error).message)
+      setSalvando(false)
+    }
+  }
+
+  if (dividindo && transacao) {
+    return (
+      <TelaDividir
+        transacao={transacao}
+        categorias={categorias}
+        terceiros={terceiros}
+        aoCriarCategoria={(nova) => setCategorias((atuais) => [...atuais, nova].sort((a, b) => a.nome.localeCompare(b.nome)))}
+        aoVoltar={() => setDividindo(false)}
+        aoFechar={aoFechar}
+        aoSalvar={aoSalvar}
+      />
+    )
   }
 
   if (perguntandoRegra && transacao?.local) {
@@ -192,9 +240,15 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
       <Modal aberto aoFechar={aoFechar} titulo="Usar nas próximas?">
         <div className="flex flex-col gap-4">
           <p className="text-texto-suave">
-            Categoria salva. Quer que as próximas transações importadas de{' '}
-            <strong className="text-texto">{transacao.local}</strong> também entrem em{' '}
-            <strong className="text-texto">{nomeCategoria}</strong>?
+            Salvo. Quer que as próximas transações importadas de <strong className="text-texto">{transacao.local}</strong> também
+            entrem em <strong className="text-texto">{nomeCategoria}</strong>
+            {nomeTerceiro && (
+              <>
+                {' '}
+                como de <strong className="text-texto">{nomeTerceiro}</strong>
+              </>
+            )}
+            ?
           </p>
           {erro && <Alerta>{erro}</Alerta>}
           <Botao carregando={salvando} onClick={criarRegra}>
@@ -204,7 +258,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
             type="button"
             onClick={aoFechar}
             disabled={salvando}
-            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-superficie-2 hover:text-texto"
+            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-texto/[0.05] hover:text-texto"
           >
             Só nesta
           </button>
@@ -246,7 +300,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
               type="button"
               onClick={() => setConfirmandoExclusao(false)}
               disabled={salvando}
-              className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-superficie-2 hover:text-texto"
+              className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-texto/[0.05] hover:text-texto"
             >
               Cancelar
             </button>
@@ -268,22 +322,42 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
           <Botao type="submit" form="form-lancamento" carregando={salvando}>
             {salvando ? 'Salvando...' : editando ? 'Salvar alterações' : 'Salvar lançamento'}
           </Botao>
-          {editando && (
+          {podeDividir && (
             <button
               type="button"
-              onClick={() => setConfirmandoExclusao(true)}
+              onClick={() => setDividindo(true)}
               disabled={salvando}
-              className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-erro-fundo"
+              className="h-10 rounded-xl text-sm font-semibold text-destaque transition hover:bg-primaria/10"
             >
-              Excluir lançamento
+              Dividir lançamento
             </button>
           )}
+          {editando &&
+            (ehParte ? (
+              <button
+                type="button"
+                onClick={juntarDeVolta}
+                disabled={salvando}
+                className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-despesa/12"
+              >
+                Juntar de volta ao original
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmandoExclusao(true)}
+                disabled={salvando}
+                className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-despesa/12"
+              >
+                Excluir lançamento
+              </button>
+            ))}
         </div>
       }
     >
       <form id="form-lancamento" onSubmit={aoEnviar} noValidate className="flex flex-col gap-5">
         {/* Despesa / Receita */}
-        <div role="group" aria-label="Tipo" className="grid grid-cols-2 gap-1 rounded-xl bg-superficie-3 p-1">
+        <div role="group" aria-label="Tipo" className="grid grid-cols-2 gap-1 rounded-xl bg-texto/[0.07] p-1">
           {(['despesa', 'receita'] as const).map((t) => (
             <button
               key={t}
@@ -291,32 +365,45 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
               aria-pressed={tipo === t}
               disabled={travado}
               onClick={() => mudarTipo(t)}
-              className={`h-10 rounded-lg text-sm font-semibold transition disabled:cursor-not-allowed ${tipo === t ? `bg-superficie shadow-sm ${t === 'despesa' ? 'text-despesa' : 'text-receita'}` : 'text-texto-suave'}`}
+              className={`h-10 rounded-lg text-sm font-semibold transition disabled:cursor-not-allowed ${tipo === t ? `vidro shadow-sm ${t === 'despesa' ? 'text-despesa' : 'text-receita'}` : 'text-texto-suave'}`}
             >
               {t === 'despesa' ? 'Despesa' : 'Receita'}
             </button>
           ))}
         </div>
 
-        <CampoValor centavos={centavos} aoMudar={setCentavos} tipo={tipo} erro={erros.valor} desabilitado={ehImportada} />
+        <CampoValor
+          centavos={centavos}
+          aoMudar={setCentavos}
+          tipo={tipo}
+          erro={erros.valor}
+          desabilitado={ehImportada || ehParte}
+        />
+
+        {ehParte && (
+          <p className="rounded-xl bg-texto/[0.03] px-3.5 py-3 text-sm text-texto-suave">
+            Parte separada de outro lançamento. Valor, data e forma vêm do original; para mudar o valor, junte de volta e divida
+            de novo.
+          </p>
+        )}
 
         {ehImportada && (
-          <p className="rounded-xl bg-superficie-2 px-3.5 py-3 text-sm text-texto-suave">
+          <p className="rounded-xl bg-texto/[0.03] px-3.5 py-3 text-sm text-texto-suave">
             Importado do banco. Valor, data e forma vêm do banco; aqui você muda local, categoria, descrição e observação.
           </p>
         )}
 
         {ehParcela && (
-          <p className="rounded-xl bg-superficie-2 px-3.5 py-3 text-sm text-texto-suave">
-            Parcela {transacao?.parcela_atual} de {transacao?.total_parcelas}. Aqui você muda só esta parcela; forma,
-            cartão e data valem para todas. Para mudar isso, exclua e lance de novo.
+          <p className="rounded-xl bg-texto/[0.03] px-3.5 py-3 text-sm text-texto-suave">
+            Parcela {transacao?.parcela_atual} de {transacao?.total_parcelas}. Aqui você muda só esta parcela; forma, cartão e
+            data valem para todas. Para mudar isso, exclua e lance de novo.
           </p>
         )}
 
         {ehPagamento && (
-          <p className="rounded-xl bg-superficie-2 px-3.5 py-3 text-sm text-texto-suave">
-            Pagamento de fatura de cartão. Ele desconta do saldo, mas não entra nas despesas do mês (as compras já
-            contaram quando foram feitas).
+          <p className="rounded-xl bg-texto/[0.03] px-3.5 py-3 text-sm text-texto-suave">
+            Pagamento de fatura de cartão. Ele desconta do saldo, mas não entra nas despesas do mês (as compras já contaram quando
+            foram feitas).
           </p>
         )}
 
@@ -346,7 +433,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
                 valor={cartaoId}
                 aoMudar={setCartaoId}
                 erro={erros.cartao}
-                desabilitado={ehParcela || ehImportada}
+                desabilitado={ehParcela || ehImportada || ehParte}
               />
             ) : (
               <Alerta>Nenhum cartão cadastrado ainda. Cadastre um cartão para lançar no crédito.</Alerta>
@@ -361,7 +448,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
                   id="parcelas"
                   value={parcelas}
                   onChange={(e) => setParcelas(Number(e.target.value))}
-                  className="h-12 rounded-xl border border-borda bg-superficie px-3.5 text-base outline-none focus:border-primaria focus:ring-4 focus:ring-primaria/15"
+                  className="h-12 rounded-xl border border-borda vidro px-3.5 text-base outline-none focus:border-primaria focus:ring-4 focus:ring-primaria/15"
                 >
                   {opcoesParcelas.map((n) => (
                     <option key={n} value={n}>
@@ -387,7 +474,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
             opcoes={contas.map((c) => ({ valor: c.id, label: c.nome }))}
             valor={contaId}
             aoMudar={setContaId}
-            desabilitado={ehImportada}
+            desabilitado={ehImportada || ehParte}
           />
         )}
 
@@ -414,7 +501,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
           label="Data"
           type="date"
           required
-          disabled={ehParcela || ehImportada}
+          disabled={ehParcela || ehImportada || ehParte}
           value={data}
           onChange={(e) => setData(e.target.value)}
           erro={erros.data}
@@ -438,7 +525,7 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
           onChange={(e) => setObservacao(e.target.value)}
         />
 
-        {!noCredito && !ehPagamento && !ehParcela && (
+        {!noCredito && !ehPagamento && !ehParcela && !ehParte && !deTerceiro && (
           <label className="flex items-start gap-3 rounded-xl border border-borda px-3.5 py-3 text-sm">
             <input
               type="checkbox"
@@ -452,6 +539,136 @@ export default function ModalLancamento({ transacao, padrao, iniciarExcluindo = 
             </span>
           </label>
         )}
+
+        {!ehPagamento && !transferencia && (
+          <CampoTerceiro
+            id="lancamento"
+            marcado={deTerceiro}
+            aoMarcar={setDeTerceiro}
+            nome={terceiro}
+            aoMudarNome={setTerceiro}
+            sugestoes={terceiros}
+            erro={erros.terceiro}
+            emprestimo={emprestimo}
+            aoMarcarEmprestimo={setEmprestimo}
+          />
+        )}
+
+        {erro && <Alerta>{erro}</Alerta>}
+      </form>
+    </Modal>
+  )
+}
+
+type PropsDividir = {
+  transacao: Transacao
+  categorias: Categoria[]
+  terceiros: string[]
+  aoCriarCategoria: (nova: Categoria) => void
+  aoVoltar: () => void
+  aoFechar: () => void
+  aoSalvar: () => void
+}
+
+/**
+ * Separa uma parte do valor num lançamento próprio (ex.: o vale-alimentação que veio junto
+ * com um reembolso). O original fica com o resto; dá para repetir e separar mais partes.
+ */
+function TelaDividir({ transacao, categorias, terceiros, aoCriarCategoria, aoVoltar, aoFechar, aoSalvar }: PropsDividir) {
+  const totalCentavos = Math.round(transacao.valor * 100)
+  const [centavos, setCentavos] = useState(0)
+  const [local, setLocal] = useState('')
+  const [categoriaId, setCategoriaId] = useState<string | null>(transacao.categoria_id)
+  const [deTerceiro, setDeTerceiro] = useState(false)
+  const [terceiro, setTerceiro] = useState('')
+  const [tentou, setTentou] = useState(false)
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  const resto = totalCentavos - centavos
+  const erroValor = !tentou
+    ? undefined
+    : centavos <= 0
+      ? 'Informe o valor da parte.'
+      : resto <= 0
+        ? 'A parte precisa ser menor que o total.'
+        : undefined
+  const erroTerceiro = tentou && deTerceiro && !terceiro.trim() ? 'Informe de quem é.' : undefined
+
+  async function confirmar(e: SubmitEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setTentou(true)
+    if (centavos <= 0 || resto <= 0 || (deTerceiro && !terceiro.trim())) return
+    setErro('')
+    setSalvando(true)
+    try {
+      await dividirLancamento(transacao, {
+        valorCentavos: centavos,
+        categoriaId,
+        local,
+        terceiro: deTerceiro ? terceiro : null,
+      })
+      aoSalvar()
+      aoFechar()
+    } catch (err) {
+      setErro((err as Error).message)
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <Modal
+      aberto
+      aoFechar={aoFechar}
+      titulo="Dividir lançamento"
+      rodape={
+        <div className="flex flex-col gap-2">
+          <Botao type="submit" form="form-dividir" carregando={salvando}>
+            {salvando ? 'Dividindo...' : 'Separar esta parte'}
+          </Botao>
+          <button
+            type="button"
+            onClick={aoVoltar}
+            disabled={salvando}
+            className="h-10 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-texto/[0.05] hover:text-texto"
+          >
+            Voltar
+          </button>
+        </div>
+      }
+    >
+      <form id="form-dividir" onSubmit={confirmar} noValidate className="flex flex-col gap-5">
+        <p className="rounded-xl bg-texto/[0.03] px-3.5 py-3 text-sm text-texto-suave">
+          <strong className="text-texto">{transacao.local || transacao.descricao || 'Lançamento'}</strong> ·{' '}
+          {formatarMoeda(transacao.valor)}. A parte vira um lançamento próprio, com a mesma data e forma; o original fica com o
+          resto.
+        </p>
+
+        <CampoValor centavos={centavos} aoMudar={setCentavos} tipo={transacao.tipo} erro={erroValor} />
+        <p className="-mt-3 text-center text-sm text-texto-suave">
+          Fica no original: <strong className="text-texto">{formatarMoeda(Math.max(resto, 0) / 100)}</strong>
+        </p>
+
+        <Campo
+          id="local-parte"
+          label="Nome da parte (opcional)"
+          placeholder={transacao.local ?? 'Ex.: Vale-alimentação'}
+          maxLength={80}
+          value={local}
+          onChange={(e) => setLocal(e.target.value)}
+        />
+
+        <SeletorCategoria categorias={categorias} valor={categoriaId} aoMudar={setCategoriaId} aoCriar={aoCriarCategoria} />
+
+        <CampoTerceiro
+          id="parte"
+          marcado={deTerceiro}
+          aoMarcar={setDeTerceiro}
+          nome={terceiro}
+          aoMudarNome={setTerceiro}
+          sugestoes={terceiros}
+          erro={erroTerceiro}
+        />
 
         {erro && <Alerta>{erro}</Alerta>}
       </form>

@@ -13,25 +13,10 @@ type Props = {
 
 // Mês escolhido em destaque (verde do app); mês de comparação recua em cinza — mesmo par do gráfico do Início.
 // A tabela "Por categoria" logo abaixo traz todos os valores (o cinza tem contraste baixo).
-/*
- * Cores das marcas, validadas (não escolhidas a olho) com o validador de paleta
- * para o modo escuro: faixa de luminosidade, piso de croma, separação para
- * daltonismo (ΔE 28,6 no pior par em protanopia) e contraste contra a
- * superfície. Ouro e azul é o par mais seguro que existe para todos os tipos de
- * daltonismo.
- *
- * As marcas são um passo mais fundas que o ouro da interface (#d4af37): marca de
- * gráfico tem exigência de luminosidade que acento de interface não tem.
- *
- * Grade e eixo são recessivos de propósito, e o texto do eixo usa o token de
- * texto — rótulo é texto, não série.
- */
-const COR_FOCO = '#a8871f'
-const COR_REFERENCIA = '#5c7ce8'
+const COR_A = '#a8871f'
+const COR_B = '#5c7ce8'
 const COR_GRADE = 'rgba(255, 255, 255, 0.07)'
 const COR_TEXTO_EIXO = '#8a8a9a'
-const COR_A = COR_FOCO
-const COR_B = COR_REFERENCIA
 const ALTURA_POR_CATEGORIA = 48
 
 const encurtar = (nome: string) => (nome.length > 13 ? `${nome.slice(0, 12)}…` : nome)
@@ -63,7 +48,7 @@ export default function GraficoComparativoCategorias({ barras, nomeA, nomeB }: P
       >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={barras} layout="vertical" margin={{ top: 0, right: 8, bottom: 0, left: 0 }} barGap={2}>
-            <CartesianGrid horizontal={false} stroke={COR_GRADE} />
+            <CartesianGrid horizontal={false} stroke={COR_GRADE} strokeDasharray="2 6" />
             <XAxis
               type="number"
               tickLine={false}
@@ -81,12 +66,12 @@ export default function GraficoComparativoCategorias({ barras, nomeA, nomeB }: P
               tickFormatter={encurtar}
             />
             <Tooltip
-              cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+              cursor={{ fill: 'var(--grafico-cursor-fundo)' }}
               content={({ active, label }) => {
                 const barra = active ? barras.find((b) => b.nome === label) : undefined
                 if (!barra) return null
                 return (
-                  <div className="rounded-xl border border-borda bg-superficie px-3 py-2 text-sm shadow-lg">
+                  <div className="rounded-2xl vidro-forte px-3 py-2 text-sm">
                     <p className="text-xs text-texto-suave">{barra.nome}</p>
                     <p className="mt-1 flex items-center gap-2">
                       <Chave cor={COR_A} />

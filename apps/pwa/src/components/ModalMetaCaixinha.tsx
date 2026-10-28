@@ -37,8 +37,8 @@ export default function ModalMetaCaixinha({ usuarioId, metaAtual, aoFechar, aoSa
       <Modal aberto aoFechar={aoFechar} titulo="Remover meta">
         <div className="flex flex-col gap-4">
           <p className="text-texto-suave">
-            Remover a meta de <strong className="text-texto">{formatarMoeda(metaAtual)}</strong>? O dinheiro guardado não muda,
-            só some a barra de progresso.
+            Remover a meta de <strong className="text-texto">{formatarMoeda(metaAtual)}</strong>? O dinheiro guardado não muda, só
+            some a barra de progresso.
           </p>
           {erro && <Alerta>{erro}</Alerta>}
           <Botao variante="perigo" carregando={salvando} onClick={() => salvar(null)}>
@@ -48,7 +48,7 @@ export default function ModalMetaCaixinha({ usuarioId, metaAtual, aoFechar, aoSa
             type="button"
             onClick={() => setConfirmandoRemocao(false)}
             disabled={salvando}
-            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-superficie-2 hover:text-texto"
+            className="h-11 rounded-xl text-sm font-medium text-texto-suave transition hover:bg-texto/[0.05] hover:text-texto"
           >
             Cancelar
           </button>
@@ -72,7 +72,7 @@ export default function ModalMetaCaixinha({ usuarioId, metaAtual, aoFechar, aoSa
               type="button"
               onClick={() => setConfirmandoRemocao(true)}
               disabled={salvando}
-              className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-erro-fundo"
+              className="h-10 rounded-xl text-sm font-semibold text-despesa transition hover:bg-despesa/12"
             >
               Remover meta
             </button>

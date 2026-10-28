@@ -63,7 +63,9 @@ export default function ModalDetalheTransacao({ transacao: t, categoria, cartao,
       <dl className="mt-4 divide-y divide-borda border-t border-borda">
         <Linha rotulo="Local">{t.local || '—'}</Linha>
         <Linha rotulo="Categoria">{t.pagamento_cartao_id ? 'Pagamento de fatura' : (categoria?.nome ?? 'Sem categoria')}</Linha>
-        <Linha rotulo="Data">{formatarDiaMes(t.data)} de {deISO(t.data).getFullYear()}</Linha>
+        <Linha rotulo="Data">
+          {formatarDiaMes(t.data)} de {deISO(t.data).getFullYear()}
+        </Linha>
         <Linha rotulo="Forma">
           {nomesDasFormas[t.forma]}
           {t.forma === 'credito' && cartao ? ` · ${cartao.nome}` : ''}
@@ -74,6 +76,13 @@ export default function ModalDetalheTransacao({ transacao: t, categoria, cartao,
           </Linha>
         )}
         {t.fatura && <Linha rotulo="Fatura">{formatarMesAno(deISO(t.fatura))}</Linha>}
+        {t.terceiro && (
+          <Linha rotulo="De outra pessoa">
+            {t.terceiro}
+            {t.emprestimo && ' · empréstimo'}
+          </Linha>
+        )}
+        {t.dividida_de && <Linha rotulo="Divisão">Parte separada de outro lançamento</Linha>}
         {t.descricao && <Linha rotulo="Descrição">{t.descricao}</Linha>}
         <Linha rotulo="Observação">{t.observacao || '—'}</Linha>
       </dl>

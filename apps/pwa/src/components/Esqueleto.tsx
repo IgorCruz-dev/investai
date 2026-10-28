@@ -1,12 +1,12 @@
 /** Bloco cinza pulsando no lugar do conteúdo enquanto a primeira carga não chega */
 export default function Esqueleto({ className = '' }: { className?: string }) {
-  return <span aria-hidden className={`block animate-pulse rounded-lg bg-superficie-3 ${className}`} />
+  return <span aria-hidden className={`block animate-pulse rounded-xl bg-texto/[0.07] ${className}`} />
 }
 
 /** Linhas de lista (ícone redondo + dois textos + valor), como as listas de lançamentos */
 export function EsqueletoLista({ linhas = 4 }: { linhas?: number }) {
   return (
-    <ul className="divide-y divide-borda" aria-busy="true" aria-label="Carregando">
+    <ul className="divide-y divide-borda/60" aria-busy="true" aria-label="Carregando">
       {Array.from({ length: linhas }, (_, i) => (
         <li key={i} className="flex items-center gap-3 px-5 py-3.5">
           <Esqueleto className="h-9 w-9 shrink-0 rounded-full" />

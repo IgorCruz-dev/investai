@@ -4,9 +4,9 @@ import { defineConfig, minimal2023Preset } from '@vite-pwa/assets-generator/conf
 export default defineConfig({
   preset: {
     ...minimal2023Preset,
-    // Maskable e iPhone recortam o ícone: fundo escuro até a borda.
-    maskable: { ...minimal2023Preset.maskable, resizeOptions: { background: '#10101a' } },
-    apple: { ...minimal2023Preset.apple, resizeOptions: { background: '#10101a' } },
+    // Maskable e iPhone recortam o ícone: fundo preto até a borda, sem canto transparente
+    maskable: { ...minimal2023Preset.maskable, resizeOptions: { background: '#0c0c0d' } },
+    apple: { ...minimal2023Preset.apple, resizeOptions: { background: '#0c0c0d' } },
   },
   images: ['public/icon.svg'],
 })

@@ -30,7 +30,7 @@ export default function CampoValor({ centavos, aoMudar, tipo, erro, desabilitado
           const digitos = e.target.value.replace(/\D/g, '').slice(-MAXIMO_DIGITOS)
           aoMudar(Number(digitos || 0))
         }}
-        className={`w-full bg-transparent text-center text-4xl font-bold tracking-tight outline-none disabled:opacity-70 ${tipo === 'despesa' ? 'text-despesa' : 'text-receita'}`}
+        className={`numero w-full bg-transparent text-center text-4xl font-semibold outline-none disabled:opacity-70 ${tipo === 'despesa' ? 'text-despesa' : 'text-receita'}`}
       />
       {erro && (
         <p id="valor-erro" className="text-sm text-despesa">

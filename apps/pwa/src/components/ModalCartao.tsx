@@ -19,8 +19,6 @@ type Props = {
 type Erros = Partial<Record<'nome' | 'limite' | 'fechamento' | 'vencimento', string>>
 
 const bandeiras = ['Visa', 'Mastercard', 'Elo', 'American Express', 'Hipercard', 'Outra'] as const
-// Tons fundos: num fundo escuro, cartão em cor clara vira um bloco luminoso
-// no meio da tela. O primeiro é o padrão da coluna no banco.
 const cores = ['#0f172a', '#4a3a0f', '#4c1d95', '#1e3a8a', '#064e3b', '#7f1d1d', '#831843', '#164e63']
 
 function diaValido(texto: string) {
@@ -146,9 +144,7 @@ export default function ModalCartao({ cartao, aoFechar, aoSalvar }: Props) {
             erro={erros.vencimento}
           />
         </div>
-        <p className="-mt-3 text-xs text-texto-suave">
-          Compras feitas a partir do dia do fechamento entram na fatura seguinte.
-        </p>
+        <p className="-mt-3 text-xs text-texto-suave">Compras feitas a partir do dia do fechamento entram na fatura seguinte.</p>
 
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-texto">Cor</span>

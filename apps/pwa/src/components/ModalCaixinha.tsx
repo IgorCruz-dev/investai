@@ -52,7 +52,13 @@ export default function ModalCaixinha({ modo, disponivel, aoFechar, aoSalvar }: 
       aoFechar={aoFechar}
       titulo={retirando ? 'Retirar da caixinha' : 'Guardar na caixinha'}
       rodape={
-        <Botao type="submit" form="form-caixinha" carregando={salvando} disabled={!podeConfirmar} variante={retirando ? 'perigo' : 'primaria'}>
+        <Botao
+          type="submit"
+          form="form-caixinha"
+          carregando={salvando}
+          disabled={!podeConfirmar}
+          variante={retirando ? 'perigo' : 'primaria'}
+        >
           {salvando ? 'Salvando...' : retirando ? 'Confirmar retirada' : 'Guardar'}
         </Botao>
       }

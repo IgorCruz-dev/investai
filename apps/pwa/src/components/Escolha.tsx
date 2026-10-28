@@ -30,7 +30,7 @@ export default function Escolha<T extends string>({ label, opcoes, valor, aoMuda
               aria-pressed={escolhida}
               disabled={desabilitado}
               onClick={() => aoMudar(opcao.valor)}
-              className={`flex h-10 items-center gap-2 rounded-xl border px-3.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${escolhida ? 'border-primaria bg-sucesso-fundo text-primaria' : 'border-borda bg-superficie text-texto hover:border-borda-forte'}`}
+              className={`flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${escolhida ? 'border-transparent bg-texto text-fundo shadow-[0_6px_20px_-8px_rgb(243_243_238/0.6)]' : 'border-borda bg-texto/[0.04] text-texto hover:border-texto/20 hover:bg-texto/[0.07]'}`}
             >
               {opcao.label}
             </button>

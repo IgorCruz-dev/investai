@@ -3,21 +3,9 @@ import { formatarMesAno, formatarMoeda, formatarMoedaCompacta } from '../lib/for
 import type { PontoCaixinha } from '../lib/caixinha'
 
 // Uma série só: o título do card já diz o que é, então não tem legenda
-/*
- * Cores das marcas, validadas (não escolhidas a olho) com o validador de paleta
- * para o modo escuro: faixa de luminosidade, piso de croma, separação para
- * daltonismo e contraste contra a superfície.
- *
- * As marcas são um passo mais fundas que o ouro da interface (#d4af37): marca de
- * gráfico tem exigência de luminosidade que acento de interface não tem.
- *
- * Grade e eixo são recessivos de propósito, e o texto do eixo usa o token de
- * texto — rótulo é texto, não série.
- */
-const COR_FOCO = '#a8871f'
+const COR = 'var(--grafico-lilas)'
 const COR_GRADE = 'rgba(255, 255, 255, 0.07)'
 const COR_TEXTO_EIXO = '#8a8a9a'
-const COR = COR_FOCO
 
 const mesCurto = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
 const rotulo = (mes: Date) => {
@@ -34,7 +22,7 @@ export default function GraficoCaixinha({ pontos }: { pontos: PontoCaixinha[] })
       <div className="h-52" role="img" aria-label="Evolução do total guardado mês a mês. Os valores estão na tabela abaixo.">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={dados} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid vertical={false} stroke={COR_GRADE} />
+            <CartesianGrid vertical={false} stroke={COR_GRADE} strokeDasharray="2 6" />
             <XAxis
               dataKey="chave"
               tickFormatter={(_, i) => dados[i]?.rotulo ?? ''}
@@ -52,12 +40,12 @@ export default function GraficoCaixinha({ pontos }: { pontos: PontoCaixinha[] })
               tickFormatter={(v: number) => formatarMoedaCompacta(v)}
             />
             <Tooltip
-              cursor={{ stroke: 'rgba(212, 175, 55, 0.35)', strokeWidth: 1 }}
+              cursor={{ stroke: 'var(--grafico-cursor)', strokeWidth: 1 }}
               content={({ active, label }) => {
                 const ponto = active ? dados.find((d) => d.chave === label) : undefined
                 if (!ponto) return null
                 return (
-                  <div className="rounded-xl border border-borda bg-superficie px-3 py-2 text-sm shadow-lg">
+                  <div className="rounded-2xl vidro-forte px-3 py-2 text-sm">
                     <p className="font-semibold">{formatarMoeda(ponto.total)}</p>
                     <p className="text-xs text-texto-suave">Fim de {formatarMesAno(ponto.mes).toLowerCase()}</p>
                   </div>
@@ -74,7 +62,7 @@ export default function GraficoCaixinha({ pontos }: { pontos: PontoCaixinha[] })
               fill={COR}
               fillOpacity={0.1}
               dot={false}
-              activeDot={{ r: 4, stroke: '#fff', strokeWidth: 2 }}
+              activeDot={{ r: 4, stroke: 'var(--grafico-contorno)', strokeWidth: 2 }}
               isAnimationActive={false}
             />
           </AreaChart>

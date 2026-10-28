@@ -57,7 +57,7 @@ export default function SeletorCategoria({ categorias, valor, aoMudar, aoCriar }
               type="button"
               aria-pressed={escolhida}
               onClick={() => aoMudar(escolhida ? null : c.id)}
-              className={`flex h-9 items-center gap-2 rounded-full border px-3 text-sm transition ${escolhida ? 'border-primaria bg-sucesso-fundo font-medium text-primaria' : 'border-borda bg-superficie text-texto hover:border-borda-forte'}`}
+              className={`flex h-9 items-center gap-2 rounded-full border px-3 text-sm transition ${escolhida ? 'border-primaria bg-primaria/12 font-medium text-destaque' : 'border-borda vidro text-texto hover:border-texto/20'}`}
             >
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.cor }} />
               {c.nome}
@@ -68,7 +68,7 @@ export default function SeletorCategoria({ categorias, valor, aoMudar, aoCriar }
           <button
             type="button"
             onClick={() => setCriando(true)}
-            className="flex h-9 items-center gap-1.5 rounded-full border border-dashed border-borda-forte px-3 text-sm font-medium text-texto-suave transition hover:border-primaria hover:text-primaria"
+            className="flex h-9 items-center gap-1.5 rounded-full border border-dashed border-texto/20 px-3 text-sm font-medium text-texto-suave transition hover:border-primaria hover:text-destaque"
           >
             <IconeMais className="h-4 w-4" />
             Nova
@@ -77,7 +77,7 @@ export default function SeletorCategoria({ categorias, valor, aoMudar, aoCriar }
       </div>
 
       {criando && (
-        <div className="mt-1 flex flex-col gap-3 rounded-xl border border-borda bg-superficie-2 p-3">
+        <div className="mt-1 flex flex-col gap-3 rounded-xl border border-borda bg-texto/[0.03] p-3">
           <input
             autoFocus
             value={nome}
@@ -86,7 +86,7 @@ export default function SeletorCategoria({ categorias, valor, aoMudar, aoCriar }
             placeholder="Nome da categoria"
             aria-label="Nome da nova categoria"
             maxLength={30}
-            className="h-11 rounded-lg border border-borda bg-superficie px-3 text-base outline-none focus:border-primaria focus:ring-4 focus:ring-primaria/15"
+            className="h-11 rounded-lg border border-borda vidro px-3 text-base outline-none focus:border-primaria focus:ring-4 focus:ring-primaria/15"
           />
           <div role="group" aria-label="Cor" className="flex flex-wrap gap-2">
             {paleta.map((c) => (
@@ -117,7 +117,7 @@ export default function SeletorCategoria({ categorias, valor, aoMudar, aoCriar }
                 setCriando(false)
                 setErro('')
               }}
-              className="h-10 rounded-lg px-4 text-sm font-medium text-texto-suave transition hover:bg-superficie hover:text-texto"
+              className="h-10 rounded-lg px-4 text-sm font-medium text-texto-suave transition hover:bg-texto/[0.06] hover:text-texto"
             >
               Cancelar
             </button>

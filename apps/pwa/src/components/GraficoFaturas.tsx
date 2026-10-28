@@ -17,23 +17,10 @@ type Props = {
 
 // Fatura escolhida em destaque (verde do app); as outras recuam em cinza.
 // O cinza tem contraste baixo, por isso a tabela abaixo traz os mesmos valores.
-/*
- * Cores das marcas, validadas (não escolhidas a olho) com o validador de paleta
- * para o modo escuro: faixa de luminosidade, piso de croma, separação para
- * daltonismo e contraste contra a superfície.
- *
- * As marcas são um passo mais fundas que o ouro da interface (#d4af37): marca de
- * gráfico tem exigência de luminosidade que acento de interface não tem.
- *
- * Grade e eixo são recessivos de propósito, e o texto do eixo usa o token de
- * texto — rótulo é texto, não série.
- */
-const COR_FOCO = '#a8871f'
+const COR_DESTAQUE = '#a8871f'
+const COR_OUTRAS = 'var(--grafico-cursor)'
 const COR_GRADE = 'rgba(255, 255, 255, 0.07)'
 const COR_TEXTO_EIXO = '#8a8a9a'
-const COR_DESTAQUE = COR_FOCO
-// Neutro de propósito: as outras faturas são contexto, não uma segunda série.
-const COR_OUTRAS = 'rgba(255, 255, 255, 0.18)'
 
 const mesCurto = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
 const rotulo = (mes: Date) => {
@@ -72,10 +59,14 @@ export default function GraficoFaturas({ barras, aoEscolher }: Props) {
         </p>
       )}
 
-      <div className="mt-3 h-52" role="img" aria-label="Gráfico com o total das últimas faturas. Os valores estão na tabela abaixo.">
+      <div
+        className="mt-3 h-52"
+        role="img"
+        aria-label="Gráfico com o total das últimas faturas. Os valores estão na tabela abaixo."
+      >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={dados} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
-            <CartesianGrid vertical={false} stroke={COR_GRADE} />
+            <CartesianGrid vertical={false} stroke={COR_GRADE} strokeDasharray="2 6" />
             <XAxis
               dataKey="rotulo"
               tickLine={false}
@@ -91,12 +82,12 @@ export default function GraficoFaturas({ barras, aoEscolher }: Props) {
               tickFormatter={(v: number) => formatarMoedaCompacta(v)}
             />
             <Tooltip
-              cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+              cursor={{ fill: 'var(--grafico-cursor-fundo)' }}
               content={({ active, label }) => {
                 const d = active ? dados.find((x) => x.rotulo === label) : undefined
                 if (!d) return null
                 return (
-                  <div className="rounded-xl border border-borda bg-superficie px-3 py-2 text-sm shadow-lg">
+                  <div className="rounded-2xl vidro-forte px-3 py-2 text-sm">
                     <p className="font-semibold">{formatarMoeda(d.valor)}</p>
                     <p className="text-xs text-texto-suave">Fatura de {formatarMesAno(d.mes).toLowerCase()}</p>
                   </div>

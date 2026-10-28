@@ -31,11 +31,7 @@ export default function CartaoVisual({ nome, bandeira, cor, className = '' }: Pr
   )
 }
 
-/** Tranquilo até 50% do limite, atenção até 80%, crítico acima.
- *
- * As três cores são os tokens semânticos do tema (--cor-receita, a do aviso e
- * --cor-despesa), e não verde/amarelo/vermelho avulsos: o mesmo vermelho que
- * marca despesa no extrato marca limite estourado aqui. */
+/** Verde até 50% do limite, amarelo até 80%, vermelho acima */
 export function corDoUso(percentual: number) {
   if (percentual <= 50) return '#00c896'
   if (percentual <= 80) return '#f5c842'
@@ -53,7 +49,7 @@ export function UsoDoLimite({ limite, usado }: { limite: number; usado: number }
         <span className="font-semibold">{formatarMoeda(usado)}</span>
       </div>
       <div
-        className="mt-2 h-2 overflow-hidden rounded-full bg-superficie-3"
+        className="mt-2 h-2 overflow-hidden rounded-full bg-texto/[0.07]"
         role="meter"
         aria-label="Uso do limite"
         aria-valuemin={0}
@@ -67,8 +63,7 @@ export function UsoDoLimite({ limite, usado }: { limite: number; usado: number }
       </div>
       <div className="mt-2 flex items-baseline justify-between gap-3 text-xs text-texto-suave">
         <span>
-          Disponível{' '}
-          <strong className={disponivel < 0 ? 'text-despesa' : 'text-texto'}>{formatarMoeda(disponivel)}</strong>
+          Disponível <strong className={disponivel < 0 ? 'text-despesa' : 'text-texto'}>{formatarMoeda(disponivel)}</strong>
         </span>
         <span>
           {Math.round(percentual)}% de {formatarMoeda(limite)}
