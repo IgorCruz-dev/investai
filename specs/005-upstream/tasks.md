@@ -5,4 +5,4 @@
 - [x] Reaplicar identidade visual e dois temas
 - [x] Reunir as duas fontes na aba Investimentos
 - [x] Documentar exceções da regra de custo
-- [ ] Passar as verificações exigidas
+- [x] Passar as verificações exigidas
