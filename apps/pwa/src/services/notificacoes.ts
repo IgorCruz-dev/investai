@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 
 // Chave pública VAPID (a privada fica no secret VAPID_KEYS da Edge Function notificar). Pública mesmo: vai para o navegador.
-const CHAVE_PUBLICA = 'BDYWsrHzv4rLmuELnZsuazH4D5uTe0RS1knsNFz_6uxg05t6lfPGIEUU5SpsYoz_syYaLZk6SYprPu8hym9IfU8'
+const CHAVE_PUBLICA = 'BOv5OHly73VgqukKHSrDQRor2bYXI0_-OkktZVqPgky1IzmRRK8RTbqirxgddwCGIGa_2d8G01_waBCuha9-MG8'
 
 export type TipoNotificacao =
   | 'fatura'
